@@ -1,7 +1,7 @@
 # lokas-js
 A entity-component framework for both server and client
 
-##example
+## example
 ```
 class Position extends Component {
             static defineName() {
