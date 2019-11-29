@@ -1,7 +1,4 @@
-"use strict";
-const logger=require('../logger/Logger');
 const ECSUtil = require('./ECSUtil');
-const Utils = require('../utils/Utils');
 /**
  * 集合<Group>是包含特定类型组件<Component>组合的实体<Entity>的集合,系统<System>,监听器<Observer>,处理器<Handler>函数处理的对象
  * @param compGroup
@@ -12,7 +9,7 @@ let Group = function (compGroup) {
     for (let i=0;i<compGroup.length;i++) {
         let comp = compGroup[i];
         if (!comp) {
-            logger.error('组件不存在,可能未注册'+compGroup,i);
+            throw new Error('组件不存在,可能未注册');
         }
         this._componentTypes.push(ECSUtil.getComponentType(comp));
     }
@@ -87,7 +84,7 @@ Group.prototype.removeEntityArray=function (arr) {
     for (let i=0;i<removeArr.length;i++) {
         delete this._entities[removeArr[i]];
         let id = removeArr[i];
-        Utils.remove(this._entityIndexes,function (n) {
+        ECSUtil.remove(this._entityIndexes,function (n) {
             return n===id;
         });
     }
@@ -103,7 +100,7 @@ Group.prototype.removeEntity=function (ent) {
     }
     delete this._entities[ent.id];
     if (this._entityIndexes) {
-        Utils.remove(this._entityIndexes,function (n) {
+        ECSUtil.remove(this._entityIndexes,function (n) {
             return n===ent.id;
         });
     }

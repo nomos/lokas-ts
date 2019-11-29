@@ -1,9 +1,9 @@
 "use strict";
 
-const logger = require('../logger/Logger');
+const logger = require('../logger/Logger')||console;
 const ECSUtil = require('./ECSUtil');
-const nbt = require('../nbt/nbt');
-const EventEmitter = require('../utils/EventEmitter');
+const nbt = require('./binary/nbt');
+const EventEmitter = require('./EventEmitter');
 
 /**
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
@@ -264,7 +264,6 @@ Entity.prototype.comp2NBT = function (comp,connData) {
 
     let nbtFormat = comp.defineData?comp.defineData():comp.nbtFormat;
     if (!nbtFormat) {
-        logger.error(comp);
         throw new Error(comp.getComponentName?comp.getComponentName():comp.__proto__.__classname+' dont have nbtFormat');
     }
     if (Object.keys(nbtFormat).length === 0) {
@@ -324,7 +323,6 @@ Entity.prototype.compFormatFromNBT = function (step,comp, nbt) {
     }
     let nbtFormat = comp.defineData?comp.defineData():comp.nbtFormat;
     if (!nbtFormat) {
-        logger.error(comp);
         throw new Error('comp dont have nbtFormat');
     }
     let count = 0;
@@ -524,7 +522,8 @@ Entity.prototype.get = function (comp) {
 
     let name = ECSUtil.getComponentType(comp);
     if (!name) {
-        logger.error('Component参数错误,可能未注册');
+        throw new Error('Component参数错误,可能未注册');
+
     }
 
     return this._components[name];

@@ -5,13 +5,11 @@ const System=require('./System');
 const Connection = require('./Connection');
 const ComponentPool=require('./ComponentPool');
 const ComponentSingleton=require('./ComponentSingleton');
-const logger=require('../logger/Logger');
+const logger=require('../logger/Logger')||console;
 const Timer=require('./ECSTimer');
 const nbt=require('./binary/nbt');
-const md5=require('../utils/md5');
-const EventEmitter=require('../utils/EventEmitter');
+const EventEmitter=require('./event-emmiter');
 const Long=require('long');
-const StateMachine=require('../utils/StateMachine');
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册
@@ -97,8 +95,7 @@ class ECS {
         this._spawners = {};
         this._spawnerCb = {};
         this._objContainer = {};
-        this._stateMachine = new StateMachine();
-        this._stateMachine.now = 'null';
+        this._stateMachine = 'null';
     }
     get enabled(){
         return this._enabled;
@@ -142,7 +139,6 @@ pro.setupUpdateFunc=function () {
             return;
         }
         this.lateUpdate(dt);
-        this.calComponentsHash();
         if (this._dirty&&this._server) {
             //TODO:这里还有问题
             // if (this._tick>1) {
@@ -215,13 +211,13 @@ pro.getCCTime = function (time) {
 };
 
 pro.isState=function (state) {
-    return this._stateMachine.now===state;
+    return this._stateMachine===state;
 };
 
 pro.setState=function (state) {
-    if (this._stateMachine.now!==state) {
-        this.offStateSystems(this._stateMachine.now);
-        this._stateMachine.now=state;
+    if (this._stateMachine!==state) {
+        this.offStateSystems(this._stateMachine);
+        this._stateMachine=state;
         this.onStateSystems(state);
         this._dirty=true;
     }
@@ -246,7 +242,7 @@ pro.onStateSystems=function (state) {
 };
 
 pro.getState=function () {
-    return this._stateMachine.now;
+    return this._stateMachine;
 };
 
 pro.onState=function (state, cb) {
@@ -276,7 +272,6 @@ pro.emit=function (evt) {
     return this._eventListener.emit.apply(this._eventListener, arguments);
 };
 
-/** 基础模块*************/
 pro.set=function (name, obj) {
     this._objContainer[name]=obj;
 };
@@ -300,36 +295,6 @@ pro.createTimer=function (interval, timeScale) {
     return new Timer(interval, timeScale);
 };
 
-pro.calComponentsHash=function () {
-    let keys=Object.keys(this._componentPools);
-    keys.sort();
-    let str='';
-    for (let i=0; i<keys.length; i++) {
-        str+=keys[i];
-    }
-    let md5str=md5('', str);
-    md5str=md5str.substr(0, 16);
-    let hash=Long.fromString(md5str, false, 16).toString();
-    if (!this._componentsIndexMap[hash]) {
-        this._componentsIndexMap[hash]={};
-        for (let i=0; i<keys.length; i++) {
-            this._componentsIndexMap[hash][i]=keys[i];
-            this._componentsMap[keys[i]]=i;
-        }
-        this._compHash=hash;
-        this._compHashStep=this._tick;
-    }
-};
-
-pro.getComponentNameByID=function (id, hash) {
-    return this._componentsIndexMap[hash][id];
-};
-
-pro.getComponentID=function (name) {
-    name=ECSUtil.getComponentType(name);
-    return this._componentsMap[name];
-};
-
 pro.adjustTimer=function (time) {
 
 };
@@ -351,32 +316,20 @@ pro.nbt2Entity=function (step,nbt) {
     return ent;
 };
 
-//snapshot结构:
-//0:tick
-//1:entityIndexes
-//2:entities
-
 //服务器保存全局快照
 pro.snapshot=function (temp) {
     let ret=nbt.Complex();
     let entityIndexes=nbt.LongArray();
     let entities=nbt.List();
-    //nbtcomplex-0
     ret.addValue(nbt.Long(this._tick));
-    //nbtcomplex-1
-    ret.addValue(nbt.String(this._stateMachine.now));
+    ret.addValue(nbt.String(this._stateMachine));
     for (let i in this._entityPool) {
-        // if (!this._entityPool.hasOwnProperty(i)) {
-        //     continue;
-        // }
         let ent=this._entityPool[i];
         let snapEnt=ent.snapshot();
         entities.push(snapEnt);
         entityIndexes.push(ent.id);
     }
-    //nbtcomplex-2
     ret.addValue(entityIndexes);
-    //nbtcomplex-3
     ret.addValue(entities);
 
     if (!temp) {
@@ -403,10 +356,8 @@ pro.syncSnapshotFromServer=function (nbt) {
 pro.snapStep=function () {
     let ret=nbt.Complex();
 
-    //nbtcomplex-0
     ret.addValue(nbt.Long(this._tick));
-    //nbtcomplex-1
-    ret.addValue(nbt.String(this._stateMachine.now));
+    ret.addValue(nbt.String(this._stateMachine));
 
     let modEntArr=nbt.List();
     let newEntArr=nbt.List();
@@ -483,7 +434,6 @@ pro.syncSnapDeltaFromServer=function (nbt, backward) {
 pro.getPrevSnapEntity=function (id) {
     if (this._lastSnapshot) {
         let entIndex=this._lastSnapshot.at(2).toJSON().indexOf(''+id);
-        logger.debug(id,this._lastSnapshot.at(2).toJSON(),typeof this._lastSnapshot.at(2).value,entIndex,this._lastSnapshot.at(3).value);
         return this._lastSnapshot.at(3).at(entIndex);
     }
 };
@@ -517,7 +467,7 @@ pro.syncToClient=function (curStep) {
     }
     let length=this._steps.length;
     if (toSyncStepsIndex===length-1) {
-        // logger.log('客户端已经是最新',curStep);
+        // logger.debug('客户端已经是最新',curStep);
     }
     let toSyncSteps=[];
     for (let i=toSyncStepsIndex+1; i<length; i++) {
@@ -673,6 +623,7 @@ pro.setComponentDefine = function (comp) {
 
 //从服务器差异更新(根据客户端联网实体的step信息)
 pro.rSyncFromServer=function (buff) {
+    logger.debug('aaaa');
     if (!buff) {
         return;
     }
@@ -795,7 +746,7 @@ pro.getRSyncData = function (curStep,clientData,connection) {
     //nbtcomplex-3
     ret.addValue(nbt.Long(this._step));
     //nbtcomplex-4
-    ret.addValue(nbt.String(this._stateMachine.now));
+    ret.addValue(nbt.String(this._stateMachine));
 
     let modEntArr=nbt.List();
     let newEntArr=nbt.List();
@@ -1699,8 +1650,8 @@ pro.isClient=function () {
 };
 
 pro.start=function () {
-    this._enabled=true;
     if (!this._enabled) {
+        this._enabled=true;
         this.onEnable&&this.onEnable();
         if (this._turned) {
             this.tick();

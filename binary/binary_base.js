@@ -1,4 +1,3 @@
-
 let Buffer = require('buffer').Buffer;
 let Long = require("long");
 let util = require("../ECSUtil");
@@ -53,12 +52,6 @@ class BinaryBase{
         if(typeof this.value !== "object") return 0;
         if(util.isArray(this.value)) return this.value.length;
         return Object.keys(this.value).length;
-    }
-    selectAt(index) {
-        if(this.value === undefined || this.value === null) return null;
-        if(!util.isArray(this.value)) return null;
-        if(index < 0 || index >= this.value.length) return null;
-        return this.value[index];
     }
     select(tagName) {
         if(!this.value || !Object.keys(this.value).length) return null;

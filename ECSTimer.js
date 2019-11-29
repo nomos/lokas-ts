@@ -1,11 +1,11 @@
 const async = require('async');
 const logger = require('../logger/Logger');
 
-let Timer = function (updateTime,timescale, async) {
+let Timer = function (updateTime,timescale,isAsync) {
     this._timeScale = timescale||1.0;
     this.reset();
     this._updateTime = updateTime||1000;
-    this._type = async||this.TYPE.SYNC;
+    this._type = isAsync||this.TYPE.SYNC;
 };
 
 Timer.prototype.reset = function () {

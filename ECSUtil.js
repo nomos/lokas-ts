@@ -4,6 +4,36 @@ const ObjectID = this?require('bson').ObjectId:require('./objectid');
 
 let ECSUtil = {};
 
+ECSUtil.remove = function (arr,func) {
+    for (let i=0;i<arr.length;i++) {
+        let value = arr[i];
+        let isDel = func(value);
+        if (isDel) {
+            arr.splice(i,1);
+            i--;
+        }
+    }
+};
+
+ECSUtil.isEqual = function (arrA,arrB) {
+    if(!arrA||!arrB){
+        return false;
+    }
+    if(arrA.length !== arrB.length) {
+        return false;
+    }
+    for(let i=0,l=arrA.length;i<l;i++){
+        if(Array.isArray(arrA[i]) && Array.isArray(arrB[i])){
+            if(!utils.isEqual(arrA[i],arrB[i])){
+                return false;
+            }
+        }else if(arrA[i] != arrB[i]){
+            return false;
+        }
+    }
+    return true;
+};
+
 ECSUtil.isObject=function (val) {
     return val!=null&& typeof val==='object'&&Array.isArray(val)===false&&Object.prototype.toString.call(val)!=='[object Function]';
 };
@@ -34,12 +64,7 @@ ECSUtil.getComponentType = function (comp) {
     if (comp.prototype) {
         return comp.prototype.__classname;
     }
-    if (comp.__proto__.__classname === 'Function'){
-        logger.error('不是一个组件');
-        return null;
-    } else {
-        return comp.__proto__.getComponentName();
-    }
+    return comp.__proto__.getComponentName();
 };
 
 ECSUtil.clone = function (comp) {
@@ -57,16 +82,13 @@ ECSUtil.cloneFunc=function (ctor, superCtor) {
 };
 
 ECSUtil.cloneObjectDeep=function (obj) {
-    // Handle the 3 simple types, and null or undefined or function
     if (null===obj||"object"!== typeof obj) return obj;
 
-    // Handle Date
     if (obj instanceof Date) {
         let copy=new Date();
         copy.setTime(obj.getTime());
         return copy;
     }
-    // Handle Array or Object
     if (obj instanceof Array|obj instanceof Object) {
         let copy=(obj instanceof Array) ? []:{};
         for (let attr in obj) {
@@ -75,8 +97,6 @@ ECSUtil.cloneObjectDeep=function (obj) {
         }
         return copy;
     }
-    // logger.debug(obj);
-    // throw new Error("Unable to clone obj! Its type isn't supported.");
 };
 
 ECSUtil.has = function (obj,key) {

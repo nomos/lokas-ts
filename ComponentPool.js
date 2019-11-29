@@ -1,4 +1,3 @@
-"use strict";
 /**
  * 管理组件<Component>生命周期,并维护一个当前类型组件<Component>的对象池
  * @param ComponentType
