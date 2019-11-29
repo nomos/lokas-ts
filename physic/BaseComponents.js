@@ -198,10 +198,6 @@ class Size extends Component{
 }
 
 
-vv.rect=function (x, y, w, h) {
-    return new Rect(x, y, w, h)
-};
-
 class TimeStamp extends Component{
     static defineName(){
         return 'TimeStamp';
