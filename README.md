@@ -1,5 +1,5 @@
 # lokas-js
-A entity-component framework for both server and client
+A entity-component library for both server and client
 
 ## example
 ```
