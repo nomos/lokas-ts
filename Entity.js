@@ -3,7 +3,7 @@
 const logger = require('../logger/Logger')||console;
 const ECSUtil = require('./ECSUtil');
 const nbt = require('./binary/nbt');
-const EventEmitter = require('./EventEmitter');
+const EventEmitter = require('./event-emmiter');
 
 /**
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
