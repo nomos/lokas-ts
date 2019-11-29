@@ -3,7 +3,7 @@ A entity-component framework for both server and client
 
 ## example
 ```
-class Position extends Component {
+         class Position extends Component {
             static defineName() {
                 return 'Position';
             }
