@@ -56,7 +56,7 @@ Group.prototype.getEntities = function () {
         let id = this._entityIndexes[i];
         let ent = this._entities[id];
         if (!ent) {
-            throw new Error('这里出错了');
+            throw new Error('entity must not be null');
         }
         ret.push(ent);
     }
@@ -93,7 +93,7 @@ Group.prototype.removeEntityArray=function (arr) {
     }
 };
 /**
- * 尝试立即移除一个实体<Entity>,性能大户,大型项目不建议使用
+ * 尝试立即移除一个实体<Entity>
  * @param ent
  */
 Group.prototype.removeEntity=function (ent) {
@@ -127,28 +127,7 @@ Group.prototype.match=function (comp) {
     }
     return true;
 };
-/**
- * 检查集合<Group>是否全包含组件<Component>名称的数组
- * @param comps
- * @returns {boolean}
- */
-Group.prototype.matchAll=function (comps) {
-    let args = [].slice.call(arguments);
-    let compStrArr = [];
-    if (args.length===0) {
-        return false;
-    } else if (args.length===1) {
-        if (ECSUtil.isArray(comps)) {
-            compStrArr = comps.slice();
-        } else {
-            compStrArr.push(comps);
-        }
-    } else {
-        compStrArr = args;
-    }
-    compStrArr.sort();
-    return _.isEqual(this._componentTypes,compStrArr);
-};
+
 Group.prototype.length = function () {
     return this._entityIndexes.length;
 };

@@ -23,82 +23,91 @@ const StateMachine=require('../utils/StateMachine');
  * @param {Object} opt
  * @constructor
  */
-let ECS=function (updateTime, timeScale, opt) {
-    opt=opt||{};
+class ECS {
 
-    if (updateTime===0) {
-        this._turned=true;
+    constructor(updateTime, timeScale, opt) {
+        opt = opt || {};
+
+        if (updateTime === 0) {
+            this._turned = true;
+        }
+        this._eventListener = new EventEmitter();
+        /**基础变量*/
+        this._entityPool = {};              //实体<Entity>池
+        this._componentPools = {};          //各种组件池<ComponentPool>容器
+        this._groups = {};                  //各种集合<Group>容器,组件<Component>数组为键值
+        this._cachedGroups = {};            //单个组件<Component>为键值的集合<Group>缓存
+        this._systems = [];                 //各个系统和监听集合
+        this._systemIndexes = {};           //系统的名字索引
+        this._singleton = null;
+
+        /**ID分配和生命周期变量*/
+        this._index = 0;                            //实体<Entity>ID分配变量
+        this._indexClient = 0;                      //实体<Entity>ID分配变量
+        this._server = opt.server || false;           //客户端的ID从Max_Long开始自减,服务器的ID从0开始自增
+        this._enabled = false;
+        this._ecsReadyDestroy = false;
+
+        /**定时器变量和回调函数*/
+        this._tick = 0;                     //步数
+        this._updateInterval = updateTime || 1000 / 60.0;
+        this._timeScale = Math.min(timeScale, 20) || 1.0;
+        this._timer = new Timer(this._updateInterval, this._timeScale);
+        this._timeOffset = 0;
+        this._dirty = true;                //整个系统的脏标记d
+        this._dirtyEntities = [];           //这轮的脏标记entity
+        this._newEntities = [];
+        this._toDestroyEntities = [];        //在这轮遍历中要删除的entity队列
+        this._toDestroyEntityIDs = [];
+        this.setupUpdateFunc();
+
+        this._snapInterval = opt.snapInterval || 0;    //全实体快照时间
+        this._prevSnap = opt.canReverse || false;                //实体快照
+
+        this._step = 0;                 //step是同步状态计数,从服务器的tick同步,客户端的tick只是自己使用
+        this._steps = [];               //步数队列
+        this._snapshotDeltas = {};      //帧差异快照
+        this._snapshotSteps = [];       //快照步数队列
+        this._snapshots = {};           //全实体快照
+        this._lastSnapshot = null;
+        this._connections = {};         //连接表
+
+        /**模块和组件映射表*/
+        this._modules = [];                 //已加载的模块
+        this._addSystemCount = 0;           //加载的系统order数
+        this._componentsMap = {};           //组件:ID 服务器,当前组件:ID映射
+        this._componentsIndexMap = {};      //hash ID:组件映射表
+        this._componentDefineArray = [];
+        this._componentDefineMap = {};
+        this._componentDefineHash = 0;      //服务器组件hash
+        this._compCode = opt.compCode;   //是否加密组件名
+        this.rendererMap = {};
+        this.rendererArray = [];
+        this.modelMap = {};
+
+        this._commands = {};                //注册的命令组件
+        this._commandQueueMaps = [];        //以命令名为键的队列
+        this._commandListener = new EventEmitter(); //命令注册
+        this._connections = {};             //客户端连接
+        this._renderUpdateQueue = [];       //客户端脏数据view更新队列
+        this._lateAddQueue = [];            //延迟Add队列
+
+        //其他绑定函数
+        this._uniqueSchedules = {};         //仅一次的任务标记
+        this._spawners = {};
+        this._spawnerCb = {};
+        this._objContainer = {};
+        this._stateMachine = new StateMachine();
+        this._stateMachine.now = 'null';
     }
-    this._eventListener=new EventEmitter();
-    /**基础变量*/
-    this._entityPool={};              //实体<Entity>池
-    this._componentPools={};          //各种组件池<ComponentPool>容器
-    this._groups={};                  //各种集合<Group>容器,组件<Component>数组为键值
-    this._cachedGroups={};            //单个组件<Component>为键值的集合<Group>缓存
-    this._systems=[];                 //各个系统和监听集合
-    this._systemIndexes={};           //系统的名字索引
-    this._singleton=null;
+    get enabled(){
+        return this._enabled;
+    }
+    get entityCount(){
+        return Object.keys(this._entityPool).length;
+    }
 
-    /**ID分配和生命周期变量*/
-    this._index=0;                            //实体<Entity>ID分配变量
-    this._indexClient=0;                      //实体<Entity>ID分配变量
-    this._server=opt.server||false;           //客户端的ID从Max_Long开始自减,服务器的ID从0开始自增
-    this._enabled=false;
-    this._ecsReadyDestroy=false;
-
-    /**定时器变量和回调函数*/
-    this._tick=0;                     //步数
-    this._updateInterval=updateTime||1000/60.0;
-    this._timeScale=Math.min(timeScale, 20)||1.0;
-    this._timer=new Timer(this._updateInterval, this._timeScale);
-    this._timeOffset=0;
-    this._dirty=true;                //整个系统的脏标记d
-    this._dirtyEntities=[];           //这轮的脏标记entity
-    this._newEntities=[];
-    this._toDestroyEntities=[];        //在这轮遍历中要删除的entity队列
-    this._toDestroyEntityIDs=[];
-    this.setupUpdateFunc();
-
-    this._snapInterval=opt.snapInterval||0;    //全实体快照时间
-    this._prevSnap=opt.canReverse||false;                //实体快照
-
-    this._step=0;                 //step是同步状态计数,从服务器的tick同步,客户端的tick只是自己使用
-    this._steps=[];               //步数队列
-    this._snapshotDeltas={};      //帧差异快照
-    this._snapshotSteps=[];       //快照步数队列
-    this._snapshots={};           //全实体快照
-    this._lastSnapshot=null;
-    this._connections = {};         //连接表
-
-    /**模块和组件映射表*/
-    this._modules=[];                 //已加载的模块
-    this._addSystemCount=0;           //加载的系统order数
-    this._componentsMap={};           //组件:ID 服务器,当前组件:ID映射
-    this._componentsIndexMap={};      //hash ID:组件映射表
-    this._componentDefineArray = [];
-    this._componentDefineMap = {};
-    this._componentDefineHash = 0;      //服务器组件hash
-    this._compCode = opt.compCode;   //是否加密组件名
-    this.rendererMap = {};
-    this.rendererArray = [];
-    this.modelMap = {};
-
-    this._commands={};                //注册的命令组件
-    this._commandQueueMaps=[];        //以命令名为键的队列
-    this._commandListener = new EventEmitter(); //命令注册
-    this._connections={};             //客户端连接
-    this._renderUpdateQueue = [];       //客户端脏数据view更新队列
-    this._lateAddQueue = [];            //延迟Add队列
-
-    //其他绑定函数
-    this._uniqueSchedules = {};         //仅一次的任务标记
-    this._spawners={};
-    this._spawnerCb={};
-    this._objContainer={};
-    this._stateMachine=new StateMachine();
-    this._stateMachine.now='null';
-
-};
+}
 
 let pro=ECS.prototype;
 
@@ -1690,7 +1699,22 @@ pro.isClient=function () {
 };
 
 pro.start=function () {
-    this.enabled=true;
+    this._enabled=true;
+    if (!this._enabled) {
+        this.onEnable&&this.onEnable();
+        if (this._turned) {
+            this.tick();
+        } else {
+            this._timer.start();
+        }
+        logger.error('ecs start');
+    }
+};
+
+pro.stop = function () {
+    this._enabled=false;
+    this._timer.stop();
+    this.onDisable&&this.onDisable();
 };
 
 pro.pause = function () {
@@ -1700,36 +1724,5 @@ pro.pause = function () {
 pro.resume = function () {
     this._timer.resume();
 };
-
-//TODO:这里需要修改
-Object.defineProperty(pro, 'enabled', {
-    set:function (v) {
-        if (this._enabled!==v) {
-            if (v) {
-                this.onEnable&&this.onEnable();
-                if (this._turned) {
-                    this.tick();
-                } else {
-                    this._timer.start();
-                }
-                logger.error('ecs start');
-            } else {
-                this._enabled=v;
-                this._timer.stop();
-                this.onDisable&&this.onDisable();
-            }
-        }
-        this._enabled=v;
-    },
-    get:function () {
-        return this._enabled;
-    }
-});
-
-Object.defineProperty(pro, 'entityCount', {
-    get:function () {
-        return Object.keys(this._entityPool).length;
-    }
-});
 
 module.exports=ECS;

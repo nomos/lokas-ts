@@ -196,28 +196,6 @@ class BinaryBase{
     }
     setValue(value) {
     }
-    getNextTag(buff, offset) {
-        // all the comments in this function are refered
-        // to http://minecraft.gamepedia.com/NBT_Format
-        let TAG_IDS = _generateTagIds();
-
-        // The first byte in a tag is the tag type (ID)
-        let tagType = buff.readUInt8(offset);
-        if(tagType < 0) {
-            throw new Error("Unknown tag type - " + tagType + ".");
-        }
-
-        let Tag = TAG_IDS[tagType];
-        if(null === Tag || undefined === Tag) {
-            throw new Error("Tag type " + tagType + " is not supported by this module yet.");
-        }
-
-        let tag = new Tag();
-        return {
-            length : tag.readFromBuffer(buff, offset),
-            tag    : tag
-        };
-    }
 }
 
 module.exports = BinaryBase;

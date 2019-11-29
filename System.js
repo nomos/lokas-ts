@@ -1,5 +1,3 @@
-
-
 let System = function (ecs,opt) {
     this.ecs = ecs;
     this.desc = opt.desc;
