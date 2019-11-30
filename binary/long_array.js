@@ -1,10 +1,12 @@
-let BinaryBase = require("./binary_base");
-let Long = require("long");
+const BinaryBase = require("./binary_base");
+const Long = require("long");
+const ECSUtil = require('../ECSUtil');
 
-let _longBound = {
+
+const _longBound = {
     min: Long.fromString("-9223372036854775808"),
     max: Long.fromString("9223372036854775807")
-}
+};
 
 class TAGLongArray extends BinaryBase{
     constructor(){
@@ -40,7 +42,7 @@ class TAGLongArray extends BinaryBase{
     }
 
     setValue(array) {
-        if(!util.isArray(array)) {
+        if(!ECSUtil.isArray(array)) {
             throw new Error("Value of TAG_Int_Array should be an array.");
         }
 
