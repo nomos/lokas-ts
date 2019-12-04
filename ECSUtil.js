@@ -1,6 +1,6 @@
 const Long = require('long');
 const Buffer = require('buffer').Buffer;
-const ObjectID = this?require('bson').ObjectId:require('./objectid');
+const ObjectID = this?require('bson').ObjectId:require('./binary/objectid');
 
 let ECSUtil = {};
 
@@ -155,6 +155,9 @@ ECSUtil.isString=function (arg) {
 };
 
 ECSUtil.isStringNumber = function(arg) {
+    if (!(typeof arg=== 'string'||typeof arg=== 'number')) {
+        return false;
+    }
     let regPos = /^\d+(\.\d+)?$/; //非负浮点数
     let regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
     return regPos.test(arg) || regNeg.test(arg);

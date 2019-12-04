@@ -94,6 +94,9 @@ nbt.checkArrayType = function (arr) {
     let type = 0;
     let strType = false;
     let integer = true;
+    if (!arr.length) {
+        return nbt.TAG_String;
+    }
     for (let i=0;i<arr.length;i++) {
         let item = arr[i];
         if (utils.isObject(item)) {
@@ -118,7 +121,12 @@ nbt.checkArrayType = function (arr) {
                 type = nbt.TAG_String;
                 break;
             } else {
-                type = nbt.TAG_Long_Array;
+                if (item>Number.MAX_SAFE_INTEGER) {
+                    type = nbt.TAG_Long_Array;
+                }
+                if (type!==nbt.TAG_Long_Array) {
+                    type = nbt.TAG_Int_Array;
+                }
             }
         } else {
 
@@ -162,6 +170,7 @@ nbt.createFromJSObject = function (obj,opt) {
     if (opt&&opt.stringnumber!==undefined) {
         stringnumber = opt.stringnumber;
     }
+
     if (null===obj||Object.prototype.toString.call(obj)==='[object Function]') {
         return;
     }
@@ -216,7 +225,7 @@ nbt.createFromJSObject = function (obj,opt) {
     //如果是数组要确定数组类型
     if (utils.isArray(obj)) {
         let type = nbt.checkArrayType(obj);
-
+        logger.error(type);
         if (type === nbt.TAG_Bool_Array||
             type === nbt.TAG_Byte_Array||
             type === nbt.TAG_Short_Array||
