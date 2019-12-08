@@ -225,7 +225,6 @@ nbt.createFromJSObject = function (obj,opt) {
     //如果是数组要确定数组类型
     if (utils.isArray(obj)) {
         let type = nbt.checkArrayType(obj);
-        logger.error(type);
         if (type === nbt.TAG_Bool_Array||
             type === nbt.TAG_Byte_Array||
             type === nbt.TAG_Short_Array||
