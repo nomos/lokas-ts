@@ -949,12 +949,17 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
     };
     NewComponent.prototype.dirty=NewComponent.prototype.dirty||function () {
         this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
-        let renderer = this.getRenderer();
-        if (renderer) {
-            let renderComp = this.getSibling(renderer);
-            renderComp&&renderComp.dirty();
+        if (this.isClient()) {
+            if (this.updateView) {
+                this.getECS().addRenderQueue(this);
+            } else {
+                let renderer = this.getRenderer();
+                if (renderer) {
+                    let renderComp = this.getSibling(renderer);
+                    renderComp&&renderComp.dirty();
+                }
+            }
         }
-        this.getECS().addRenderQueue(this);
         if (this._entity) {
             this._entity.markDirty(this);
         }
@@ -1039,12 +1044,17 @@ pro.registerSingleton=function (name, Component) {
     }
     NewComponent.prototype.dirty=function () {
         this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
-        let renderer = this.getRenderer();
-        if (renderer) {
-            let renderComp = this.getSibling(renderer);
-            renderComp&&renderComp.dirty();
+        if (this.isClient()) {
+            if (this.updateView) {
+                this.getECS().addRenderQueue(this);
+            } else {
+                let renderer = this.getRenderer();
+                if (renderer) {
+                    let renderComp = this.getSibling(renderer);
+                    renderComp&&renderComp.dirty();
+                }
+            }
         }
-        this.getECS().addRenderQueue(this);
         if (this._entity) {
             this._entity.markDirty(this);
         }
@@ -1053,10 +1063,8 @@ pro.registerSingleton=function (name, Component) {
 };
 
 pro.addRenderQueue = function (comp) {
-    if (comp.updateView) {
-        if (this._renderUpdateQueue.indexOf(comp)===-1) {
-            this._renderUpdateQueue.push(comp);
-        }
+    if (this._renderUpdateQueue.indexOf(comp)===-1) {
+        this._renderUpdateQueue.push(comp);
     }
 };
 

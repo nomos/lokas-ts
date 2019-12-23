@@ -19,6 +19,9 @@ class Component {
     setEntity(ent){
         this._entity = ent;
     }
+    isClient(){
+        return this._entity.getECS().isClient();
+    }
     getEntity(){
         return this._entity;
     }
@@ -29,12 +32,17 @@ class Component {
     }
     dirty(){
         this.onDirty(this._entity, this._entity._ecs);
-        let renderer = this.getRenderer();
-        if (renderer) {
-            let renderComp = this.getSibling(renderer);
-            renderComp&&renderComp.dirty();
+        if (this.isClient()) {
+            if (this.updateView) {
+                this.getECS().addRenderQueue(this);
+            } else {
+                let renderer = this.getRenderer();
+                if (renderer) {
+                    let renderComp = this.getSibling(renderer);
+                    renderComp&&renderComp.dirty();
+                }
+            }
         }
-        this.getECS().addRenderQueue(this);
         if (this._entity) {
             this._entity.markDirty(this);
         }
