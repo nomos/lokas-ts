@@ -623,7 +623,6 @@ pro.setComponentDefine = function (comp) {
 
 //从服务器差异更新(根据客户端联网实体的step信息)
 pro.rSyncFromServer=function (buff) {
-    logger.debug('aaaa');
     if (!buff) {
         return;
     }
