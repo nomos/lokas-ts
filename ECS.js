@@ -933,6 +933,9 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
             return this._entity._ecs;
         }
     };
+    NewComponent.prototype.isClient = function () {
+        return this._entity.getECS().isClient();
+    };
     NewComponent.prototype.getRenderer = NewComponent.prototype.getRenderer||function () {
         return this.getECS().getComponentRenderer(this);
     };
@@ -1022,6 +1025,9 @@ pro.registerSingleton=function (name, Component) {
         if (this._entity) {
             return this._entity._ecs;
         }
+    };
+    NewComponent.prototype.isClient = function () {
+        return this._entity.getECS().isClient();
     };
     NewComponent.prototype.isRenderer = NewComponent.prototype.isRenderer||function () {
         return this.getECS().rendererArray.indexOf(this.getComponentName())!==-1;
