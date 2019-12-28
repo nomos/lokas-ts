@@ -245,14 +245,6 @@ pro.getState=function () {
     return this._stateMachine;
 };
 
-pro.onState=function (state, cb) {
-    this._stateMachine.on(state, cb);
-};
-
-pro.offState=function (state, cb) {
-    this._stateMachine.off(state, cb);
-};
-
 pro.once=function (evt, cb) {
     return this._eventListener.once(evt, cb)
 };
@@ -952,14 +944,14 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
     NewComponent.prototype.dirty=NewComponent.prototype.dirty||function () {
         this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
         if (this.isClient()) {
+
             if (this.updateView) {
                 this.getECS().addRenderQueue(this);
-            } else {
-                let renderer = this.getRenderer();
-                if (renderer) {
-                    let renderComp = this.getSibling(renderer);
-                    renderComp&&renderComp.dirty();
-                }
+            }
+            let renderer = this.getRenderer();
+            if (renderer) {
+                let renderComp = this.getSibling(renderer);
+                renderComp&&renderComp.dirty();
             }
         }
         if (this._entity) {
