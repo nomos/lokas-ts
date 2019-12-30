@@ -57,7 +57,6 @@ class ECS {
         this._newEntities = [];
         this._toDestroyEntities = [];        //在这轮遍历中要删除的entity队列
         this._toDestroyEntityIDs = [];
-        this.setupUpdateFunc();
 
         this._snapInterval = opt.snapInterval || 0;    //全实体快照时间
         this._prevSnap = opt.canReverse || false;                //实体快照
@@ -155,46 +154,45 @@ pro.setupUpdateFunc=function () {
         this.emit('afterUpdate');
         this.emit('_afterUpdate');
     }.bind(this);
+};
 
-    this.cleanBuffer=function () {
-
-        //遍历集合删除实体队列
-        for (let i in this._groups) {
-            this._groups[i].removeEntityArray(this._toDestroyEntities);
+pro.cleanBuffer = function () {
+    //遍历集合删除实体队列
+    for (let i in this._groups) {
+        this._groups[i].removeEntityArray(this._toDestroyEntities);
+    }
+    //彻底删除实体并调用onDestroy方法删除所有组件
+    for (let i=0; i<this._toDestroyEntities.length; i++) {
+        let ent=this._toDestroyEntities[i];
+        let index=this._newEntities.indexOf(ent);
+        if (index!== -1) {
+            this._newEntities.splice(index, 1);
         }
-        //彻底删除实体并调用onDestroy方法删除所有组件
-        for (let i=0; i<this._toDestroyEntities.length; i++) {
-            let ent=this._toDestroyEntities[i];
-            let index=this._newEntities.indexOf(ent);
-            if (index!== -1) {
-                this._newEntities.splice(index, 1);
-            }
-            index=this._dirtyEntities.indexOf(ent);
-            if (index!== -1) {
-                this._dirtyEntities.splice(index, 1);
-            }
-            let entId = ent.id;
-            delete this._entityPool[entId];
-            ent.onDestroy();
-            ent=null;
+        index=this._dirtyEntities.indexOf(ent);
+        if (index!== -1) {
+            this._dirtyEntities.splice(index, 1);
         }
-        //重置实体队列
-        this._toDestroyEntities=[];
-        this._dirty=false;
-        for (let i=0; i<this._dirtyEntities.length; i++) {
-            this._dirtyEntities[i].clean();
-        }
-        for (let i=0; i<this._newEntities.length; i++) {
-            this._newEntities[i].clean();
-        }
-        this._dirtyEntities=[];
-        this._newEntities=[];
-        for (let i=0;i<this._renderUpdateQueue.length;i++) {
-            let comp = this._renderUpdateQueue[i];
-            comp&&comp._entity&&comp.updateView(comp._entity,this);
-        }
-        this._renderUpdateQueue = [];
-    }.bind(this);
+        let entId = ent.id;
+        delete this._entityPool[entId];
+        ent.onDestroy();
+        ent=null;
+    }
+    //重置实体队列
+    this._toDestroyEntities=[];
+    this._dirty=false;
+    for (let i=0; i<this._dirtyEntities.length; i++) {
+        this._dirtyEntities[i].clean();
+    }
+    for (let i=0; i<this._newEntities.length; i++) {
+        this._newEntities[i].clean();
+    }
+    this._dirtyEntities=[];
+    this._newEntities=[];
+    for (let i=0;i<this._renderUpdateQueue.length;i++) {
+        let comp = this._renderUpdateQueue[i];
+        comp&&comp._entity&&comp.updateView(comp._entity,this);
+    }
+    this._renderUpdateQueue = [];
 };
 
 pro.setTimeScale = function (timeScale) {
@@ -1529,10 +1527,12 @@ pro.lateUpdate=function () {
 };
 
 pro.destroy=function (cb) {
-    this.cleanBuffer();
+    logger.debug('ECS destroy');
+    this.cleanBuffer&&this.cleanBuffer();
     this._enabled=false;
     this.onDisable&&this.onDisable();
     this._ecsReadyDestroy=true;
+    logger.debug('destroyCb destroy');
     this.destroyCb = cb;
 };
 
@@ -1656,6 +1656,8 @@ pro.isClient=function () {
 
 pro.start=function () {
     if (!this._enabled) {
+
+        this.setupUpdateFunc();
         this._enabled=true;
         this.onEnable&&this.onEnable();
         if (this._turned) {
