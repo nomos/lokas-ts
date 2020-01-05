@@ -1160,6 +1160,7 @@ pro.removeEntityInstant=function (ent) {
         }
         this._groups[i].removeEntity(entity);
     }
+    this._dirty=true;
     entity.onDestroy();
     entity=null;
     delete this._entityPool[id];
