@@ -903,49 +903,7 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
         logger.error(this.getRoleString()+' 注册组件失败,组件名称为空');
         return;
     }
-    //FIXME:这里准备更新
-    NewComponent.prototype.getComponentName = NewComponent.prototype.getComponentName||function () {
-        return this.__classname;
-    };
-    NewComponent.prototype.getECS = NewComponent.prototype.getECS||function () {
-        if (this._entity) {
-            return this._entity._ecs;
-        }
-    };
-    NewComponent.prototype.isClient = function () {
-        return this._entity.getECS().isClient();
-    };
-    NewComponent.prototype.getRenderer = NewComponent.prototype.getRenderer||function () {
-        return this.getECS().getComponentRenderer(this);
-    };
-    NewComponent.prototype.isRenderer = NewComponent.prototype.isRenderer||function () {
-        return this.getECS().rendererArray.indexOf(this.getComponentName())!==-1;
-    };
-    NewComponent.prototype.getEntity = NewComponent.prototype.getEntity||function () {
-        return this._entity;
-    };
-    NewComponent.prototype.getSibling=NewComponent.prototype.getSibling||function (comp) {
-        if (this._entity) {
-            return this._entity.get(comp);
-        }
-    };
-    NewComponent.prototype.dirty=NewComponent.prototype.dirty||function () {
-        this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
-        if (this.isClient()) {
-
-            if (this.updateView) {
-                this.getECS().addRenderQueue(this);
-            }
-            let renderer = this.getRenderer();
-            if (renderer) {
-                let renderComp = this.getSibling(renderer);
-                renderComp&&renderComp.dirty();
-            }
-        }
-        if (this._entity) {
-            this._entity.markDirty(this);
-        }
-    };
+    ECSUtil.mountComponnet(NewComponent);
 
     let pool=this._componentPools[name];
 
@@ -997,31 +955,7 @@ pro.registerSingleton=function (name, Component) {
             NewComponent.prototype.__classname=name;
         }
     }
-    NewComponent.prototype.getComponentName = NewComponent.prototype.getComponentName||function () {
-        return this.__classname;
-    };
-    NewComponent.prototype.getECS = NewComponent.prototype.getECS||function () {
-        if (this._entity) {
-            return this._entity._ecs;
-        }
-    };
-    NewComponent.prototype.isClient = function () {
-        return this._entity.getECS().isClient();
-    };
-    NewComponent.prototype.isRenderer = NewComponent.prototype.isRenderer||function () {
-        return this.getECS().rendererArray.indexOf(this.getComponentName())!==-1;
-    };
-    NewComponent.prototype.getRenderer = NewComponent.prototype.getRenderer||function () {
-        return this.getECS().getComponentRenderer(this);
-    };
-    NewComponent.prototype.getEntity = NewComponent.prototype.getEntity||function () {
-        return this._entity;
-    };
-    NewComponent.prototype.getSibling=NewComponent.prototype.getSibling||function (comp) {
-        if (this._entity) {
-            return this._entity.get(comp);
-        }
-    };
+    ECSUtil.mountComponnet(NewComponent);
     this._componentPools[name]=new ComponentSingleton(NewComponent, this);
     this.setComponentDefine(name);
     if (NewComponent.prototype.onRegister) {

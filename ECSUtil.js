@@ -1,8 +1,23 @@
 const Long = require('long');
 const Buffer = require('buffer').Buffer;
 const ObjectID = this?require('bson').ObjectId:require('./binary/objectid');
+const Component = require('./Component');
 
 let ECSUtil = {};
+
+ECSUtil.mountComponnet = function(NewComponent) {
+//FIXME:这里准备更新
+    NewComponent.prototype.getComponentName = NewComponent.prototype.getComponentName||function () {
+        return this.__classname;
+    };
+    NewComponent.prototype.getECS = NewComponent.prototype.getECS||Component.prototype.getECS;
+    NewComponent.prototype.isClient = NewComponent.prototype.isClient||Component.prototype.isClient;
+    NewComponent.prototype.getRenderer = NewComponent.prototype.getRenderer||Component.prototype.getRenderer;
+    NewComponent.prototype.isRenderer = NewComponent.prototype.isRenderer||Component.prototype.isRenderer;
+    NewComponent.prototype.getEntity = NewComponent.prototype.getEntity||Component.prototype.getEntity;
+    NewComponent.prototype.getSibling = NewComponent.prototype.getSibling||Component.prototype.getSibling;
+    NewComponent.prototype.dirty = NewComponent.prototype.dirty||Component.prototype.dirty;
+};
 
 ECSUtil.remove = function (arr,func) {
     for (let i=0;i<arr.length;i++) {
