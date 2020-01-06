@@ -17,24 +17,26 @@ const EventEmitter = require('./event-emmiter');
  *  客户端的Entity用于本地逻辑处理,不同步到服务器
  */
 
-let Entity = function (ea, id, sync) {
-    this._components = {};          //组件<Component>数组
-    this._ecs = ea;                 //实体管理器<ECS>对象引用
-    this._id = id;                  //实体<Entity>ID对象的标记
-    this._step = 0;                 //当前步数
-    this._dirty = true;            //脏标记
-    this._tags = [];                //标签
-    this._owner = 0;
-    this._lastStep = 0;             //上一次的步数
-    this._lastSnapshot = null;      //上一步的快照
-    this._snapshot = null;          //当前步的快照
-    this._onDestroy = false;        //移除标记
-    this._removeMarks = [];
-    this._addMarks = [];
-    this._modifyMarks = [];
-    this.__unserializeEntityCount = 0;
-    this._eventListener = new EventEmitter();
-};
+class Entity {
+    constructor(ea, id, sync){
+        this._components = {};          //组件<Component>数组
+        this._ecs = ea;                 //实体管理器<ECS>对象引用
+        this._id = id;                  //实体<Entity>ID对象的标记
+        this._step = 0;                 //当前步数
+        this._dirty = true;            //脏标记
+        this._tags = [];                //标签
+        this._owner = 0;
+        this._lastStep = 0;             //上一次的步数
+        this._lastSnapshot = null;      //上一步的快照
+        this._snapshot = null;          //当前步的快照
+        this._onDestroy = false;        //移除标记
+        this._removeMarks = [];
+        this._addMarks = [];
+        this._modifyMarks = [];
+        this.__unserializeEntityCount = 0;
+        this._eventListener = new EventEmitter();
+    }
+}
 
 Entity.prototype.getECS = function () {
     return this._ecs;
@@ -79,31 +81,6 @@ Entity.prototype.debug = function () {
         ret.components[comName] = compObj;
     }
     return ret;
-};
-
-Entity.prototype.addTag = function (tag) {
-    if (this._tags.indexOf(tag)===-1) {
-        this._tags.push(tag);
-        return true;
-    }
-    return false;
-};
-
-Entity.prototype.hasTag = function (tag) {
-    return this._tags.indexOf(tag)!==-1;
-};
-
-Entity.prototype.removeTag = function (tag) {
-    let index = this._tags.indexOf(tag);
-    if (index!==-1) {
-        this._tags.splice(index,1);
-        return true;
-    }
-    return false;
-};
-
-Entity.prototype.getAllTags = function () {
-    return this._tags;
 };
 
 Entity.prototype.clean = function () {
@@ -492,8 +469,6 @@ Entity.prototype.snapshot = function (connData) {
     ret.addValue(components);
     this._lastSnapshot = this._snapshot;
     this._snapshot = ret;
-    // this.processSyncOption(ret);
-
     return ret;
 };
 
@@ -561,7 +536,6 @@ Entity.prototype.add = function (comp) {
     }
     if (comp._entity&&comp._entity!==this) {
         logger.error('组件已经绑定有实体',comp,comp._entity);
-        // throw new Error();
     }
     comp._entity = this;
     if (args.length > 0 && !isApply) {
@@ -632,10 +606,6 @@ Entity.prototype.remove = function (comp) {
         if (renderer) {
             this.remove(renderer);
         }
-
-        if (ECSUtil.getComponentType(comp)=='ControlButton') {
-            logger.debug('移除ControlButton组件');
-        }
         this.getECS().emit('remove component',comp,this,this._ecs);
         this.emit('remove component',comp,this,this._ecs);
         if (comp['onRemove']) {
@@ -683,7 +653,6 @@ Entity.prototype.getComponentTypes = function () {
         let comp = this._components[i];
         ret.push(comp.getComponentName?comp.getComponentName():comp.__proto__.__classname);
     }
-    //ret.sort();
     return ret;
 };
 /**

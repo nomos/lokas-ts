@@ -9,7 +9,6 @@ const logger=require('../logger/Logger')||console;
 const Timer=require('./ECSTimer');
 const nbt=require('./binary/nbt');
 const EventEmitter=require('./event-emmiter');
-const Long=require('long');
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册
@@ -37,7 +36,6 @@ class ECS {
         this._cachedGroups = {};            //单个组件<Component>为键值的集合<Group>缓存
         this._systems = [];                 //各个系统和监听集合
         this._systemIndexes = {};           //系统的名字索引
-        this._singleton = null;
 
         /**ID分配和生命周期变量*/
         this._index = 0;                            //实体<Entity>ID分配变量
@@ -72,15 +70,12 @@ class ECS {
         /**模块和组件映射表*/
         this._modules = [];                 //已加载的模块
         this._addSystemCount = 0;           //加载的系统order数
-        this._componentsMap = {};           //组件:ID 服务器,当前组件:ID映射
-        this._componentsIndexMap = {};      //hash ID:组件映射表
-        this._componentDefineArray = [];
-        this._componentDefineMap = {};
+        this._componentDefineArray = [];    //组件:ID 服务器,当前组件:ID映射
+        this._componentDefineMap = {};      //hash ID:组件映射表
         this._componentDefineHash = 0;      //服务器组件hash
-        this._compCode = opt.compCode;   //是否加密组件名
+        this._compCode = opt.compCode;      //是否加密组件名
         this.rendererMap = {};
         this.rendererArray = [];
-        this.modelMap = {};
 
         this._commands = {};                //注册的命令组件
         this._commandQueueMaps = [];        //以命令名为键的队列
@@ -92,7 +87,6 @@ class ECS {
         //其他绑定函数
         this._uniqueSchedules = {};         //仅一次的任务标记
         this._spawners = {};
-        this._spawnerCb = {};
         this._objContainer = {};
         this._stateMachine = 'null';
     }
@@ -188,11 +182,13 @@ pro.cleanBuffer = function () {
     }
     this._dirtyEntities=[];
     this._newEntities=[];
-    for (let i=0;i<this._renderUpdateQueue.length;i++) {
-        let comp = this._renderUpdateQueue[i];
-        comp&&comp._entity&&comp.updateView(comp._entity,this);
+    if (this.isClient()) {
+        for (let i=0;i<this._renderUpdateQueue.length;i++) {
+            let comp = this._renderUpdateQueue[i];
+            comp&&comp._entity&&comp.updateView(comp._entity,this);
+        }
+        this._renderUpdateQueue = [];
     }
-    this._renderUpdateQueue = [];
 };
 
 pro.setTimeScale = function (timeScale) {
@@ -204,7 +200,7 @@ pro.getTimeScale = function () {
     return this._timeScale;
 };
 
-pro.getCCTime = function (time) {
+pro.getScaledTimeBySecond = function (time) {
     return time/1000/this._timeScale;
 };
 
@@ -279,10 +275,6 @@ pro.spawnEntity=function (name) {
     let args = [].slice.call(arguments);
     args.splice(0,1);
     return spawnFunc&&spawnFunc.apply(null,args);
-};
-
-pro.createTimer=function (interval, timeScale) {
-    return new Timer(interval, timeScale);
 };
 
 pro.adjustTimer=function (time) {
@@ -428,7 +420,6 @@ pro.getPrevSnapEntity=function (id) {
     }
 };
 
-
 //同步到客户端(时间片同步)
 pro.syncToClient=function (curStep) {
     if (curStep===this._step) {
@@ -534,8 +525,7 @@ pro.addConnection = function (uid) {
         logger.error('已存在连接',uid);
         return;
     }
-    let conn = new Connection(uid,this);
-    this._connections[uid] = conn;
+    this._connections[uid] = new Connection(uid,this);
 };
 
 pro.removeConnection = function (uid) {
@@ -1533,7 +1523,6 @@ pro.destroy=function (cb) {
     this._enabled=false;
     this.onDisable&&this.onDisable();
     this._ecsReadyDestroy=true;
-    logger.debug('destroyCb destroy');
     this.destroyCb = cb;
 };
 
@@ -1559,14 +1548,12 @@ pro._destroy=function () {
     this._entityPool={};            //实体<Entity>池
     this._commands={};                //注册的命令组件
     this._commandQueueMaps=[];        //以命令名为键的队列
-    this._singleton=null;
     this._componentPools={};        //各种组件池<ComponentPool>容器
     this._groups={};                //各种集合<Group>容器,组件<Component>数组为键值
     this._cachedGroups={};          //单个组件<Component>为键值的集合<Group>缓存
     this._systems=[];               //各个系统和监听集合
     this._toDestroyEntities=[];    //在这轮遍历中要删除的entity队列
     this._index=0;                  //实体<Entity>ID分配变量
-    this._entityCount=0;            //实体数量
     this._addSystemCount=0;
     this._objContainer={};
 
@@ -1657,7 +1644,6 @@ pro.isClient=function () {
 
 pro.start=function () {
     if (!this._enabled) {
-
         this.setupUpdateFunc();
         this._enabled=true;
         this.onEnable&&this.onEnable();
@@ -1667,21 +1653,21 @@ pro.start=function () {
             this._timer.start();
         }
         logger.error('ecs start');
+    } else {
+        this.resume();
     }
 };
 
-pro.stop = function () {
-    this._enabled=false;
-    this._timer.stop();
-    this.onDisable&&this.onDisable();
-};
-
 pro.pause = function () {
+    this._paused = true;
     this._timer.pause();
 };
 
 pro.resume = function () {
-    this._timer.resume();
+    if (this._paused) {
+        this._paused = false;
+        this._timer.resume();
+    }
 };
 
 module.exports=ECS;

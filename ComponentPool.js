@@ -5,15 +5,17 @@
  * @param minSize
  * @constructor
  */
-let ComponentPool = function (ComponentType,maxSize,minSize,ecs) {
-    this._component = ComponentType;            //给对象赋值
-    this._name = ComponentType.prototype.__classname;  //名称为对象定义的原型名
-    this._pool = [];
-    this._itemCount=0;
-    this._maxSize = maxSize;
-    this._minSize = minSize;
-    this._ecs = ecs;
-};
+class ComponentPool {
+    constructor(ComponentType,maxSize,minSize,ecs){
+        this._component = ComponentType;            //给对象赋值
+        this._name = ComponentType.prototype.__classname;  //名称为对象定义的原型名
+        this._pool = [];
+        this._itemCount=0;
+        this._maxSize = maxSize;
+        this._minSize = minSize;
+        this._ecs = ecs;
+    }
+}
 /**
  * 创建一个组件<Component>并尝试调用它的onCreate方法
  * @returns Component

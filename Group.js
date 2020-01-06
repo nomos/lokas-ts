@@ -4,7 +4,7 @@ const ECSUtil = require('./ECSUtil');
  * @param compGroup
  * @constructor
  */
-let Group = function (compGroup) {
+const Group = function (compGroup) {
     this._componentTypes=[];
     for (let i=0;i<compGroup.length;i++) {
         let comp = compGroup[i];
@@ -31,7 +31,7 @@ Group.prototype.addEntity=function (ent) {
 };
 /**
  * 检查集合<Group>中是否有这个实体<Entity>
- * @param ent
+ * @param {Entity}ent
  * @returns {*}
  */
 Group.prototype.hasEntity=function (ent) {
@@ -39,8 +39,8 @@ Group.prototype.hasEntity=function (ent) {
     return this._entities[id];
 };
 /**
- * 检查集合<Group>中是否有这个实体<Entity>
- * @param ent
+ * 检查集合<Group>中是否有这个实体<Entity>ID
+ * @param {Number}id
  * @returns {*}
  */
 Group.prototype.hasEntityByID=function (id) {
@@ -72,7 +72,7 @@ Group.prototype.getSingletonEntity = function () {
 };
 /**
  * 移除一个实体<Entity>ID队列,通常在每一帧更新的最后做
- * @param arr
+ * @param {Array<Number>}arr
  */
 Group.prototype.removeEntityArray=function (arr) {
     let removeArr = [];
@@ -91,7 +91,7 @@ Group.prototype.removeEntityArray=function (arr) {
 };
 /**
  * 尝试立即移除一个实体<Entity>
- * @param ent
+ * @param {Entity}ent
  */
 Group.prototype.removeEntity=function (ent) {
     //如果实体中不包含集合的组件,提前跳出
@@ -119,10 +119,7 @@ Group.prototype.match=function (comp) {
     } else {
         compStrArr = args;
     }
-    if (!ECSUtil.includes(this._componentTypes,compStrArr)) {
-        return false;
-    }
-    return true;
+    return ECSUtil.includes(this._componentTypes,compStrArr);
 };
 
 Group.prototype.length = function () {
