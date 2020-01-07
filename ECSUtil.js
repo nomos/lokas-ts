@@ -179,14 +179,14 @@ ECSUtil.isStringNumber = function(arg) {
 };
 
 ECSUtil.isLongString = function (arg) {
-    if (!ECSUtil.isStringNumber(arg)) {
+    if (!ECSUtil.isStringNumber(arg)||typeof arg!=='string') {
         return false;
     }
-    return Long.fromString(arg).toString() === arg;
+    return Long.fromString(''+arg).toString() === arg;
 };
 
 ECSUtil.isFloat = function (arg) {
-    return  ECSUtil.isNumber(arg)&&arg%1 === 0;
+    return  ECSUtil.isNumber(arg)&&!ECSUtil.isInteger(arg);
 };
 
 ECSUtil.isByte = function (arg) {
@@ -218,7 +218,7 @@ ECSUtil.isFloat = function (arg) {
 };
 
 ECSUtil.isDouble = function (arg) {
-    return !ECSUtil.isInteger(arg)&&(!isNaN(arg));
+    return  ECSUtil.isNumber(arg)&&!ECSUtil.isInteger(arg)&&(!isNaN(arg));
 };
 
 ECSUtil.isBoolean = function (arg) {

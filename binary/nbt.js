@@ -201,7 +201,6 @@ nbt.createFromJSObject = function (obj,opt) {
     if (utils.isLong(obj)) {
         return nbt.Long(obj);
     }
-
     if (utils.isLongString(obj)&&stringnumber) {
         return nbt.Long(obj);
     }
