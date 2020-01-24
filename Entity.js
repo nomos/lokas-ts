@@ -53,7 +53,7 @@ Entity.prototype.debug = function () {
         let compObj = {};
         let comName = ECSUtil.getComponentType(comp);
         //TODO:这里要更新
-        let nbtFormat = comp.defineData?comp.defineData():comp.nbtFormat;
+        let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
         if (!nbtFormat) {
             return;
         }
@@ -239,7 +239,7 @@ Entity.prototype.comp2NBT = function (comp,connData) {
         return compComplex;
     }
 
-    let nbtFormat = comp.defineData?comp.defineData():comp.nbtFormat;
+    let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
     if (!nbtFormat) {
         throw new Error(comp.getComponentName?comp.getComponentName():comp.__proto__.__classname+' dont have nbtFormat');
     }
@@ -298,7 +298,7 @@ Entity.prototype.compFormatFromNBT = function (step,comp, nbt) {
         comp.dirty();
         return;
     }
-    let nbtFormat = comp.defineData?comp.defineData():comp.nbtFormat;
+    let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
     if (!nbtFormat) {
         throw new Error('comp dont have nbtFormat');
     }
@@ -388,7 +388,7 @@ Entity.prototype.compFormatFromNBT = function (step,comp, nbt) {
 
 Entity.prototype.nbt2Command = function (nbt) {
     let count = 0;
-    let nbtFormat = nbt.defineData?nbt.defineData():nbt.nbtFormat;
+    let nbtFormat = nbt.defineData?nbt.defineData:nbt.nbtFormat;
     for (let i in nbtFormat) {
         if (!nbtFormat.hasOwnProperty(i)) {
             continue;

@@ -18,7 +18,7 @@ class BVBranch extends Rect{
 }
 
 class BVTree extends Component{
-    static defineName(){
+    static get defineName(){
         return 'BVTree';
     }
     static recycle(branch){

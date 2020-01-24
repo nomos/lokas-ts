@@ -3,7 +3,7 @@ const nbt = require('../binary/nbt');
 const Component = require('../Component');
 
 class Vector extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Vector';
     }
     constructor(x, y, z){
@@ -13,7 +13,7 @@ class Vector extends Component{
         this.z=z||0;
         this._angle = 0;
     }
-    defineData(){
+    static get defineData(){
         return {
             x:'Float',
             y:'Float',
@@ -134,7 +134,7 @@ class Vector extends Component{
 }
 
 class Position extends Vector{
-    static defineName(){
+    static get defineName(){
         return 'Position';
     }
     constructor(x,y,z){
@@ -143,7 +143,7 @@ class Position extends Vector{
 }
 
 class Velocity extends Vector{
-    static defineName(){
+    static get defineName(){
         return 'Velocity';
     }
     constructor(x,y,z){
@@ -158,7 +158,7 @@ class Velocity extends Vector{
 }
 
 class Accelation extends Vector{
-    static defineName(){
+    static get defineName(){
         return 'Accelation';
     }
     constructor(x,y,z){
@@ -181,7 +181,7 @@ let RotationAccelation=function () {
 };
 
 class Size extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Size';
     }
     constructor(w=0, h=0){
@@ -189,7 +189,7 @@ class Size extends Component{
         this.w=w||0;
         this.h=h||0;
     }
-    defineData(){
+    static get defineData(){
         return {
             w:'Float',
             h:'Float'
@@ -199,14 +199,14 @@ class Size extends Component{
 
 
 class TimeStamp extends Component{
-    static defineName(){
+    static get defineName(){
         return 'TimeStamp';
     }
     constructor(time){
         super();
         this.time = time;
     }
-    defineData(){
+    static get defineData(){
         return {
             time:'Float'
         }

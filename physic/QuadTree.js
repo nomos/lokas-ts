@@ -3,7 +3,7 @@ const Entity = require('../Entity');
 const Component = require('../Component');
 
 class QuadTree extends Rect{
-    static defineName(){
+    static get defineName(){
         return 'QuadTree';
     }
     constructor(x,y,w,h,maxObject=8,maxLevel=4){
@@ -95,7 +95,7 @@ class QuadTree extends Rect{
 }
 
 class QuadBranch extends Rect{
-    static defineName(){
+    static get defineName(){
         return 'QuadTree';
     }
 

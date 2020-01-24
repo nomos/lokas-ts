@@ -1,7 +1,7 @@
 const Component = require('../Component');
 
 class Polygon extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Polygon';
     }
     constructor(x = 0, y = 0, points = [], angle = 0, scale_x = 1, scale_y = 1, padding = 0){

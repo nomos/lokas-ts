@@ -884,7 +884,7 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
         if (!name.defineName) {
             throw Error('组件:未定义');
         }
-        name=name.defineName?name.defineName():name.prototype.__classname;
+        name=name.defineName?name.defineName:name.prototype.__classname;
     } else {
         if (!Component) {
             throw Error('组件:'+name+'未定义');
@@ -940,7 +940,7 @@ pro.registerSingleton=function (name, Component) {
         if (!name.defineName) {
             throw Error('组件:未定义');
         }
-        name=name.defineName?name.defineName():name.prototype.__classname;
+        name=name.defineName?name.defineName:name.prototype.__classname;
     } else {
         if (!Component) {
             throw Error('组件:'+name+'未定义');
@@ -1013,7 +1013,7 @@ pro.getSingleton=function (Component, force) {
     if (typeof Component==='string') {
         name=Component;
     } else if (Component.defineName) {
-        name=Component.defineName();
+        name=Component.defineName;
     } else {
         name=Component.getComponentName?Component.getComponentName():Component.prototype.__classname;
     }
@@ -1285,14 +1285,14 @@ pro.registerSystem=function (system) {
         return;
     }
     let sys;
-    if (ECSUtil.isObject(system)) {
+    if (system instanceof System) {
+        sys = new System(this);
+    } else if (ECSUtil.isObject(system)) {
         sys=new System(this, system);
-    }
-
-    if (ECSUtil.isFunction(system)) {
+    } else if (ECSUtil.isFunction(system)) {
         sys=new System(this, new system());
-
     }
+
     if (!sys.name) {
         logger.error(this.getRoleString()+' System无名称不合法', sys, sys.name);
         return;

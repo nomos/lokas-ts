@@ -1,7 +1,7 @@
 const Component = require('../Component');
 
 class Circle extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Circle';
     }
     constructor(x=0,y=0,radius=0,scale=1){

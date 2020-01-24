@@ -1,7 +1,7 @@
 const Component = require('../Component');
 
 class Contact extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Contact';
     }
     constructor(a,b,time){

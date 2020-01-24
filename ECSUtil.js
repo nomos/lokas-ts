@@ -74,7 +74,7 @@ ECSUtil.getComponentType = function (comp) {
         return comp;
     }
     if (comp.defineName) {
-        return comp.defineName();
+        return comp.defineName;
     }
     if (comp.prototype) {
         return comp.prototype.__classname;

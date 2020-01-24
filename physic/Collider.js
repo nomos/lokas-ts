@@ -3,7 +3,7 @@ const Contact = require('./Contact');
 const Collision = require('./Collision');
 
 class Collider extends Rect{
-    static defineName(){
+    static get defineName(){
         return 'Collider';
     }
     constructor(minX=0,minY=0,maxX=0,maxY=0,padding=0){

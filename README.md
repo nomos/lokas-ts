@@ -4,7 +4,7 @@ A entity-component library for both server and client
 ## example
 ```
         class Position extends Component {
-            static defineName() {
+            static get defineName() {
                 return 'Position';
             }
             constructor(x, y) {
@@ -15,7 +15,7 @@ A entity-component library for both server and client
         }
 
         class Velocity extends Position {
-            static defineName() {
+            static get defineName() {
                 return 'Velocity';
             }
             constructor(x, y) {

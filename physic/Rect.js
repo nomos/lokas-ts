@@ -1,7 +1,7 @@
 const Component = require('../Component');
 
 class Rect extends Component{
-    static defineName(){
+    static get defineName(){
         return 'Rect';
     }
     constructor(minX=0,minY=0,maxX=0,maxY=0){
@@ -11,7 +11,7 @@ class Rect extends Component{
         this.maxX = maxX;
         this.maxY = maxY;
     }
-    defineData(){
+    static get defineData(){
         return {
             minX:'Float',
             minY:'Float',
