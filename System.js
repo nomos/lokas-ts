@@ -9,24 +9,28 @@ class System {
         this.lastUpdateTime = 0;
         this.priority = 0;
         if (opt) {
-            this.desc = opt.desc;
-            this.name = opt.name;
+            this.desc = opt.desc||'';
+            this.name = opt.name||this.name;
             this.updateTime = opt.updateTime||opt.interval;
             this.priority = opt.priority||0;
-            this.components = opt.components;
-            this.updateHandler = opt.updateHandler;
-            this.beforeUpdate = opt.beforeUpdate;
-            this.update = opt.update;
-            this.afterUpdate = opt.afterUpdate;
-            this.beforeLateUpdate = opt.beforeLateUpdate;
-            this.lateUpdate = opt.lateUpdate;
-            this.afterLateUpdate = opt.afterLateUpdate;
-            this.sysUpdate = opt.sysUpdate;
-            this.onRegister = opt.onRegister;
+            this.components = opt.components||[];
+            this.updateHandler = opt.updateHandler||this.updateHandler;
+            this.beforeUpdate = opt.beforeUpdate||this.beforeUpdate;
+            this.update = opt.update||this.update;
+            this.afterUpdate = opt.afterUpdate||this.afterUpdate;
+            this.beforeLateUpdate = opt.beforeLateUpdate||this.beforeLateUpdate;
+            this.lateUpdate = opt.lateUpdate||this.lateUpdate;
+            this.afterLateUpdate = opt.afterLateUpdate||this.afterLateUpdate;
+            this.sysUpdate = opt.sysUpdate||this.sysUpdate;
+            this.onRegister = opt.onRegister||this.onRegister;
             this.stateOnly = opt.stateOnly||'';
-            this.onState = opt.onState;
-            this.offState = opt.offState;
+            this.onState = opt.onState||this.onState;
+            this.offState = opt.offState||this.offState;
         }
+    }
+
+    update(dt,now,ecs) {
+
     }
 
     onRegister(ecs){
@@ -79,6 +83,8 @@ class System {
     beforeLateUpdate(dt, now, ecs){}
 
     afterLateUpdate(dt, now, ecs){}
+
+    onRegister(ecs){}
 
     setAddOrder(order) {
         this._addOrder = order;
