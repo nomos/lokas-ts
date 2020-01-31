@@ -1286,7 +1286,7 @@ pro.registerSystem=function (system) {
     }
     let sys;
     if (system instanceof System) {
-        sys = new System(this);
+        sys = new system(this);
     } else if (ECSUtil.isObject(system)) {
         sys=new System(this, system);
     } else if (ECSUtil.isFunction(system)) {
@@ -1297,6 +1297,8 @@ pro.registerSystem=function (system) {
         logger.error(this.getRoleString()+' System无名称不合法', sys, sys.name);
         return;
     }
+
+    sys.groups = this.registerGroups(sys.components);
 
     sys.onRegister&&sys.onRegister(this);
     if (sys.enabled) {
