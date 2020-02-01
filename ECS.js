@@ -804,8 +804,8 @@ pro.unloadModule=function (name) {
         logger.error('模组 '+name+' 未找到');
         return;
     }
-    if (mod.unLoad) {
-        mod.unLoad(this);
+    if (mod.unload) {
+        mod.unload(this);
     }
 };
 
@@ -928,12 +928,6 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
  * 注册单例组件
  */
 pro.registerSingleton=function (name, Component) {
-    let pool=this._componentPools[name];
-    if (pool) {
-        logger.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
-        return;
-    }
-
     let NewComponent;
     if (typeof name!=='string') {
         NewComponent=name;
@@ -955,9 +949,18 @@ pro.registerSingleton=function (name, Component) {
             NewComponent.prototype.__classname=name;
         }
     }
+
+
+    let pool=this._componentPools[name];
+    if (pool) {
+        logger.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
+        return;
+    }
     ECSUtil.mountComponnet(NewComponent);
     this._componentPools[name]=new ComponentSingleton(NewComponent, this);
     this.setComponentDefine(name);
+
+
     if (NewComponent.prototype.onRegister) {
         NewComponent.prototype.onRegister(this);
     }
@@ -1001,6 +1004,10 @@ pro.bindRenderer = function (compName,rendererName) {
     //TODO:这里的绑定关系应该在ECS里建表
     this.rendererMap[ECSUtil.getComponentType(compName)] = ECSUtil.getComponentType(rendererName);
     this.rendererArray.push(ECSUtil.getComponentType(rendererName));
+};
+
+pro.createSingleton = function(Component){
+
 };
 
 //获取一个单例组件force强制创建

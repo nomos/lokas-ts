@@ -29,6 +29,14 @@ class System {
         }
     }
 
+    onEnable(ecs){
+
+    }
+
+    onDisable(ecs){
+
+    }
+
     update(dt,now,ecs) {
 
     }
@@ -38,7 +46,7 @@ class System {
     }
 
     updateHandler(dt,now,ecs){
-        if (!self.update) {
+        if (!this.update) {
             return;
         }
         for (let j=0;j<this.groups.length;j++) {
@@ -55,7 +63,7 @@ class System {
         }
     }
     lateUpdateHandler(dt,now,ecs){
-        if (!self.lateUpdate) {
+        if (!this.lateUpdate) {
             return;
         }
         for (let j=0;j<this.groups.length;j++) {
