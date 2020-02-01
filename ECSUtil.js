@@ -6,7 +6,7 @@ const Component = require('./Component');
 let ECSUtil = {};
 
 ECSUtil.mountComponnet = function(NewComponent) {
-//FIXME:这里准备更新
+//TODO:这里准备更新
     NewComponent.prototype.getComponentName = NewComponent.prototype.getComponentName||function () {
         return this.__classname;
     };
@@ -76,7 +76,7 @@ ECSUtil.getComponentType = function (comp) {
     if (comp.defineName) {
         return comp.defineName;
     }
-    if (comp.prototype) {
+    if (comp.prototype&&comp.prototype.__classname) {
         return comp.prototype.__classname;
     }
     return comp.__proto__.getComponentName();
@@ -90,33 +90,6 @@ ECSUtil.clone = function (comp) {
     return ret;
 };
 
-ECSUtil.cloneFunc=function (ctor, superCtor) {
-    for (let i in superCtor.prototype) {
-        ctor.prototype[i]=superCtor.prototype[i];
-    }
-};
-
-ECSUtil.cloneObjectDeep=function (obj) {
-    if (null===obj||"object"!== typeof obj) return obj;
-
-    if (obj instanceof Date) {
-        let copy=new Date();
-        copy.setTime(obj.getTime());
-        return copy;
-    }
-    if (obj instanceof Array|obj instanceof Object) {
-        let copy=(obj instanceof Array) ? []:{};
-        for (let attr in obj) {
-            if (obj.hasOwnProperty(attr))
-                copy[attr]=ECSUtil.cloneObjectDeep(obj[attr]);
-        }
-        return copy;
-    }
-};
-
-ECSUtil.has = function (obj,key) {
-    return obj[key]!==undefined;
-};
 
 ECSUtil.includes = function (collection,value) {
     if (ECSUtil.isArray(value)) {
@@ -132,13 +105,6 @@ ECSUtil.includes = function (collection,value) {
         return collection.includes(value);
     }
     return true;
-};
-
-ECSUtil.inherits=function (ctor, superCtor) {
-    ctor._super = superCtor.prototype;
-    for (let i in superCtor.prototype) {
-        ctor.prototype[i]=superCtor.prototype[i];
-    }
 };
 
 ECSUtil.isObject=function (val) {
