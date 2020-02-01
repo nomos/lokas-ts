@@ -1,14 +1,14 @@
 class System {
     constructor(ecs,opt){
         this.ecs = ecs;
-        this.groups = ecs.registerGroups(opt.components);
         this.type = 'system';
+        this.components = [];
         this.enabled = true;
-        this.onEnable = opt.onEnable;
-        this.onDisable = opt.onDisable;
         this.lastUpdateTime = 0;
         this.priority = 0;
         if (opt) {
+            this.onEnable = opt.onEnable;
+            this.onDisable = opt.onDisable;
             this.desc = opt.desc||'';
             this.name = opt.name||this.name;
             this.updateTime = opt.updateTime||opt.interval;
@@ -38,6 +38,14 @@ class System {
     }
 
     update(dt,now,ecs) {
+
+    }
+
+    onEnable(ecs){
+
+    }
+
+    onDisable(ecs){
 
     }
 
