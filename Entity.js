@@ -257,7 +257,7 @@ Entity.prototype.comp2NBT = function (comp,connData) {
             let arr = comp[i];
             let entArr = [];
             for (let j = 0; j < arr.length; j++) {
-                let id = arr[j].id;
+                let id = arr[j]?arr[j].id:0;
                 entArr.push(id);
             }
             dataComplex.addValue(nbt.LongArray(entArr));
@@ -268,7 +268,7 @@ Entity.prototype.comp2NBT = function (comp,connData) {
                 if (!obj.hasOwnProperty(j)) {
                     continue;
                 }
-                let id = obj[j].id;
+                let id = obj[j]?obj[j].id:0;
                 nbtObj.addValue(j, nbt.Long(id));
             }
             dataComplex.addValue(nbtObj);
@@ -314,7 +314,9 @@ Entity.prototype.compFormatFromNBT = function (step,comp, nbt) {
             for (let j = 0; j < entarr.getSize(); j++) {
                 let id = entarr.at(j).toNumber();
                 let ent = this._ecs.getEntity(id);
-                if (ent) {
+                if (id === 0) {
+                    comp[i].push(null);
+                } else if (ent) {
                     comp[i].push(ent);
                 } else {
                     comp[i].push(new Entity(null,id));
@@ -338,7 +340,9 @@ Entity.prototype.compFormatFromNBT = function (step,comp, nbt) {
             for (let j = 0; j < names.length; j++) {
                 let id = entmap.fetchValue(names[j]).value.toNumber();
                 let ent = this._ecs.getEntity(id);
-                if (ent) {
+                if (id === 0) {
+                    comp[i][names[j]] = null;
+                }else if (ent) {
                     comp[i][names[j]] = ent;
                 } else {
                     self.__unserializeEntityCount++;

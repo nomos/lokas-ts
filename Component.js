@@ -13,6 +13,8 @@ class Component {
         return this.__proto__.constructor.defineName;
     }
     constructor(){
+        this._ecs = this._ecs||null;
+        this._dirty = true;
         this._entity = null;
     }
     static get defineData(){
@@ -50,7 +52,7 @@ class Component {
      * @returns {Boolean}
      */
     isClient(){
-        return this._entity.getECS().isClient();
+        return this._ecs.isClient();
     }
 
     /**
@@ -64,9 +66,7 @@ class Component {
      * @returns {ECS}
      */
     getECS(){
-        if (this._entity) {
-            return this._entity.getECS();
-        }
+        return this._ecs;
     }
     dirty(){
         this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
@@ -84,11 +84,23 @@ class Component {
         if (this._entity) {
             this._entity.markDirty(this);
         }
+        if (this._ecs&&this._ecs._dirtyComponents.indexOf(this)===-1) {
+            this._ecs._dirtyComponents.push(this);
+        }
+    }
+
+    isDirty(){
+        return this._dirty;
+    }
+
+    clean(){
+        this._dirty = false;
     }
 
     getRenderer(){
         return this.getECS().getComponentRenderer(this);
     }
+
     isRenderer(){
         return this.getECS().rendererArray.indexOf(this.getComponentName())!==-1;
     };

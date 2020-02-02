@@ -16,14 +16,10 @@ let ComponentSingleton = function (ComponentType,ecs) {
  */
 ComponentSingleton.prototype.create = function () {
     let args = [].slice.call(arguments);
-    if (args.length>0) {
-        this._instance = {};
-        this._component.prototype.constructor.apply(this._instance,args);
-        this._instance.__proto__ = this._component.prototype;
-    } else {
-        this._instance = new this._component();
-
-    }
+    this._instance = Object.create(this._component.prototype);
+    this._component.prototype.constructor.apply(this._instance,args);
+    this._instance._dirty = true;
+    this._instance._ecs = this._ecs;
     if (this._instance['onCreate']) {
         this._instance.onCreate(this._ecs);
     }

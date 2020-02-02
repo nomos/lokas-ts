@@ -29,6 +29,10 @@ class System {
         }
     }
 
+    getECS(){
+        return this.ecs;
+    }
+
     onEnable(ecs){
 
     }
@@ -70,6 +74,25 @@ class System {
             }
         }
     }
+
+    getEntities(){
+        let ret = [];
+        for (let j=0;j<this.groups.length;j++) {
+            let group = this.groups[j];
+            for (let i = 0; i < group._entityIndexes.length; i++) {
+                let id = group._entityIndexes[i];
+                let ent = group._entities[id];
+                if (!ent || ent._onDestroy) {
+                    continue;
+                }
+                ret.push(ent);
+
+            }
+        }
+        return ret;
+    }
+
+
     lateUpdateHandler(dt,now,ecs){
         if (!this.lateUpdate) {
             return;

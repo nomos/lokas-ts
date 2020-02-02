@@ -52,6 +52,7 @@ class ECS {
         this._timeOffset = 0;
         this._dirty = true;                //整个系统的脏标记d
         this._dirtyEntities = [];           //这轮的脏标记entity
+        this._dirtyComponents = [];         //脏Component
         this._newEntities = [];
         this._toDestroyEntities = [];        //在这轮遍历中要删除的entity队列
         this._toDestroyEntityIDs = [];
@@ -174,12 +175,17 @@ pro.cleanBuffer = function () {
     //重置实体队列
     this._toDestroyEntities=[];
     this._dirty=false;
+
+    for (let i=0; i<this._dirtyComponents.length; i++) {
+        this._dirtyComponents[i]&&this._dirtyComponents[i].clean();
+    }
     for (let i=0; i<this._dirtyEntities.length; i++) {
         this._dirtyEntities[i].clean();
     }
     for (let i=0; i<this._newEntities.length; i++) {
         this._newEntities[i].clean();
     }
+    this._dirtyComponents = [];
     this._dirtyEntities=[];
     this._newEntities=[];
     if (this.isClient()) {
@@ -1292,7 +1298,7 @@ pro.registerSystem=function (system) {
         return;
     }
     let sys;
-    if (system instanceof System) {
+    if (ECSUtil.isInheritFrom(system,System)) {
         sys = new system(this);
     } else if (ECSUtil.isObject(system)) {
         sys=new System(this, system);

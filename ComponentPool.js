@@ -22,13 +22,10 @@ class ComponentPool {
  */
 ComponentPool.prototype.create = function () {
     let args = [].slice.call(arguments);
-    let ret;
-    if (args.length>0) {
-        ret = Object.create(this._component.prototype);
-        this._component.prototype.constructor.apply(ret,args);
-    } else {
-        ret = new this._component();
-    }
+    let ret = Object.create(this._component.prototype);
+    ret._ecs = this._ecs;
+    this._component.prototype.constructor.apply(ret,args);
+    ret._dirty = true;
     if (ret['onCreate']) {
         ret.onCreate(this._ecs);
     }
@@ -68,6 +65,7 @@ ComponentPool.prototype.get = function () {
         }
     } else {
         let ret = this._pool.pop();
+        ret._dirty = true;
         if (args.length>0) {
             ret.__proto__.constructor.apply(ret,args);
         }

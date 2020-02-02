@@ -17,6 +17,8 @@ ECSUtil.mountComponnet = function(NewComponent) {
     NewComponent.prototype.getEntity = NewComponent.prototype.getEntity||Component.prototype.getEntity;
     NewComponent.prototype.getSibling = NewComponent.prototype.getSibling||Component.prototype.getSibling;
     NewComponent.prototype.dirty = NewComponent.prototype.dirty||Component.prototype.dirty;
+    NewComponent.prototype.isDirty = NewComponent.prototype.isDirty||Component.prototype.isDirty;
+    NewComponent.prototype.clean = NewComponent.prototype.clean||Component.prototype.clean;
 };
 
 ECSUtil.remove = function (arr,func) {
@@ -189,6 +191,10 @@ ECSUtil.isDouble = function (arg) {
 
 ECSUtil.isBoolean = function (arg) {
     return typeof arg === 'boolean';
+};
+
+ECSUtil.isInheritFrom = function (A,B) {
+    return A.prototype.__proto__.constructor === B;
 };
 
 ECSUtil.isGZip=function (buf) {
