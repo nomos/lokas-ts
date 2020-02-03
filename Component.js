@@ -69,6 +69,7 @@ class Component {
         return this._ecs;
     }
     dirty(){
+        this._dirty = true;
         this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
         if (this.isClient()) {
 
