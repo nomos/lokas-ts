@@ -9,7 +9,6 @@ const EventEmitter = require('./event-emmiter');
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
  * @param ea
  * @param id
- * @param sync
  * @constructor
  *  客户端生成的<0   存放与实际逻辑无关的辅助游戏实体
  *  服务器生成的Entity ID>0   实际逻辑的实体
@@ -18,7 +17,7 @@ const EventEmitter = require('./event-emmiter');
  */
 
 class Entity {
-    constructor(ea, id, sync){
+    constructor(ea, id){
         this._components = {};          //组件<Component>数组
         this._ecs = ea;                 //实体管理器<ECS>对象引用
         this._id = id;                  //实体<Entity>ID对象的标记
@@ -33,6 +32,7 @@ class Entity {
         this._removeMarks = [];
         this._addMarks = [];
         this._modifyMarks = [];
+        this._groupHashes = [];
         this.__unserializeEntityCount = 0;
         this._eventListener = new EventEmitter();
     }
@@ -83,6 +83,21 @@ Entity.prototype.debug = function () {
     return ret;
 };
 
+Entity.prototype.addGroup = function (hash) {
+    let index = this._groupHashes.indexOf(hash);
+    if (index===-1) {
+        this._groupHashes.push(hash);
+    }
+};
+Entity.prototype.removeGroup = function (hash) {
+    let index = this._groupHashes.indexOf(hash);
+    if (index!==-1) {
+        this._groupHashes.splice(index,1);
+    }
+};
+
+
+
 Entity.prototype.clean = function () {
     this._dirty = false;
     this._removeMarks = [];
@@ -95,21 +110,12 @@ Entity.prototype.dirty = function () {
     if (this._dirty) {
         return;
     }
-    if (this._ecs._dirtyEntities.indexOf(this)===-1&&this._ecs._newEntities.indexOf(this)===-1) {
-        this._ecs._dirtyEntities.push(this);
-    }
-    this._ecs._dirty = true;
+    this._ecs.markDirtyEntity(this);
     this._dirty = true;
     if (this._ecs._server) {
         this._lastStep = this._step;
         this._step = this._ecs._tick;
     }
-    // if (this._ecs.isClient()) {
-    //     for (let i in this._components) {
-    //         let comp = this._components[i];
-    //         comp.dirty();
-    //     }
-    // }
 };
 
 Entity.prototype.markDirty = function (comp) {
@@ -460,6 +466,7 @@ Entity.prototype.snapshot = function (connData) {
     ret.addValue(nbt.Long(this._id));
     ret.addValue(nbt.Long(this._step));
     let components = nbt.List();
+    let toSyncComponents = [];
     for (let i in this._components) {
         if (!this._components.hasOwnProperty(i)) {
             continue;
@@ -468,6 +475,10 @@ Entity.prototype.snapshot = function (connData) {
         if (comp.nosync) {
             continue;
         }
+        toSyncComponents.push(comp);
+    }
+    components.sort(this.getECS._sortDepends);
+    for (let comp of toSyncComponents) {
         components.push(this.comp2NBT(comp,connData));
     }
     ret.addValue(components);
@@ -499,6 +510,17 @@ Object.defineProperty(Entity.prototype, 'entityAdmin', {
  */
 Entity.prototype.get = function (comp) {
 
+    if (ECSUtil.isArray(comp)) {
+        for (let comp_1 of comp) {
+            let name = ECSUtil.getComponentType(comp_1);
+            let ret = this._components[name];
+            if (ret) {
+                return ret;
+            }
+        }
+        logger.error('Entity:get:cant find comp',comp);
+        return null;
+    }
     let name = ECSUtil.getComponentType(comp);
     if (!name) {
         throw new Error('Component参数错误,可能未注册');
@@ -506,6 +528,24 @@ Entity.prototype.get = function (comp) {
     }
 
     return this._components[name];
+};
+Entity.prototype.forceAdd = function (comp) {
+    let args = [].slice.call(arguments);
+    args.splice(0, 1);
+    let type = ECSUtil.getComponentType(comp);
+    comp._entity = this;
+    if (args.length > 0) {
+        comp.__proto__.constructor.apply(comp, args);
+    }
+    this._components[type] = comp;
+    this.addMark(comp);
+    this._ecs.assignEntity(type, this);
+    comp.dirty();
+    this._ecs.markDirtyEntity(this);
+    this.getECS().emit('add component',comp,this,this._ecs);
+    this.emit('add component',comp,this,this._ecs);
+    return comp;
+
 };
 /**
  * 为Entity添加一个组件<Component>并初始化属性
@@ -521,7 +561,16 @@ Entity.prototype.add = function (comp) {
         logger.error('Component参数错误,可能未注册', comp);
         return null;
     }
+    if (this._ecs._needCheckDepends) {
+        let depends = this._ecs.getDepends(type);
+        for (let dependComp of depends) {
+            if (!this.get(dependComp)) {
+                throw new Error('component type <'+type+' > depends <'+dependComp+'> not found');
+            }
+        }
+    }
     comp = this.get(comp);
+
     let isApply = false;
     let isExist = false;
     if (comp) {
@@ -531,12 +580,15 @@ Entity.prototype.add = function (comp) {
         if (args.length > 0) {
             args = [type].concat(args);
             isApply = true;
-            comp = this._ecs.createComponent.apply(this._ecs, args);
+            comp = Reflect.apply(this._ecs.createComponent,this._ecs, args);
         } else {
 
             comp = this._ecs.createComponent(type);
         }
 
+    }
+    if (!comp) {
+        throw new Error('Component参数错误,可能未注册');
     }
     if (comp._entity&&comp._entity!==this) {
         logger.error('组件已经绑定有实体',comp,comp._entity);
@@ -547,11 +599,11 @@ Entity.prototype.add = function (comp) {
     }
     if (!isExist) {
         if (comp.isRenderer()) {
-            if (comp['onAdd']) {
+            if (comp.onAdd) {
                 this._ecs.lateAdd(comp);
             }
         } else {
-            if (comp['onAdd']) {
+            if (comp.onAdd) {
                 if (ECSUtil.getComponentType(comp)=='ControlButton') {
                     logger.debug('添加ControlButton组件');
                 }
@@ -563,6 +615,7 @@ Entity.prototype.add = function (comp) {
     this._components[type] = comp;
     this.addMark(comp);
     this._ecs.assignEntity(type, this);
+    this._ecs.markDirtyEntity(this);
     let renderer = comp.getRenderer();
     if (renderer) {
         this.add(renderer);
@@ -606,13 +659,24 @@ Entity.prototype.remove = function (comp) {
     }
     comp = this.get(comp);
     if (comp) {
+
+        if (this._ecs._needCheckDepends) {
+            let depends = this._ecs.getDependsBy(type);
+            if (depends)
+                for (let dependComp of depends) {
+                    if (!this.get(dependComp)) {
+                        throw new Error('component type <'+dependComp+' > depends <'+type+'> cannot remove now');
+                    }
+                }
+        }
+
         let renderer = comp.getRenderer();
         if (renderer) {
             this.remove(renderer);
         }
         this.getECS().emit('remove component',comp,this,this._ecs);
         this.emit('remove component',comp,this,this._ecs);
-        if (comp['onRemove']) {
+        if (comp.onRemove) {
             comp.onRemove(this, this._ecs);
         }
         comp._entity = null;
@@ -640,14 +704,17 @@ Entity.prototype.destroyInstant = function () {
  */
 Entity.prototype.onDestroy = function () {
     let keys = Object.keys(this._components);
+
+    keys.sort(this._ecs._sortDependsInverse.bind(this._ecs));
     for (let i = keys.length - 1; i >= 0; i--) {
         let comp = this._components[keys[i]];
-        comp._entity = null;
-        if (comp['onRemove']) {
+        if (comp.onRemove) {
             comp.onRemove(this, this._ecs);
         }
+        comp._entity = null;
         this._ecs.recycleComponent(comp);
     }
+    this._groupHashes = [];
     this._components = {};
 };
 

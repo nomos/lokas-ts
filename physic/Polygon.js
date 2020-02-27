@@ -4,16 +4,19 @@ class Polygon extends Component{
     static get defineName(){
         return 'Polygon';
     }
-    constructor(x = 0, y = 0, points = [], angle = 0, scale_x = 1, scale_y = 1, padding = 0){
+
+    static get defineDepends(){
+        return ['Position','Angle'].concat(super.defineDepends);
+    }
+
+    static get defineData(){
+        return {};
+    }
+
+    constructor(points = [],scale_x = 1, scale_y = 1, padding = 0){
         super();
-        this.x = x;
-        this.y = y;
-        this.angle = angle;
         this.scale_x = scale_x;
         this.scale_y = scale_y;
-        this._x = x;
-        this._y = y;
-        this._angle = angle;
         this._scale_x = scale_x;
         this._scale_y = scale_y;
         this.minX = 0;
@@ -28,6 +31,27 @@ class Polygon extends Component{
         this._dirty_normals = true;
         Polygon.prototype.setPoints.call(this, points);
     }
+
+    onAdd(ent,ecs) {
+        let cPos = this.getSibling('Position');
+        let cAngle = this.getSibling('Angle');
+        this._x = cPos.x;
+        this._y = cPos.y;
+        this._angle = cAngle.degree;
+    }
+
+    get angle(){return -this.getSibling('Angle').degree;}
+
+    set angle(degree){this.getSibling('Angle').degree = -degree;}
+
+    get x(){return this.getSibling('Position').x;}
+
+    set x(x){this.getSibling('Position').x = x;}
+
+    get y(){return this.getSibling('Position').y;}
+
+    set y(y){this.getSibling('Position').y = y;}
+
     setPoints(new_points) {
         const count = new_points.length;
 
@@ -114,25 +138,28 @@ class Polygon extends Component{
         this._dirty_coords  = false;
         this._dirty_normals = true;
     }
-    draw(context) {
+    draw(context,scale_x,scale_y) {
         if(this.getEntity().isDirty()) {
             this._calculateCoords();
         }
+        scale_x = scale_x||1;
+        scale_y = scale_y||scale_x||1;
+
 
         const coords = this._coords;
         if(coords.length === 2) {
-            context.moveTo(coords[0], coords[1]);
-            context.arc(coords[0], coords[1], 1, 0, Math.PI * 2);
+            context.moveTo(coords[0]*scale_x, coords[1]*scale_y);
+            context.arc(coords[0]*scale_x, coords[1]*scale_y, 1, 0, Math.PI * 2);
         }
         else {
-            context.moveTo(coords[0], coords[1]);
+            context.moveTo(coords[0]*scale_x, coords[1]*scale_y);
 
             for(let i = 2; i < coords.length; i += 2) {
-                context.lineTo(coords[i], coords[i + 1]);
+                context.lineTo(coords[i]*scale_x, coords[i + 1]*scale_y);
             }
 
             if(coords.length > 4) {
-                context.lineTo(coords[0], coords[1]);
+                context.lineTo(coords[0]*scale_x, coords[1]*scale_y);
             }
         }
     }

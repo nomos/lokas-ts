@@ -26,7 +26,7 @@ ComponentPool.prototype.create = function () {
     ret._ecs = this._ecs;
     this._component.prototype.constructor.apply(ret,args);
     ret._dirty = true;
-    if (ret['onCreate']) {
+    if (ret.onCreate) {
         ret.onCreate(this._ecs);
     }
     this._itemCount++;
@@ -37,7 +37,7 @@ ComponentPool.prototype.create = function () {
  */
 ComponentPool.prototype.popAndDestroy=function() {
     let comp = this._pool.pop();
-    if (comp['onDestroy']) {
+    if (comp.onDestroy) {
         comp.onDestroy(this._ecs);
     }
     this._itemCount--;

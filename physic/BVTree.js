@@ -339,12 +339,15 @@ class BVTree extends Component{
         }
 
     }
-    draw(context){
+    draw(context,scale_x,scale_y){
         this.traverse(function (branch) {
-            const min_x  = branch.minX;
-            const min_y  = branch.minY;
-            const max_x  = branch.maxX;
-            const max_y  = branch.maxY;
+
+            scale_x = scale_x||1;
+            scale_y = scale_y||scale_x||1;
+            const min_x  = branch.minX*scale_x;
+            const min_y  = branch.minY*scale_y;
+            const max_x  = branch.maxX*scale_x;
+            const max_y  = branch.maxY*scale_y;
             context.moveTo(min_x, min_y);
             context.lineTo(max_x, min_y);
             context.lineTo(max_x, max_y);

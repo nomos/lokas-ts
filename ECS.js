@@ -41,6 +41,7 @@ class ECS {
         this._index = 0;                            //实体<Entity>ID分配变量
         this._indexClient = 0;                      //实体<Entity>ID分配变量
         this._server = opt.server || false;           //客户端的ID从Max_Long开始自减,服务器的ID从0开始自增
+        this._needCheckDepends = opt.strict || false;
         this._enabled = false;
         this._ecsReadyDestroy = false;
 
@@ -77,6 +78,8 @@ class ECS {
         this._compCode = opt.compCode;      //是否加密组件名
         this.rendererMap = {};
         this.rendererArray = [];
+        this._dependsPair = {};
+        this._dependsPairInverse = {};
 
         this._commands = {};                //注册的命令组件
         this._commandQueueMaps = [];        //以命令名为键的队列
@@ -101,6 +104,50 @@ class ECS {
 }
 
 let pro=ECS.prototype;
+
+
+pro.addDepends = function (a,b) {
+    a = ECSUtil.getComponentType(a);
+    b = ECSUtil.getComponentType(b);
+    this._dependsPair[a] = this._dependsPair[a]||[];
+    this._dependsPair[a].push(b);
+    this._dependsPairInverse[b] = this._dependsPairInverse[b]||[];
+    this._dependsPairInverse[b].push(a);
+};
+
+pro.isDepend = function(a,b) {
+    a = ECSUtil.getComponentType(a);
+    b = ECSUtil.getComponentType(b);
+    return (this._dependsPair[a]||[]).indexOf(b)!==-1;
+};
+
+pro.getDependsBy = function (a) {
+    a = ECSUtil.getComponentType(a);
+    return this._dependsPairInverse[a]||[];
+};
+
+pro.getDepends = function (a) {
+    a = ECSUtil.getComponentType(a);
+    return this._dependsPair[a]||[];
+};
+
+pro._sortDepends = function (a,b) {
+    a = ECSUtil.getComponentType(a);
+    b = ECSUtil.getComponentType(b);
+    this._dependsPair[a] = this._dependsPair[a]||[];
+    if (this._dependsPair[a].indexOf(b)!==-1) {
+        return 1;
+    }
+    this._dependsPair[b] = this._dependsPair[b]||[];
+    if (this._dependsPair[b].indexOf(a)!==-1) {
+        return -1;
+    }
+    return 0;
+};
+
+pro._sortDependsInverse = function (a,b) {
+    return -this._sortDepends(a,b);
+};
 
 pro.getRoleString = function () {
     if (this.isClient()) {
@@ -185,6 +232,10 @@ pro.cleanBuffer = function () {
     for (let i=0; i<this._newEntities.length; i++) {
         this._newEntities[i].clean();
     }
+
+    for (let i in this._groups) {
+        this._groups[i].clean();
+    }
     this._dirtyComponents = [];
     this._dirtyEntities=[];
     this._newEntities=[];
@@ -246,7 +297,7 @@ pro.getState=function () {
 };
 
 pro.once=function (evt, cb) {
-    return this._eventListener.once(evt, cb)
+    return this._eventListener.once(evt, cb);
 };
 
 pro.on=function (evt, cb) {
@@ -905,10 +956,13 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
             NewComponent.prototype.__classname=name;
         }
     }
+
     if (!ECSUtil.isString(name)) {
         logger.error(this.getRoleString()+' 注册组件失败,组件名称为空');
         return;
     }
+
+
     ECSUtil.mountComponnet(NewComponent);
 
     let pool=this._componentPools[name];
@@ -920,6 +974,9 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
         pool._maxSize=Math.max(pool._maxSize, maxSize||0);
         pool._minSize=Math.max(pool._minSize, maxSize||0);
         return;
+    }
+    for (let depend of NewComponent.defineDepends) {
+        this.addDepends(name,depend);
     }
     if (NewComponent.prototype.onRegister) {
         NewComponent.prototype.onRegister(this);
@@ -961,6 +1018,9 @@ pro.registerSingleton=function (name, Component) {
     if (pool) {
         logger.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
         return;
+    }
+    for (let depend of NewComponent.defineDepends) {
+        this.addDepends(name,depend);
     }
     ECSUtil.mountComponnet(NewComponent);
     this._componentPools[name]=new ComponentSingleton(NewComponent, this);
@@ -1013,7 +1073,28 @@ pro.bindRenderer = function (compName,rendererName) {
 };
 
 pro.createSingleton = function(Component){
+    let name;
+    if (typeof Component==='string') {
+        name=Component;
+    } else if (Component.defineName) {
+        name=Component.defineName;
+    } else {
+        name=Component.getComponentName?Component.getComponentName():Component.prototype.__classname;
+    }
+    if (!this._componentPools[name]) {
+        logger.error(this.getRoleString()+' 单例组件:'+name+'不存在');
+        return;
+    }
 
+    let args = [].slice.call(arguments);
+    args.splice(0,1);
+    let comp=this._componentPools[name].get.apply(this._componentPools[name],args);
+    if (!comp._entity) {
+        let ent = this.createEntity();
+        ent.forceAdd(comp);
+        logger.debug(ent);
+    }
+    return comp;
 };
 
 //获取一个单例组件force强制创建
@@ -1101,6 +1182,9 @@ pro.removeEntityInstant=function (ent) {
     entity.onDestroy();
     entity=null;
     delete this._entityPool[id];
+    let decoy = this.createEntity(id);
+    this._toDestroyEntities.push(decoy);
+    this._toDestroyEntityIDs.push(id);
 };
 
 pro.removeEntity=function (ent) {
@@ -1160,15 +1244,12 @@ pro.createComponent=function (comp) {
 };
 
 /**
- * 找出包含该组件<Component>的集合<Group>并缓存到对象this._cachedGroups中
+ * 找出包含该组件<Component>的集合<Group>并缓存到this._cachedGroups中
  * @param comp <string>
  */
 pro.cacheGroups=function (comp) {
     let ret=[];
     for (let i in this._groups) {
-        if (!this._groups.hasOwnProperty(i)) {
-            continue;
-        }
         if (ECSUtil.includes(i, comp)) {
             ret.push(this._groups[i]);
         }
@@ -1186,6 +1267,7 @@ pro.assignEntity=function (comp, ent) {
     let cachedGroups=this._cachedGroups[comp] ? this._cachedGroups[comp]:this.cacheGroups(comp);
     for (let i=0; i<cachedGroups.length; i++) {
         cachedGroups[i].addEntity(ent);
+        cachedGroups[i].addDirtyEntity(ent);
     }
 };
 
@@ -1198,6 +1280,17 @@ pro.reassignEntity=function (comp, ent) {
     let cachedGroups=this._cachedGroups[comp] ? this._cachedGroups[comp]:this.cacheGroups(comp);
     for (let i=0; i<cachedGroups.length; i++) {
         cachedGroups[i].removeEntity(ent);
+        cachedGroups[i].removeDirtyEntity(ent);
+    }
+};
+
+pro.markDirtyEntity = function (ent) {
+    if (this._dirtyEntities.indexOf(ent)===-1&&this._newEntities.indexOf(ent)===-1) {
+        this._dirtyEntities.push(ent);
+    }
+    this._dirty = true;
+    for (let hash of ent._groupHashes) {
+        this._groups[hash].addDirtyEntity(ent);
     }
 };
 
@@ -1270,21 +1363,70 @@ pro.registerGroups=function (compGroups) {
         let hash = hashes[i];
         let group=this._groups[hash];
         if (!group) {
-            group=new Group(hashes[i]);
+            group=new Group(hash,this);
+            group._hash = hash;
             this._groups[hash]=group;
-        }
-        if (this._index>0) {
+            for (let i in this._cachedGroups) {
+                if (ECSUtil.includes(hash,i)) {
+                    if (this._cachedGroups[i].indexOf(group)===-1) {
+                        this._cachedGroups[i].push(group);
+                    }
+                }
+            }
             for (let i in this._entityPool) {
                 // if (!this._entityPool.hasOwnProperty(i)) {
                 //     continue;
                 // }
-                group.addEntity(this._entityPool[i]);
+                let ent = this._entityPool[i];
+                group.addEntity(ent);
+            }
+            for (let i in this._newEntities) {
+                // if (!this._entityPool.hasOwnProperty(i)) {
+                //     continue;
+                // }
+                let ent = this._newEntities[i];
+                group.addDirtyEntity(ent)
+            }
+            for (let i in this._dirtyEntities) {
+                // if (!this._entityPool.hasOwnProperty(i)) {
+                //     continue;
+                // }
+                let ent = this._dirtyEntities[i];
+                group.addDirtyEntity(ent)
             }
         }
+        // if (this._index>0) {
+        //
+        // }
         groups.push(group);
     }
     return groups;
 };
+
+pro.getGroup = function(name){
+    if (!ECSUtil.isArray(name)) {
+        name = [].concat(name);
+    }
+    return this.registerGroups(name);
+};
+
+pro.getEntities = function(name){
+    let groups = this.getGroup.apply(this,arguments);
+    let ret = [];
+    for (let j=0;j<groups.length;j++) {
+        let group = groups[j];
+        for (let i = 0; i < group._entityIndexes.length; i++) {
+            let id = group._entityIndexes[i];
+            let ent = this._entityPool[id];
+            if (!ent || ent._onDestroy) {
+                continue;
+            }
+            ret.push(ent);
+        }
+    }
+    return ret;
+}
+
 /**
  * 注册系统到<ECS>
  * @param system
@@ -1311,7 +1453,7 @@ pro.registerSystem=function (system) {
         return;
     }
 
-    sys.groups = this.registerGroups(sys.components);
+    // sys.groups = this.registerGroups(sys.components);
 
     sys.onRegister&&sys.onRegister(this);
     if (sys.enabled) {
@@ -1323,22 +1465,22 @@ pro.registerSystem=function (system) {
     this._systemIndexes[sys.name]=this._systems.length;
     this._systems.push(sys);
     let desc=sys.desc&&ECSUtil.isString(sys.desc) ? "\n"+"说明: "+sys.desc:'';
-    if (!sys.components||sys.components.length===0) {
-        logger.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
-        sys.components=[];
-    }
-    let hashs=this.hashGroups(sys.components);
-    let compstr='监听组件:';
-    for (let i=0; i<hashs.length; i++) {
-        compstr+='{';
-        for (let j=0;j<hashs[i].length;j++) {
-            compstr+='[';
-            compstr+=hashs[i][j];
-            compstr+=']';
-        }
-        compstr+='}';
-    }
-    logger.info(this.getRoleString()+"\n添加系统: "+sys.name+" 优先级: "+(sys.priority ? sys.priority:0)+" 添加次序: "+sys._addOrder+desc+'\n'+compstr);
+    // if (!sys.components||sys.components.length===0) {
+    //     logger.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
+    //     sys.components=[];
+    // }
+    // let hashs=this.hashGroups(sys.components);
+    // let compstr='监听组件:';
+    // for (let i=0; i<hashs.length; i++) {
+    //     compstr+='{';
+    //     for (let j=0;j<hashs[i].length;j++) {
+    //         compstr+='[';
+    //         compstr+=hashs[i][j];
+    //         compstr+=']';
+    //     }
+    //     compstr+='}';
+    // }
+    logger.info(this.getRoleString()+"\n添加系统: "+sys.name+" 优先级: "+(sys.priority ? sys.priority:0)+" 添加次序: "+sys._addOrder+desc);
     this.sortSystems();
 };
 

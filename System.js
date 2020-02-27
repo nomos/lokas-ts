@@ -1,8 +1,7 @@
 class System {
     constructor(ecs,opt){
-        this.ecs = ecs;
+        this._ecs = ecs;
         this.type = 'system';
-        this.components = [];
         this.enabled = true;
         this.lastUpdateTime = 0;
         this.priority = 0;
@@ -13,15 +12,8 @@ class System {
             this.name = opt.name||this.name;
             this.updateTime = opt.updateTime||opt.interval;
             this.priority = opt.priority||0;
-            this.components = opt.components||[];
-            this.updateHandler = opt.updateHandler||this.updateHandler;
-            this.beforeUpdate = opt.beforeUpdate||this.beforeUpdate;
             this.update = opt.update||this.update;
-            this.afterUpdate = opt.afterUpdate||this.afterUpdate;
-            this.beforeLateUpdate = opt.beforeLateUpdate||this.beforeLateUpdate;
             this.lateUpdate = opt.lateUpdate||this.lateUpdate;
-            this.afterLateUpdate = opt.afterLateUpdate||this.afterLateUpdate;
-            this.sysUpdate = opt.sysUpdate||this.sysUpdate;
             this.onRegister = opt.onRegister||this.onRegister;
             this.stateOnly = opt.stateOnly||'';
             this.onState = opt.onState||this.onState;
@@ -29,20 +21,20 @@ class System {
         }
     }
 
+    setAddOrder(order) {
+        this._addOrder = order;
+    }
+
     getECS(){
-        return this.ecs;
+        return this._ecs;
     }
 
-    onEnable(ecs){
-
+    isClient(){
+        return this._ecs.isClient();
     }
 
-    onDisable(ecs){
-
-    }
-
-    update(dt,now,ecs) {
-
+    isServer(){
+        return !this.isClient();
     }
 
     onEnable(ecs){
@@ -57,91 +49,46 @@ class System {
 
     }
 
-    updateHandler(dt,now,ecs){
-        if (!this.update) {
-            return;
-        }
-        for (let j=0;j<this.groups.length;j++) {
-            let group = this.groups[j];
-            for (let i=0;i<group._entityIndexes.length;i++) {
-                let id = group._entityIndexes[i];
-                let ent = group._entities[id];
-                //FIXME:这里临时处理
-                if (!ent || ent._onDestroy) {
-                    continue;
-                }
-                this.update(ent, dt, now, ecs);
-            }
-        }
+    onState(now,ecs) {
+
     }
 
-    getEntities(){
+    offState(now,ecs) {
+
+    }
+
+    update(dt,now,ecs) {
+
+    }
+
+    getEntities(name){
+        let groups = this.getECS().getGroup.apply(this.getECS(),arguments);
         let ret = [];
-        for (let j=0;j<this.groups.length;j++) {
-            let group = this.groups[j];
+        for (let j=0;j<groups.length;j++) {
+            let group = groups[j];
             for (let i = 0; i < group._entityIndexes.length; i++) {
                 let id = group._entityIndexes[i];
-                let ent = group._entities[id];
+                let ent = this._ecs._entityPool[id];
                 if (!ent || ent._onDestroy) {
                     continue;
                 }
                 ret.push(ent);
-
             }
         }
         return ret;
     }
 
-
-    lateUpdateHandler(dt,now,ecs){
-        if (!this.lateUpdate) {
-            return;
+    getDirtyEntities(name){
+        let groups = this.getECS().getGroup.apply(this.getECS(),arguments);
+        let ret = [];
+        for (let j=0;j<groups.length;j++) {
+            let group = groups[j];
+            ret = ret.concat(group._dirtyEntities);
         }
-        for (let j=0;j<this.groups.length;j++) {
-            let group = this.groups[j];
-            for (let i=0;i<group._entityIndexes.length;i++) {
-                let id = group._entityIndexes[i];
-                let ent = group._entities[id];
-                //FIXME:这里临时处理
-                if (!ent || ent._onDestroy) {
-                    continue;
-                }
-                this.lateUpdate(ent, dt, now, ecs);
-            }
-        }
+        return ret;
     }
 
-    sysUpdate(dt, now, ecs){}
-
-    sysLateUpdate(dt, now, ecs){}
-
-    beforeUpdate(dt, now, ecs){}
-
-    afterUpdate(dt, now, ecs){}
-
-    beforeLateUpdate(dt, now, ecs){}
-
-    afterLateUpdate(dt, now, ecs){}
-
-    onRegister(ecs){}
-
-    setAddOrder(order) {
-        this._addOrder = order;
-    }
-
-    getSize() {
-        let num=0;
-        for (let i=0;i<this.groups.length;i++) {
-            num+=this.groups[i]._entityIndexes.length;
-        }
-        return num;
-    }
-
-    isEmpty() {
-        return this.getSize() === 0;
-    }
-
-    calUpdate(sysUpdateTime,now,ecs) {
+    calUpdate(sysUpdateTime,now) {
         if (!this.enabled) {
             return [];
         }
@@ -157,18 +104,10 @@ class System {
         return ret;
     }
 
-    onState(now,ecs) {
-
-    }
-
-    offState(now,ecs) {
-
-    }
-
     doOnState(now,ecs) {
         if (this.enabled) {
             let self = this;
-            this.ecs.once('_afterUpdate',function () {
+            this._ecs.once('_afterUpdate',function () {
                 self.onState(now, ecs);
             });
         }
@@ -177,7 +116,7 @@ class System {
     doOffState(now,ecs) {
         if (this.enabled) {
             let self = this;
-            this.ecs.once('_afterUpdate',function () {
+            this._ecs.once('_afterUpdate',function () {
                 self.offState(now, ecs);
             });
         }
@@ -190,30 +129,16 @@ class System {
             }
         }
         ecs.updateCommands();
-        this.beforeUpdate(dt, now, this.ecs);
-        this.sysUpdate(dt, now, this.ecs);
-        if (this.groups.length===0) {
-            this.update(dt, now, this.ecs);
-            return;
-        }
-        this.updateHandler(dt, now, this.ecs);
-        this.afterUpdate(dt, now, this.ecs);
+        this.update(dt, now, this._ecs);
     }
 
     doLateUpdates(dt,now,ecs) {
         if (this.stateOnly) {
             if (this.stateOnly!==ecs.getState()) {
-                return ;
+                return;
             }
         }
-        this.beforeLateUpdate(dt, now, this.ecs);
-        this.sysLateUpdate(dt, now, this.ecs);
-        if (this.groups.length===0) {
-            this.lateUpdate(dt, now, this.ecs);
-            return;
-        }
-        this.lateUpdateHandler(dt, now, this.ecs);
-        this.afterLateUpdate(dt, now, this.ecs);
+        this.lateUpdate(dt, now, this._ecs);
     }
 }
 

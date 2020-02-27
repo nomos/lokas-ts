@@ -20,6 +20,7 @@ class Collider extends Rect{
         this.world = null;      //层次包围盒世界节点
         this.contacts = [];
         this.collideCount = 0;
+        this.isCollide = false;
     }
     addContact(entity,contact){
         if (this.contacts[entity.id]) {
@@ -83,7 +84,7 @@ class Collider extends Rect{
         if (!contact) return;
         contact = contact.get('Contact');
         if (!contact) return;
-        return contact.getCollider(this.entity);
+        return contact.getCollider(this.getEntity());
     }
     removeContact(id){
         let contact = this.contacts[id];

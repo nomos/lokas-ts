@@ -4,10 +4,8 @@ class Point extends Polygon{
     static get defineName(){
         return 'Point';
     }
-    constructor(x=0,y=0){
-        super(x,y,[[0,0]],0,1,1);
-        this.x = x;
-        this.y = y;
+    constructor(){
+        super([[0,0]],0,1,1);
     }
 }
 

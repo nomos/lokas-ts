@@ -1,26 +1,41 @@
 class Component {
+
+    /**
+     * @returns {Array}
+     */
+    static get defineDepends() {
+        return [];
+    }
+
+    get defineDepends() {
+        return this.__proto__.constructor.defineDepends;
+    }
+
     /**
      * @returns {string}
      */
-    static get defineName(){
+    static get defineName() {
         return 'Component';
     }
 
     /**
      * @returns {string}
      */
-    get defineName(){
+    get defineName() {
         return this.__proto__.constructor.defineName;
     }
-    constructor(){
-        this._ecs = this._ecs||null;
+
+    constructor() {
+        this._ecs = this._ecs || null;
         this._dirty = true;
         this._entity = null;
     }
-    static get defineData(){
+
+    static get defineData() {
         return {};
     }
-    get defineData(){
+
+    get defineData() {
         return this.__proto__.constructor.defineData;
     }
 
@@ -34,7 +49,7 @@ class Component {
     /**
      * @param {String|Component}comp
      */
-    getSibling(comp){
+    getSibling(comp) {
         if (this._entity) {
             return this._entity.get(comp);
         }
@@ -43,7 +58,7 @@ class Component {
     /**
      * @param {Entity}ent
      */
-    setEntity(ent){
+    setEntity(ent) {
         this._entity = ent;
     }
 
@@ -51,26 +66,27 @@ class Component {
      * 是否是客户端
      * @returns {Boolean}
      */
-    isClient(){
+    isClient() {
         return this._ecs.isClient();
     }
 
     /**
      * @returns {Entity}
      */
-    getEntity(){
+    getEntity() {
         return this._entity;
     }
 
     /**
      * @returns {ECS}
      */
-    getECS(){
+    getECS() {
         return this._ecs;
     }
-    dirty(){
+
+    dirty() {
         this._dirty = true;
-        this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
+        this.onDirty && this.onDirty(this._entity, this._entity._ecs);
         if (this.isClient()) {
 
             if (this.updateView) {
@@ -79,38 +95,38 @@ class Component {
             let renderer = this.getRenderer();
             if (renderer) {
                 let renderComp = this.getSibling(renderer);
-                renderComp&&renderComp.dirty();
+                renderComp && renderComp.dirty();
             }
         }
         if (this._entity) {
             this._entity.markDirty(this);
         }
-        if (this._ecs&&this._ecs._dirtyComponents.indexOf(this)===-1) {
+        if (this._ecs && this._ecs._dirtyComponents.indexOf(this) === -1) {
             this._ecs._dirtyComponents.push(this);
         }
     }
 
-    isDirty(){
+    isDirty() {
         return this._dirty;
     }
 
-    clean(){
+    clean() {
         this._dirty = false;
     }
 
-    getRenderer(){
+    getRenderer() {
         return this.getECS().getComponentRenderer(this);
     }
 
-    isRenderer(){
-        return this.getECS().rendererArray.indexOf(this.getComponentName())!==-1;
+    isRenderer() {
+        return this.getECS().rendererArray.indexOf(this.getComponentName()) !== -1;
     };
 
     /**
      * @param {Entity}ent
      * @param {ECS}ecs
      */
-    onAdd(ent,ecs){
+    onAdd(ent, ecs) {
 
     }
 
@@ -118,7 +134,7 @@ class Component {
      * @param {Entity}ent
      * @param {ECS}ecs
      */
-    onRemove(ent,ecs) {
+    onRemove(ent, ecs) {
 
     }
 
@@ -126,7 +142,7 @@ class Component {
      * @param {Entity}ent
      * @param {ECS}ecs
      */
-    onDirty(ent,ecs) {
+    onDirty(ent, ecs) {
 
     }
 

@@ -4,7 +4,9 @@ const ECSUtil = require('./ECSUtil');
  * @param compGroup
  * @constructor
  */
-const Group = function (compGroup) {
+const Group = function (compGroup,ecs) {
+    this._hash = [];
+    this._ecs = ecs;
     this._componentTypes=[];
     for (let i=0;i<compGroup.length;i++) {
         let comp = compGroup[i];
@@ -14,8 +16,31 @@ const Group = function (compGroup) {
         this._componentTypes.push(ECSUtil.getComponentType(comp));
     }
     this._componentTypes.sort();
-    this._entities = {};
     this._entityIndexes = [];
+    this._dirtyEntities = [];
+};
+
+Group.prototype.addDirtyEntity=function (ent) {
+    if (ent._groupHashes.indexOf(this._hash)===-1) {
+        return;
+    }
+    let index = this._dirtyEntities.indexOf(ent);
+    if (index===-1) {
+        this._dirtyEntities.push(ent);
+    }
+};
+
+Group.prototype.removeDirtyEntity=function (ent) {
+    let index = this._dirtyEntities.indexOf(ent);
+    if (index!==-1) {
+        this._dirtyEntities.splice(index,1);
+    }
+};
+
+
+
+Group.prototype.clean = function(){
+    this._dirtyEntities = [];
 };
 /**
  * 尝试往集合<Group>中添加一个实体<Entity>(只有包含集合<Group>中所有组件<Component>类型的实体<Entity>会被添加到Group中)
@@ -24,9 +49,43 @@ const Group = function (compGroup) {
 Group.prototype.addEntity=function (ent) {
     if (ent.includes(this._componentTypes)) {
         if (!this.hasEntity(ent)) {
-            this._entities[ent.id]=ent;
+            ent.addGroup(this._hash);
             this._entityIndexes.push(ent.id);
         }
+    }
+};
+/**
+ * 尝试立即移除一个实体<Entity>
+ * @param {Entity}ent
+ */
+Group.prototype.removeEntity=function (ent) {
+    //如果实体中不包含集合的组件,提前跳出
+    if (!ent.includes(this._componentTypes)){
+        return;
+    }
+    if (this._entityIndexes) {
+        ent.removeGroup(this._hash);
+        ECSUtil.remove(this._entityIndexes,function (n) {
+            return n===ent.id;
+        });
+    }
+};
+/**
+ * 移除一个实体<Entity>ID队列,通常在每一帧更新的最后做
+ * @param {Array<Number>}arr
+ */
+Group.prototype.removeEntityArray=function (arr) {
+    let removeArr = [];
+    for (let i=0;i<arr.length;i++) {
+        if (arr[i].includes(this._componentTypes)){
+            removeArr.push(arr[i].id);
+        }
+    }
+    for (let i=0;i<removeArr.length;i++) {
+        let id = removeArr[i];
+        ECSUtil.remove(this._entityIndexes,function (n) {
+            return n===id;
+        });
     }
 };
 /**
@@ -36,7 +95,8 @@ Group.prototype.addEntity=function (ent) {
  */
 Group.prototype.hasEntity=function (ent) {
     let id = ent.id;
-    return this._entities[id];
+    let index = this._entityIndexes.indexOf(id);
+    return index!==-1;
 };
 /**
  * 检查集合<Group>中是否有这个实体<Entity>ID
@@ -44,14 +104,15 @@ Group.prototype.hasEntity=function (ent) {
  * @returns {*}
  */
 Group.prototype.hasEntityByID=function (id) {
-    return this._entities[id];
+    let index = this._entityIndexes.indexOf(id);
+    return index!==-1;
 };
 
 Group.prototype.getEntities = function () {
     let ret = [];
     for (let i=0;i<this._entityIndexes.length;i++) {
         let id = this._entityIndexes[i];
-        let ent = this._entities[id];
+        let ent = this._ecs._entityPool[id];
         if (!ent) {
             throw new Error('entity must not be null');
         }
@@ -68,42 +129,7 @@ Group.prototype.getSingletonEntity = function () {
     if (id ===undefined) {
         return;
     }
-    return this._entities[id];
-};
-/**
- * 移除一个实体<Entity>ID队列,通常在每一帧更新的最后做
- * @param {Array<Number>}arr
- */
-Group.prototype.removeEntityArray=function (arr) {
-    let removeArr = [];
-    for (let i=0;i<arr.length;i++) {
-        if (arr[i].includes(this._componentTypes)){
-            removeArr.push(arr[i].id);
-        }
-    }
-    for (let i=0;i<removeArr.length;i++) {
-        delete this._entities[removeArr[i]];
-        let id = removeArr[i];
-        ECSUtil.remove(this._entityIndexes,function (n) {
-            return n===id;
-        });
-    }
-};
-/**
- * 尝试立即移除一个实体<Entity>
- * @param {Entity}ent
- */
-Group.prototype.removeEntity=function (ent) {
-    //如果实体中不包含集合的组件,提前跳出
-    if (!ent.includes(this._componentTypes)){
-        return;
-    }
-    delete this._entities[ent.id];
-    if (this._entityIndexes) {
-        ECSUtil.remove(this._entityIndexes,function (n) {
-            return n===ent.id;
-        });
-    }
+    return this._ecs._entityPool[id];
 };
 /**
  * 检查集合<Group>是否包含该类型的组件<Component>,接受多个参数
