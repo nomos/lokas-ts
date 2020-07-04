@@ -1,6 +1,6 @@
 "use strict";
 
-const logger = require('../logger/Logger')||console;
+const log = require('../log/Logger')||console;
 const ECSUtil = require('./ECSUtil');
 const nbt = require('./binary/nbt');
 const EventEmitter = require('./event-emmiter');
@@ -518,7 +518,7 @@ Entity.prototype.get = function (comp) {
                 return ret;
             }
         }
-        logger.error('Entity:get:cant find comp',comp);
+        log.error('Entity:get:cant find comp',comp);
         return null;
     }
     let name = ECSUtil.getComponentType(comp);
@@ -558,7 +558,7 @@ Entity.prototype.add = function (comp) {
     args.splice(0, 1);
     let type = ECSUtil.getComponentType(comp);
     if (!type) {
-        logger.error('Component参数错误,可能未注册', comp);
+        log.error('Component参数错误,可能未注册', comp);
         return null;
     }
     if (this._ecs._needCheckDepends) {
@@ -575,7 +575,7 @@ Entity.prototype.add = function (comp) {
     let isExist = false;
     if (comp) {
         isExist = true;
-        logger.error('已经存在Component:' + type);
+        log.error('已经存在Component:' + type);
     } else {
         if (args.length > 0) {
             args = [type].concat(args);
@@ -591,7 +591,7 @@ Entity.prototype.add = function (comp) {
         throw new Error('Component参数错误,可能未注册');
     }
     if (comp._entity&&comp._entity!==this) {
-        logger.error('组件已经绑定有实体',comp,comp._entity);
+        log.error('组件已经绑定有实体',comp,comp._entity);
     }
     comp._entity = this;
     if (args.length > 0 && !isApply) {
@@ -605,7 +605,7 @@ Entity.prototype.add = function (comp) {
         } else {
             if (comp.onAdd) {
                 if (ECSUtil.getComponentType(comp)=='ControlButton') {
-                    logger.debug('添加ControlButton组件');
+                    log.debug('添加ControlButton组件');
                 }
                 comp.onAdd(this, this._ecs);
             }
@@ -654,7 +654,7 @@ Entity.prototype.isComponentDirty = function (compName) {
 Entity.prototype.remove = function (comp) {
     let type = ECSUtil.getComponentType(comp);
     if (!type) {
-        logger.error('Component参数错误');
+        log.error('Component参数错误');
         return;
     }
     comp = this.get(comp);
@@ -686,7 +686,7 @@ Entity.prototype.remove = function (comp) {
         delete this._components[type];
         return;
     }
-    logger.error('组件不存在');
+    log.error('组件不存在');
 };
 /**
  * 标记一个实体<Entity>为删除状态

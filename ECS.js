@@ -5,7 +5,7 @@ const System=require('./System');
 const Connection = require('./Connection');
 const ComponentPool=require('./ComponentPool');
 const ComponentSingleton=require('./ComponentSingleton');
-const logger=require('../logger/Logger')||console;
+const log=require('../log/Logger')||console;
 const Timer=require('./ECSTimer');
 const nbt=require('./binary/nbt');
 const EventEmitter=require('./event-emmiter');
@@ -501,11 +501,11 @@ pro.syncToClient=function (curStep) {
     //获取step之后的所有steps
     let toSyncStepsIndex=this._steps.indexOf(curStep);
     if (toSyncStepsIndex=== -1) {
-        logger.error('客户端超过Step限制');
+        log.error('客户端超过Step限制');
     }
     let length=this._steps.length;
     if (toSyncStepsIndex===length-1) {
-        // logger.debug('客户端已经是最新',curStep);
+        // log.debug('客户端已经是最新',curStep);
     }
     let toSyncSteps=[];
     for (let i=toSyncStepsIndex+1; i<length; i++) {
@@ -531,7 +531,7 @@ pro.syncFromServer=function (buff) {
     }
     this.alSize=this.alSize||0;
     this.alSize+=buff.length;
-    logger.log('总发送字节数', this.alSize/1000.0+'k');
+    log.log('总发送字节数', this.alSize/1000.0+'k');
     let nbtdata=nbt.readFromBuffer(buff);
     if (!nbtdata||this._step===nbtdata.at(1).value.toNumber()) {
         return;
@@ -548,7 +548,7 @@ pro.syncFromServer=function (buff) {
 
 pro.getNearestSnapshot=function (curStep) {
     if (!this._snapshotSteps.length) {
-        logger.error('服务器未初始化');
+        log.error('服务器未初始化');
         return 0;
     }
     if (this._snapshotSteps.length===1) {
@@ -557,7 +557,7 @@ pro.getNearestSnapshot=function (curStep) {
     for (let i=this._snapshotSteps.length-1; i>=0; i--) {
         let step=this._snapshotSteps[i];
         if (curStep>=step) {
-            logger.error('错误,超出最大限制');
+            log.error('错误,超出最大限制');
         }
         if (step>curStep) {
             return step;
@@ -579,7 +579,7 @@ pro.getConnectionNum = function () {
 
 pro.addConnection = function (uid) {
     if (this.getConnection(uid)) {
-        logger.error('已存在连接',uid);
+        log.error('已存在连接',uid);
         return;
     }
     this._connections[uid] = new Connection(uid,this);
@@ -668,7 +668,7 @@ pro.rSyncFromServer=function (buff) {
     let nbtdata=nbt.readFromBuffer(buff);
     //TODO:临时赋值
     this.lastSync = nbtdata;
-    // logger.debug('总发送字节数', this.alSize/1000.0+'k',nbtdata.at(4).toJSON());
+    // log.debug('总发送字节数', this.alSize/1000.0+'k',nbtdata.at(4).toJSON());
     this.setComponentDefinesFromNbt(nbtdata.at(1));
     let compHash = nbtdata.at(0).value;
     if (compHash!==this._componentDefineHash) {
@@ -708,10 +708,10 @@ pro.rSyncFromServer=function (buff) {
 pro.rPushToClient = function (uid) {
     let conn = this.getConnection(uid);
     if (!conn) {
-        logger.error('Connection is not exist:',uid);
+        log.error('Connection is not exist:',uid);
     }
     if (conn.step > this._step) {
-        logger.error('Client Step Error');
+        log.error('Client Step Error');
         return;
     }
     //帧号相等,不需要更新
@@ -745,7 +745,7 @@ pro.rSyncToClient=function (buff,uid) {
     //获取客户端的step
     let conn = this.getConnection(uid);
     if (!conn) {
-        logger.error('player not exist',uid);
+        log.error('player not exist',uid);
         return;
     }
     let nbtdata=nbt.readFromBuffer(buff);
@@ -828,7 +828,7 @@ pro.getRSyncData = function (curStep,clientData,connection) {
  */
 pro.loadModule=function (mod) {
     if (!mod.name) {
-        logger.error('载入失败,模组没有名字', mod);
+        log.error('载入失败,模组没有名字', mod);
         return;
     }
     if (mod.onLoad) {
@@ -837,9 +837,9 @@ pro.loadModule=function (mod) {
             str+='\n';
             str+=mod.desc;
         }
-        logger.log(str);
+        log.log(str);
         mod.onLoad(this);
-        logger.log('模组:'+mod.name+'载入结束------\n');
+        log.log('模组:'+mod.name+'载入结束------\n');
     }
     this._modules[mod.name]={
         name:mod.name,
@@ -858,7 +858,7 @@ pro.reloadModules=function () {
 pro.unloadModule=function (name) {
     let mod=this._modules[name];
     if (!mod) {
-        logger.error('模组 '+name+' 未找到');
+        log.error('模组 '+name+' 未找到');
         return;
     }
     if (mod.unload) {
@@ -907,7 +907,7 @@ pro.processCommand=function (cmd) {
     if (cmdClass) {
         return new this._commands[cmd.task](cmd);
     } else {
-        logger.error('命令格式错误或者未注册',cmd);
+        log.error('命令格式错误或者未注册',cmd);
     }
 };
 
@@ -915,7 +915,7 @@ pro.processCommand=function (cmd) {
 pro.receiveCommand=function (cmd) {
     cmd=this.processCommand(cmd);
     if (!cmd) {
-        logger.error('command is nil');
+        log.error('command is nil');
         return;
     }
     this._commandQueueMaps.push(cmd);
@@ -932,7 +932,7 @@ pro.receiveCommand=function (cmd) {
 pro.registerComponent=function (name, Component, maxSize, minSize) {
     let NewComponent;
     if (!name) {
-        logger.error('名称或组件不存在');
+        log.error('名称或组件不存在');
     }
     if (typeof name!=='string') {
         minSize=maxSize;
@@ -958,7 +958,7 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
     }
 
     if (!ECSUtil.isString(name)) {
-        logger.error(this.getRoleString()+' 注册组件失败,组件名称为空');
+        log.error(this.getRoleString()+' 注册组件失败,组件名称为空');
         return;
     }
 
@@ -970,7 +970,7 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
     maxSize=(maxSize&&maxSize>0) ? maxSize:100;
     minSize=(minSize&&minSize>0) ? minSize:10;
     if (pool) {
-        logger.warn(this.getRoleString()+' 已存在组件:'+name+',不重新注册组件');
+        log.warn(this.getRoleString()+' 已存在组件:'+name+',不重新注册组件');
         pool._maxSize=Math.max(pool._maxSize, maxSize||0);
         pool._minSize=Math.max(pool._minSize, maxSize||0);
         return;
@@ -982,7 +982,7 @@ pro.registerComponent=function (name, Component, maxSize, minSize) {
         NewComponent.prototype.onRegister(this);
     }
     this._componentPools[name]=new ComponentPool(NewComponent, maxSize, minSize, this);
-    logger.info(this.getRoleString()+" 注册组件池:"+name+" 成功,最小保留对象数:"+minSize+" 最大对象数:"+maxSize);
+    log.info(this.getRoleString()+" 注册组件池:"+name+" 成功,最小保留对象数:"+minSize+" 最大对象数:"+maxSize);
 
     this.setComponentDefine(name);
 };
@@ -1016,7 +1016,7 @@ pro.registerSingleton=function (name, Component) {
 
     let pool=this._componentPools[name];
     if (pool) {
-        logger.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
+        log.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
         return;
     }
     for (let depend of NewComponent.defineDepends) {
@@ -1047,7 +1047,7 @@ pro.registerSingleton=function (name, Component) {
             this._entity.markDirty(this);
         }
     };
-    logger.info(this.getRoleString()+" 注册组件单例:"+name+" 成功");
+    log.info(this.getRoleString()+" 注册组件单例:"+name+" 成功");
 };
 
 pro.addRenderQueue = function (comp) {
@@ -1082,7 +1082,7 @@ pro.createSingleton = function(Component){
         name=Component.getComponentName?Component.getComponentName():Component.prototype.__classname;
     }
     if (!this._componentPools[name]) {
-        logger.error(this.getRoleString()+' 单例组件:'+name+'不存在');
+        log.error(this.getRoleString()+' 单例组件:'+name+'不存在');
         return;
     }
 
@@ -1092,7 +1092,7 @@ pro.createSingleton = function(Component){
     if (!comp._entity) {
         let ent = this.createEntity();
         ent.forceAdd(comp);
-        logger.debug(ent);
+        log.debug(ent);
     }
     return comp;
 };
@@ -1112,7 +1112,7 @@ pro.getSingleton=function (Component, force) {
         name=Component.getComponentName?Component.getComponentName():Component.prototype.__classname;
     }
     if (!this._componentPools[name]) {
-        logger.error(this.getRoleString()+' 单例组件:'+name+'不存在');
+        log.error(this.getRoleString()+' 单例组件:'+name+'不存在');
         return;
     }
     // if (args.length > 0) {
@@ -1168,7 +1168,7 @@ pro.removeEntityInstant=function (ent) {
         entity=this._entityPool[ent];
     }
     if (!entity) {
-        //logger.error('Entity不存在');
+        //log.error('Entity不存在');
         return;
     }
     let id=entity.id;
@@ -1193,7 +1193,7 @@ pro.removeEntity=function (ent) {
         entity=this._entityPool[ent];
     }
     if (!entity) {
-        //logger.error('Entity不存在');
+        //log.error('Entity不存在');
         return;
     }
     this._dirty=true;
@@ -1213,12 +1213,12 @@ pro.getComponentPrototype = function (name) {
 pro.getComponentPool=function (comp) {
     let name=ECSUtil.getComponentType(comp);
     if (!name) {
-        logger.error(this.getRoleString()+' 组件错误或未注册',comp);
+        log.error(this.getRoleString()+' 组件错误或未注册',comp);
         return;
     }
     let pool=this._componentPools[name];
     if (!pool) {
-        logger.error(this.getRoleString()+' ComponentPool:'+name+'不存在');
+        log.error(this.getRoleString()+' ComponentPool:'+name+'不存在');
         return null;
     }
     return pool;
@@ -1239,7 +1239,7 @@ pro.createComponent=function (comp) {
         }
         return pool.get();
     }
-    logger.error(this.getRoleString()+' 参数出错');
+    log.error(this.getRoleString()+' 参数出错');
     return null;
 };
 
@@ -1449,7 +1449,7 @@ pro.registerSystem=function (system) {
     }
 
     if (!sys.name) {
-        logger.error(this.getRoleString()+' System无名称不合法', sys, sys.name);
+        log.error(this.getRoleString()+' System无名称不合法', sys, sys.name);
         return;
     }
 
@@ -1466,7 +1466,7 @@ pro.registerSystem=function (system) {
     this._systems.push(sys);
     let desc=sys.desc&&ECSUtil.isString(sys.desc) ? "\n"+"说明: "+sys.desc:'';
     // if (!sys.components||sys.components.length===0) {
-    //     logger.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
+    //     log.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
     //     sys.components=[];
     // }
     // let hashs=this.hashGroups(sys.components);
@@ -1480,7 +1480,7 @@ pro.registerSystem=function (system) {
     //     }
     //     compstr+='}';
     // }
-    logger.info(this.getRoleString()+"\n添加系统: "+sys.name+" 优先级: "+(sys.priority ? sys.priority:0)+" 添加次序: "+sys._addOrder+desc);
+    log.info(this.getRoleString()+"\n添加系统: "+sys.name+" 优先级: "+(sys.priority ? sys.priority:0)+" 添加次序: "+sys._addOrder+desc);
     this.sortSystems();
 };
 
@@ -1566,7 +1566,7 @@ pro.update=function (dt) {
     for (let i in this._componentPools) {
         this._componentPools[i].update(dt);
     }
-    // logger.debug('entity:'+this._entityCount+' component:'+this.getComponentCount());
+    // log.debug('entity:'+this._entityCount+' component:'+this.getComponentCount());
 };
 
 pro.getComponentCount=function () {
@@ -1609,7 +1609,7 @@ pro.lateUpdate=function () {
 };
 
 pro.destroy=function (cb) {
-    logger.debug('ECS destroy');
+    log.debug('ECS destroy');
     this.cleanBuffer&&this.cleanBuffer();
     this._enabled=false;
     this.onDisable&&this.onDisable();
@@ -1663,11 +1663,11 @@ pro.schedule=function (name, callback, interval, repeat, delay) {
         name=this.scheduleId;
     }
     if (callback<0) {
-        logger.error(this.getRoleString()+' 参数为空');
+        log.error(this.getRoleString()+' 参数为空');
         throw Error;
     }
     if (interval<0) {
-        logger.error(this.getRoleString()+' 时间间隔不能小于0');
+        log.error(this.getRoleString()+' 时间间隔不能小于0');
         throw Error;
     }
 
@@ -1691,7 +1691,7 @@ pro.unschedule=function (name, callback_fn) {
 
 pro.scheduleUnique=function (name, callback, delay) {
     if (!name||typeof name !== 'string') {
-        logger.error(this.getRoleString()+' 唯一任务必须有名称!');
+        log.error(this.getRoleString()+' 唯一任务必须有名称!');
         return;
     }
     if (this._uniqueSchedules[name]) {
@@ -1743,7 +1743,7 @@ pro.start=function () {
         } else {
             this._timer.start();
         }
-        logger.error('ecs start');
+        log.error('ecs start');
     } else {
         this.resume();
     }

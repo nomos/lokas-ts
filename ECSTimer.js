@@ -1,5 +1,5 @@
 const async = require('async');
-const logger = require('../logger/Logger');
+const log = require('../log/Logger');
 
 let Timer = function (updateTime,timescale,isAsync) {
     this._timeScale = timescale||1.0;
@@ -69,7 +69,7 @@ Timer.prototype.getSchedule = function (name) {
 Timer.prototype.schedule = function (name, task,interval, count ,delay, startTime) {
     delay = delay||0;
     if (this._scheduleTasks[name] ) {
-        logger.error('task name exists:'+name);
+        log.error('task name exists:'+name);
         return;
     }
     this._taskIdGen ++;
