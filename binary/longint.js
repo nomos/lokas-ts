@@ -1,5 +1,5 @@
 let BinaryBase = require("./binary_base");
-let Long = require("long");
+let Long = require("../long");
 
 let _longBound = {
     min: Long.fromString("-9223372036854775808"),

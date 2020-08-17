@@ -1,5 +1,5 @@
 let Buffer = require('buffer').Buffer;
-let Long = require("long");
+let Long = require("../long");
 let util = require("../ECSUtil");
 let zlib = require("zlib");
 let ObjectID = this?require('bson').ObjectId:require('./objectid');

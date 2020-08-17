@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('../log/Logger')||console;
+const log = require('../logger/Logger')||console;
 const ECSUtil = require('./ECSUtil');
 const nbt = require('./binary/nbt');
 const EventEmitter = require('./event-emmiter');

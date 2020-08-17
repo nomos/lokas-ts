@@ -6,50 +6,59 @@ class TAGComplex extends BinaryBase{
         super();
         this.type = "TAG_Complex";
         this.$tags = require("./nbt");
-        this.value     = {};
-        this.length = 0;
+        this.value     = [];
+    }
+    _getNextTag(buff, offset) {
+        let tagType = buff.readUInt8(offset);
+        if(tagType < 0) {
+            throw new Error("Unknown tag type - " + tagType + ".");
+        }
+
+        if(tagType === 0) {
+            return -1;
+        }
+
+        let Tags = require("./nbt");
+        let Tag = Tags[tagType];
+        if(null === Tag || undefined === Tag) {
+            throw new Error("Tag type " + tagType + " is not supported by this module yet.");
+        }
+
+        let tag = new Tag();
+        let len = tag._readBodyFromBuffer(buff, offset);
+        this.value.push(tag)
+        return len;
     }
     _readBodyFromBuffer(buff, offset) {
-        let len = buff.readUInt32BE(offset);
-        this.length = len;
-
         this.value = {};
-        let nextOffset = offset + 4;
-        for(let i = 0; i < len; i++) {
-            let typeId = buff.readUInt8(nextOffset);
-            nextOffset +=1;
-            let Tag = this.$tags[typeId];
-            let element = (typeId === 0) ? undefined : new Tag();
-            let elementLength = (typeId === 0) ? 0 : element._readBodyFromBuffer(buff, nextOffset);
-            nextOffset += elementLength;
-            this.value[i] = element;
+
+        let nextOffset = offset;
+        while(true) {
+            let len = this._getNextTag(buff, nextOffset);
+            if(len === -1) break;
+            nextOffset += len;
         }
         return nextOffset - offset;
     }
     calcBufferLength() {
         let len = 0;
-        for(let i=0;i<this.length;i++) {
+        for(let i=0;i<this.value.length;i++) {
             len += 1;
             len += this.value[i].calcBufferLength();
         }
-        len += 4;
+        len += 1;
         return len;
     }
-    getSize() {
-        return this.length;
-    }
     setValue(value) {
-
         if(typeof value !== "object") {
             throw new Error("Invalid Tag_Complex value.");
         }
-        for(let i=0;i<this.length;i++) {
-            if(!value.hasOwnProperty(i)) continue;
+        for(let i=0;i<this.value.length;i++) {
             let object = value[i];
             if(!(object instanceof BinaryBase)) {
                 throw new Error("Invalid Tag_Complex element in key \"" + key + "\".");
             }
-            this.addValue(i,value);
+            this.addValue(i,object);
         }
     }
     addValue(value) {
@@ -60,8 +69,7 @@ class TAGComplex extends BinaryBase{
         if(!(value instanceof BinaryBase)) {
             throw new Error("Invalid TAG_Compound element.");
         }
-        this.length++;
-        this.value[this.length-1] = value;
+        this.value.push(value);
     }
     clean() {
         this.value = [];
@@ -74,10 +82,10 @@ class TAGComplex extends BinaryBase{
             return 4;
         }
 
-        buff.writeUInt32BE(this.length, offset);
+        buff.writeUInt32BE(this.value.length, offset);
         let len = 0;
         let baseOffset = offset + 4;
-        for(let i = 0; i < this.length; i++) {
+        for(let i = 0; i < this.value.length; i++) {
             buff.writeUInt8(this.value[i].getTypeId(), baseOffset+len);
             len += 1;
             len += this.value[i].writeBuffer(buff, baseOffset + len);
@@ -86,7 +94,7 @@ class TAGComplex extends BinaryBase{
         return len;
     }
     getSize() {
-        return this.length;
+        return this.value.length;
     }
     at(index) {
         return this.value[index];

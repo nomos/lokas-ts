@@ -1,5 +1,5 @@
 const BinaryBase = require("./binary_base");
-const Long = require("long");
+const Long = require("../long");
 const ECSUtil = require('../ECSUtil');
 
 

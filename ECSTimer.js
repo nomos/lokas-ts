@@ -1,5 +1,5 @@
 const async = require('async');
-const log = require('../log/Logger');
+const log = require('../logger/Logger');
 
 let Timer = function (updateTime,timescale,isAsync) {
     this._timeScale = timescale||1.0;
