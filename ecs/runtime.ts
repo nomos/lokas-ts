@@ -9,6 +9,7 @@ import {ComponentSingleton} from "./component_singleton";
 import {Timer} from "./ecs_timer";
 import {EventEmitter} from "../utils/event_emitter";
 import {ECSUtil} from "./ecs_util";
+import * as bt from "../binary/bt"
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册
@@ -351,11 +352,11 @@ export class Runtime {
 
 //服务器保存全局快照
     snapshot(temp) {
-        let ret=nbt.Complex();
-        let entityIndexes=nbt.LongArray();
-        let entities=nbt.List();
-        ret.addValue(nbt.Long(this._tick));
-        ret.addValue(nbt.String(this._stateMachine));
+        let ret=bt.Complex();
+        let entityIndexes=bt.LongArray();
+        let entities=bt.List();
+        ret.addValue(bt.Long(this._tick));
+        ret.addValue(bt.String(this._stateMachine));
         for (let i in this._entityPool) {
             let ent=this._entityPool[i];
             let snapEnt=ent.snapshot();

@@ -272,7 +272,7 @@ export function readFromBuffer(buff, offset) {
 //     return readFromBuffer(buff, offset);
 // }
 
-export function Byte(value) {
+export function Byte(value?) {
     let ret = new TAGByte();
     if (value !== undefined) {
         ret.setValue(value);
@@ -280,7 +280,7 @@ export function Byte(value) {
     return ret;
 }
 
-export function Short(value) {
+export function Short(value?) {
     let ret = new TAGShort();
     if (value !== undefined) {
         ret.setValue(value);
@@ -288,7 +288,7 @@ export function Short(value) {
     return ret;
 }
 
-export function Int(value) {
+export function Int(value?) {
     let ret = new TAGInt();
     if (value !== undefined) {
         ret.setValue(value);
@@ -296,7 +296,7 @@ export function Int(value) {
     return ret;
 }
 
-export function Long(value) {
+export function Long(value?) {
     let ret = new TAGLong();
     if (value !== undefined) {
         ret.setValue(value);
@@ -304,7 +304,7 @@ export function Long(value) {
     return ret;
 }
 
-export function Float(value) {
+export function Float(value?) {
     let ret = new TAGFloat();
     if (value !== undefined) {
         ret.setValue(value);
@@ -312,7 +312,7 @@ export function Float(value) {
     return ret;
 }
 
-export function Double(value) {
+export function Double(value?) {
     let ret = new TAGDouble();
     if (value !== undefined) {
         ret.setValue(value);
@@ -320,7 +320,7 @@ export function Double(value) {
     return ret;
 }
 
-export function ByteArray(value) {
+export function ByteArray(value?) {
     let ret = new TAGByteArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -328,7 +328,7 @@ export function ByteArray(value) {
     return ret;
 }
 
-export function Int8Array(value) {
+export function Int8Array(value?) {
     let ret = new TAGByteArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -336,7 +336,7 @@ export function Int8Array(value) {
     return ret;
 }
 
-export function UInt8Array(value) {
+export function UInt8Array(value?) {
     let ret = new TAGByteArray();
     ret.unsigned = true;
     if (value !== undefined) {
@@ -345,7 +345,7 @@ export function UInt8Array(value) {
     return ret;
 }
 
-export function String(value) {
+export function String(value?) {
     let ret = new TAGString();
     if (value !== undefined) {
         ret.setValue(value);
@@ -353,7 +353,7 @@ export function String(value) {
     return ret;
 }
 
-export function List(value) {
+export function List(value?) {
     let ret = new TAGList();
     if (value !== undefined) {
         ret.setValue(value);
@@ -361,7 +361,7 @@ export function List(value) {
     return ret;
 }
 
-export function Compound(value) {
+export function Compound(value?) {
     let ret = new TAGCompound();
     if (value !== undefined) {
         ret.setValue(value);
@@ -369,7 +369,7 @@ export function Compound(value) {
     return ret;
 }
 
-export function Complex(value) {
+export function Complex(value?) {
     let ret = new TAGComplex();
     if (value !== undefined) {
         ret.setValue(value);
@@ -377,7 +377,7 @@ export function Complex(value) {
     return ret;
 }
 
-export function TBuffer(value) {
+export function Buff(value?) {
     let ret = new TAGBuffer();
     if (value !== undefined) {
         ret.setValue(value);
@@ -385,7 +385,7 @@ export function TBuffer(value) {
     return ret;
 }
 
-export function IntArray(value) {
+export function IntArray(value?) {
     let ret = new TAGIntArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -393,7 +393,7 @@ export function IntArray(value) {
     return ret;
 }
 
-export function Bool(value) {
+export function Bool(value?) {
     let ret = new TAGBool();
     if (value !== undefined) {
         ret.setValue(value);
@@ -401,7 +401,7 @@ export function Bool(value) {
     return ret;
 }
 
-export function ShortArray(value) {
+export function ShortArray(value?) {
     let ret = new TAGShortArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -409,7 +409,7 @@ export function ShortArray(value) {
     return ret;
 }
 
-export function BoolArray(value) {
+export function BoolArray(value?) {
     let ret = new TAGBoolArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -417,7 +417,7 @@ export function BoolArray(value) {
     return ret;
 }
 
-export function FloatArray(value) {
+export function FloatArray(value?) {
     let ret = new TAGFloatArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -425,7 +425,7 @@ export function FloatArray(value) {
     return ret;
 }
 
-export function DoubleArray(value) {
+export function DoubleArray(value?) {
     let ret = new TAGDoubleArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -433,7 +433,7 @@ export function DoubleArray(value) {
     return ret;
 }
 
-export function LongArray(value) {
+export function LongArray(value?) {
     let ret = new TAGLongArray();
     if (value !== undefined) {
         ret.setValue(value);
