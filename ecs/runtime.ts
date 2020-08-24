@@ -10,6 +10,9 @@ import {Timer} from "./ecs_timer";
 import {EventEmitter} from "../utils/event_emitter";
 import {ECSUtil} from "./ecs_util";
 import * as bt from "../binary/bt"
+import {TAGComplex} from "../binary/complex";
+import {TAGLongArray} from "../binary/long_array";
+import {TAGList} from "../binary/list";
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册
@@ -86,6 +89,7 @@ export class Runtime extends EventEmitter{
     private destroyCb:()=>void
 
     private alSize:number = 0
+    private lastSync:TAGComplex
 
     constructor(updateTime, timeScale, opt) {
         super()
@@ -115,6 +119,10 @@ export class Runtime extends EventEmitter{
 
     get entityCount() {
         return Object.keys(this._entityPool).length;
+    }
+
+    get needCheckDepends(){
+        return this._needCheckDepends
     }
 
     addDepends(a, b) {
@@ -337,13 +345,13 @@ export class Runtime extends EventEmitter{
         this.off(new RegExp("__unserializeEntity" + step));
     }
 
-    nbt2Entity(step, nbt) {
-        let id = nbt.at(0).value.toNumber();
+    nbt2Entity(step, nbtObj) {
+        let id = nbtObj.at(0).value.toNumber();
         let ent = this.getEntity(id);
         if (!ent) {
             ent = this.createEntity(id);
         }
-        ent.fromNBT(step, nbt);
+        ent.fromNBT(step, nbtObj);
         this.emit('__unserializeEntity' + step + id, id, ent);
         ent.dirty();
         return ent;
@@ -374,10 +382,10 @@ export class Runtime extends EventEmitter{
     }
 
 //从服务器更新全局快照
-    syncSnapshotFromServer(nbt) {
-        let step = this._step = nbt.at(0).value.toNumber();
-        this.setState(nbt.at(1).value);
-        let nbtEntArray = nbt.at(3);
+    syncSnapshotFromServer(btObj) {
+        let step = this._step = btObj.at(0).value.toNumber();
+        this.setState(btObj.at(1).value);
+        let nbtEntArray = btObj.at(3);
         for (let i = 0; i < nbtEntArray.getSize(); i++) {
             let entNbt = nbtEntArray.at(i);
             this.nbt2Entity(this._step, entNbt);
@@ -387,20 +395,20 @@ export class Runtime extends EventEmitter{
 
 //差异快照切片
     snapStep() {
-        let ret = nbt.Complex();
+        let ret = bt.Complex();
 
-        ret.addValue(nbt.Long(this._tick));
-        ret.addValue(nbt.String(this._stateMachine));
+        ret.addValue(bt.Long(this._tick));
+        ret.addValue(bt.String(this._stateMachine));
 
-        let modEntArr = nbt.List();
-        let newEntArr = nbt.List();
-        let remEntArr = nbt.List();
+        let modEntArr = bt.List();
+        let newEntArr = bt.List();
+        let remEntArr = bt.LongArray();
         for (let i = 0; i < this._dirtyEntities.length; i++) {
             let ent = this._dirtyEntities[i];
             if (false && ent.id < 0) {
                 continue;
             }
-            let entComplex = nbt.Complex();
+            let entComplex = bt.Complex();
             let entSnapCur = ent.snapCurrent();
             entComplex.addValue(entSnapCur);
             if (this._prevSnap) {
@@ -437,17 +445,17 @@ export class Runtime extends EventEmitter{
         return ret;
     }
 
-    syncSnapDeltaFromServer(nbt, backward) {
-        let step = nbt.at(0).value.toNumber();
+    syncSnapDeltaFromServer(btObj, backward?) {
+        let step = btObj.at(0).value.toNumber();
         if (this._step === step) {
             return;
         } else {
             this._step = step;
         }
-        this.setState(nbt.at(1).value);
-        let modArr = nbt.at(2);
-        let addArr = nbt.at(3);
-        let remArr = nbt.at(4);
+        this.setState(btObj.at(1).value);
+        let modArr = btObj.at(2);
+        let addArr = btObj.at(3);
+        let remArr = btObj.at(4);
         for (let i = 0; i < modArr.getSize(); i++) {
             let modNbtEnt = modArr.at(i);
             this.nbt2Entity(step, modNbtEnt.at(0));
@@ -476,9 +484,9 @@ export class Runtime extends EventEmitter{
         if (curStep === this._step) {
             return;
         }
-        let ret = nbt.Complex();
-        ret.addValue(nbt.Float(this._timeScale));
-        ret.addValue(nbt.Long(this._step));
+        let ret = bt.Complex();
+        ret.addValue(bt.Float(this._timeScale));
+        ret.addValue(bt.Long(this._step));
         let startStep;
         let snapshot;
         let init = false;
@@ -505,15 +513,15 @@ export class Runtime extends EventEmitter{
         for (let i = toSyncStepsIndex + 1; i < length; i++) {
             toSyncSteps.push(this._steps[i]);
         }
-        ret.addValue(nbt.LongArray(toSyncSteps));
-        let syncFrames = nbt.List();
+        ret.addValue(bt.LongArray(toSyncSteps));
+        let syncFrames = bt.List();
         for (let i = 0; i < toSyncSteps.length; i++) {
             let syncFrameNbt = this._snapshotDeltas[toSyncSteps[i]];
             syncFrames.push(syncFrameNbt);
         }
         ret.addValue(syncFrames);
         if (init) {
-            ret.addValue(nbt.Long(startStep));
+            ret.addValue(bt.Long(startStep));
             ret.addValue(snapshot);
         }
         return ret.writeToBuffer();
@@ -525,7 +533,7 @@ export class Runtime extends EventEmitter{
         }
         this.alSize += buff.length;
         log.info('总发送字节数', this.alSize / 1000.0 + 'k');
-        let nbtdata = nbt.readFromBuffer(buff);
+        let nbtdata = <TAGComplex>bt.readFromBuffer(buff);
         if (!nbtdata || this._step === nbtdata.at(1).value.toNumber()) {
             return;
         }
@@ -533,7 +541,7 @@ export class Runtime extends EventEmitter{
         if (nbtdata.getSize() == 5) {
             this.syncSnapshotFromServer(nbtdata.at(5));
         }
-        let snapSteps = nbtdata.at(3);
+        let snapSteps = <TAGLongArray>nbtdata.at(3);
         for (let i = 0; i < snapSteps.getSize(); i++) {
             this.syncSnapDeltaFromServer(snapSteps.at(i));
         }
@@ -584,10 +592,10 @@ export class Runtime extends EventEmitter{
 
 
     getComponentDefinesToNbt() {
-        let ret = new nbt.List();
+        let ret = bt.List();
         for (let i = 0; i < this._componentDefineArray.length; i++) {
             let comp = this._componentDefineArray[i];
-            let strNbt = nbt.String(comp);
+            let strNbt = bt.String(comp);
             ret.push(strNbt);
         }
         return ret;
@@ -622,9 +630,9 @@ export class Runtime extends EventEmitter{
 
     getComponentDefineToNbt(comp) {
         if (this._compCode) {
-            return nbt.Byte(this.getComponentDefine(comp));
+            return bt.Byte(this.getComponentDefine(comp));
         } else {
-            return nbt.String(ECSUtil.getComponentType(comp));
+            return bt.String(ECSUtil.getComponentType(comp));
         }
     }
 
@@ -658,7 +666,7 @@ export class Runtime extends EventEmitter{
         }
         this.alSize = this.alSize || 0;
         this.alSize += buff.length;
-        let nbtdata = nbt.readFromBuffer(buff);
+        let nbtdata = <TAGComplex>bt.readFromBuffer(buff);
         //TODO:临时赋值
         this.lastSync = nbtdata;
         // log.debug('总发送字节数', this.alSize/1000.0+'k',nbtdata.at(4).toJSON());
@@ -679,9 +687,9 @@ export class Runtime extends EventEmitter{
         }
         this.setTimeScale(timescale);
         this.setState(nbtdata.at(5).value);
-        let modArr = nbtdata.at(6);
-        let addArr = nbtdata.at(7);
-        let remArr = nbtdata.at(8);
+        let modArr = <TAGList>nbtdata.at(6);
+        let addArr = <TAGList>nbtdata.at(7);
+        let remArr = <TAGLongArray>nbtdata.at(8);
         for (let i = 0; i < modArr.getSize(); i++) {
             let modNbtEnt = modArr.at(i);
             this.nbt2Entity(step, modNbtEnt);
@@ -718,11 +726,11 @@ export class Runtime extends EventEmitter{
 
 //客户端获取所有联网实体的step信息
     fetchEntitySyncData() {
-        let ret = nbt.Complex();
+        let ret = bt.Complex();
         //加入客户端当前tick,如果tick和服务器一致就不需要同步
-        ret.addValue(nbt.Int(this._componentDefineHash));
-        ret.addValue(nbt.Long(this._step));
-        let entarr = nbt.LongArray();
+        ret.addValue(bt.Int(this._componentDefineHash));
+        ret.addValue(bt.Long(this._step));
+        let entarr = bt.LongArray();
         for (let i in this._entityPool) {
             let ent = this._entityPool[i];
             if (ent._id > 0) {
@@ -742,10 +750,10 @@ export class Runtime extends EventEmitter{
             log.error('player not exist', uid);
             return;
         }
-        let nbtdata = nbt.readFromBuffer(buff);
+        let nbtdata = <TAGComplex>bt.readFromBuffer(buff);
         conn.compHash = nbtdata.at(0).value;
         let curStep = nbtdata.at(1).value.toNumber();
-        let entArr = nbtdata.at(2);
+        let entArr = <TAGLongArray>nbtdata.at(2);
         let clientData = {}
         for (let i = 0; i < entArr.getSize(); i += 2) {
             let index = entArr.at(i).toNumber();
@@ -759,10 +767,10 @@ export class Runtime extends EventEmitter{
         if (curStep === this._step) {
             return;
         }
-        let ret = nbt.Complex();
+        let ret = bt.Complex();
 
-        let compDefineNbt = nbt.List();
-        ret.addValue(nbt.Int(this._componentDefineHash));
+        let compDefineNbt = bt.List();
+        ret.addValue(bt.Int(this._componentDefineHash));
         if (connection.compHash !== this._componentDefineHash) {
             compDefineNbt = this.getComponentDefinesToNbt();
             connection.compHash = this._componentDefineHash;
@@ -770,17 +778,17 @@ export class Runtime extends EventEmitter{
         //nbtcomplex-0
         ret.addValue(compDefineNbt);
         //nbtcomplex-1
-        ret.addValue(nbt.Float(this._timeScale));
+        ret.addValue(bt.Float(this._timeScale));
         //nbtcomplex-2
-        ret.addValue(nbt.Long(curStep));
+        ret.addValue(bt.Long(curStep));
         //nbtcomplex-3
-        ret.addValue(nbt.Long(this._step));
+        ret.addValue(bt.Long(this._step));
         //nbtcomplex-4
-        ret.addValue(nbt.String(this._stateMachine));
+        ret.addValue(bt.String(this._stateMachine));
 
-        let modEntArr = nbt.List();
-        let newEntArr = nbt.List();
-        let remEntArr = nbt.LongArray();
+        let modEntArr = bt.List();
+        let newEntArr = bt.List();
+        let remEntArr = bt.LongArray();
 
         for (let index in clientData) {
             let ent = this._entityPool[index];
@@ -861,15 +869,6 @@ export class Runtime extends EventEmitter{
         }
     }
 
-    asyncSystemExecute(name, cb) {
-        let system = this.getSystem(name);
-        if (!system) {
-            return;
-        }
-        system._asyncExecutions = system._asyncExecutions || [];
-        system._asyncExecutions.push(cb);
-    }
-
     registerCommand(name, command, priority) {
         this._cmdAddPriority = this._cmdAddPriority || 0;
         this._cmdAddPriority++;
@@ -936,30 +935,18 @@ export class Runtime extends EventEmitter{
             if (!name.defineName) {
                 throw Error('组件:未定义');
             }
-            name = name.defineName ? name.defineName : name.otype.__classname;
+            name = name.defineName
         } else {
             if (!Component) {
                 throw Error('组件:' + name + '未定义');
             }
             NewComponent = Component;
-            //TODO:这里要更新了
-            if (NewComponent.otype.defineName) {
-                NewComponent.otype.defineName()
-                {
-                    return name;
-                }
-            } else {
-                NewComponent.otype.__classname = name;
-            }
         }
 
         if (!ECSUtil.isString(name)) {
             log.error(this.getRoleString() + ' 注册组件失败,组件名称为空');
             return;
         }
-
-
-        ECSUtil.mountComponnet(NewComponent);
 
         let pool = this._componentPools[name];
 
@@ -974,8 +961,8 @@ export class Runtime extends EventEmitter{
         for (let depend of NewComponent.defineDepends) {
             this.addDepends(name, depend);
         }
-        if (NewComponent.otype.onRegister) {
-            NewComponent.otype.onRegister(this);
+        if (Object.getPrototypeOf(NewComponent).onRegister) {
+            Object.getPrototypeOf(NewComponent).onRegister(this);
         }
         this._componentPools[name] = new ComponentPool(NewComponent, maxSize, minSize, this);
         log.info(this.getRoleString() + " 注册组件池:" + name + " 成功,最小保留对象数:" + minSize + " 最大对象数:" + maxSize);
@@ -986,28 +973,19 @@ export class Runtime extends EventEmitter{
     /**
      * 注册单例组件
      */
-    registerSingleton(name, Component) {
+    registerSingleton(name, Component:{new():IComponent}) {
         let NewComponent;
         if (typeof name !== 'string') {
             NewComponent = name;
             if (!name.defineName) {
                 throw Error('组件:未定义');
             }
-            name = name.defineName ? name.defineName : name.otype.__classname;
+            name = name.defineName
         } else {
             if (!Component) {
                 throw Error('组件:' + name + '未定义');
             }
             NewComponent = Component;
-            //TODO:这里要更新了
-            if (NewComponent.otype.defineName) {
-                NewComponent.otype.defineName()
-                {
-                    return name;
-                }
-            } else {
-                NewComponent.otype.__classname = name;
-            }
         }
 
 
@@ -1019,32 +997,9 @@ export class Runtime extends EventEmitter{
         for (let depend of NewComponent.defineDepends) {
             this.addDepends(name, depend);
         }
-        ECSUtil.mountComponnet(NewComponent);
         this._componentPools[name] = new ComponentSingleton(NewComponent, this);
         this.setComponentDefine(name);
 
-
-        if (NewComponent.otype.onRegister) {
-            NewComponent.otype.onRegister(this);
-        }
-        NewComponent.otype.dirty()
-        {
-            this.onDirty && this.onDirty(this._entity, this._entity._ecs);
-            if (this.isClient()) {
-                if (this.updateView) {
-                    this.getECS().addRenderQueue(this);
-                } else {
-                    let renderer = this.getRenderer();
-                    if (renderer) {
-                        let renderComp = this.getSibling(renderer);
-                        renderComp && renderComp.dirty();
-                    }
-                }
-            }
-            if (this._entity) {
-                this._entity.markDirty(this);
-            }
-        }
         log.info(this.getRoleString() + " 注册组件单例:" + name + " 成功");
     }
 
@@ -1131,7 +1086,7 @@ export class Runtime extends EventEmitter{
      * 生成一个新的ID来创建一个实体<Entity>
      * @returns {Entity}
      */
-    createEntity(id) {
+    createEntity(id?) {
         id = id || this.generateID();
         if (this._entityPool[id]) {
             throw new Error(id + ' entity already exist');
@@ -1314,7 +1269,7 @@ export class Runtime extends EventEmitter{
         if (!ECSUtil.isArray(compGroup)) {
             compGroup = [compGroup];
         }
-        let retArr:Array<Array<string>> = [[]];
+        let retArr:Array<Array<string>> = [];
         for (let i = 0; i < compGroup.length; i++) {
             let comp = compGroup[i];
             if (ECSUtil.isArray(comp)) {
@@ -1361,11 +1316,12 @@ export class Runtime extends EventEmitter{
         let groups = [];
         for (let i = 0; i < hashes.length; i++) {
             let hash = hashes[i];
-            let group = this._groups[hash];
+            let hash_str = hash.join("_")
+            let group = this._groups[hash_str];
             if (!group) {
                 group = new Group(hash, this);
                 group._hash = hash;
-                this._groups[hash] = group;
+                this._groups[hash_str] = group;
                 for (let i in this._cachedGroups) {
                     if (ECSUtil.includes(hash, i)) {
                         if (this._cachedGroups[i].indexOf(group) === -1) {
@@ -1431,29 +1387,9 @@ export class Runtime extends EventEmitter{
      * 注册系统到<ECS>
      * @param system
      */
-    registerSystem(system) {
+    registerSystem(system:ISystem) {
         //如果是数组则分别添加其中的子系统
-        if (ECSUtil.isArray(system)) {
-            for (let i = 0; i < system.length; i++) {
-                this.registerSystem(system[i]);
-            }
-            return;
-        }
-        let sys;
-        if (ECSUtil.isInheritFrom(system, ISystem)) {
-            sys = new system(this);
-        } else if (ECSUtil.isObject(system)) {
-            sys = new ISystem(this, system);
-        } else if (ECSUtil.isFunction(system)) {
-            sys = new ISystem(this, new system());
-        }
-
-        if (!sys.name) {
-            log.error(this.getRoleString() + ' System无名称不合法', sys, sys.name);
-            return;
-        }
-
-        // sys.groups = this.registerGroups(sys.components);
+        let sys = system
 
         sys.onRegister && sys.onRegister(this);
         if (sys.enabled) {
@@ -1461,7 +1397,7 @@ export class Runtime extends EventEmitter{
         }
 
         this._addSystemCount++;
-        sys.setAddOrder(this._addSystemCount);
+        sys.addOrder = this._addSystemCount;
         this._systemIndexes[sys.name] = this._systems.length;
         this._systems.push(sys);
         let desc = sys.desc && ECSUtil.isString(sys.desc) ? "\n" + "说明: " + sys.desc : '';
@@ -1480,7 +1416,7 @@ export class Runtime extends EventEmitter{
         //     }
         //     compstr+='}';
         // }
-        log.info(this.getRoleString() + "\n添加系统: " + sys.name + " 优先级: " + (sys.priority ? sys.priority : 0) + " 添加次序: " + sys._addOrder + desc);
+        log.info(this.getRoleString() + "\n添加系统: " + sys.name + " 优先级: " + (sys.priority ? sys.priority : 0) + " 添加次序: " + sys.addOrder + desc);
         this.sortSystems();
     }
 
@@ -1490,14 +1426,14 @@ export class Runtime extends EventEmitter{
     sortSystems() {
         this._systems.sort(function (a, b) {
             if (!a.priority && !b.priority) {
-                return a._addOrder > b._addOrder;
+                return a.addOrder - b.addOrder;
             }
             if (a.priority === b.priority) {
-                return a._addOrder > b._addOrder;
+                return a.addOrder - b.addOrder;
             }
-            return a.priority > b.priority
+            return a.priority - b.priority
         });
-        this._systemIndexes = {}
+        this._systemIndexes = new Map<string, number>()
         for (let i = 0; i < this._systems.length; i++) {
             let system = this._systems[i];
             this._systemIndexes[system.name] = i;
@@ -1507,10 +1443,10 @@ export class Runtime extends EventEmitter{
     sortOrder(a, b) {
         if (a.activeTime === b.activeTime) {
             if (!a.system.priority && !b.system.priority) {
-                return a.system._addOrder - b.system._addOrder;
+                return a.system.addOrder - b.system.addOrder;
             }
             if (a.system.priority === b.system.priority) {
-                return a.system._addOrder - b.system._addOrder;
+                return a.system.addOrder - b.system.addOrder;
             }
             return a.system.priority - b.system.priority;
         }
@@ -1544,7 +1480,7 @@ export class Runtime extends EventEmitter{
         let systemReadyToUpdate = [];
         for (let i = 0; i < this._systems.length; i++) {
             let system = this._systems[i];
-            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime, this);
+            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime);
             for (let j = 0; j < updates.length; j++) {
                 systemReadyToUpdate.push({
                     interval: updates[j].interval,
@@ -1588,7 +1524,7 @@ export class Runtime extends EventEmitter{
         let systemReadyToUpdate = [];
         for (let i = 0; i < this._systems.length; i++) {
             let system = this._systems[i];
-            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime, this);
+            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime);
             for (let j = 0; j < updates.length; j++) {
                 systemReadyToUpdate.push({
                     interval: updates[j].interval,
@@ -1612,9 +1548,13 @@ export class Runtime extends EventEmitter{
         log.debug('ECS destroy');
         this.cleanBuffer && this.cleanBuffer();
         this._enabled = false;
-        this.onDisable && this.onDisable();
+        this.onDisable();
         this._readyDestroy = true;
         this.destroyCb = cb;
+    }
+
+    onDisable(){
+
     }
 
     _destroy() {
@@ -1648,7 +1588,7 @@ export class Runtime extends EventEmitter{
         this._addSystemCount = 0;
         this._objContainer = {}
 
-        this._ecsDestroyed = true;
+        this._readyDestroy = true;
 
     }
 
@@ -1697,7 +1637,7 @@ export class Runtime extends EventEmitter{
             return;
         }
         this._uniqueSchedules[name] = true;
-        this.schedule(name, callback, 0, 1, delay, 0);
+        this.schedule(name, callback, 0, 1, delay);
     }
 
     scheduleOnce(name, callback, delay) {
@@ -1736,11 +1676,15 @@ export class Runtime extends EventEmitter{
         return this._tick
     }
 
+    onEnable(){
+
+    }
+
     start() {
         if (!this._enabled) {
             this.setupUpdateFunc();
             this._enabled = true;
-            this.onEnable && this.onEnable();
+            this.onEnable();
             if (this._turned) {
                 this._timer.tick();
             } else {

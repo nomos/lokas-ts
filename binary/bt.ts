@@ -20,6 +20,7 @@ import {TAGBuffer} from "./buffer_type";
 import {Buffer} from "../thirdparty/buffer";
 import {Type} from "./tags"
 import {util} from "../utils/util";
+import {BinaryBase} from "./binary_base";
 
 // let zlib = require('zlib');
 
@@ -66,6 +67,49 @@ export function getTag(tagId: Type) {
             return new TAGComplex()
         case Type.TAG_Buffer:
             return new TAGBuffer()
+    }
+}
+
+export function getTagFuncByString(t:string):(value?)=>BinaryBase {
+    switch (t) {
+        case "Bool":
+            return Bool
+        case "Byte":
+            return Byte
+        case "Short":
+            return Short
+        case "Int":
+            return Int
+        case "Long":
+            return Long
+        case "Float":
+            return Float
+        case "Double":
+            return Double
+        case "String":
+            return String
+        case "BoolArray":
+            return BoolArray
+        case "ByteArray":
+            return ByteArray
+        case "ShortArray":
+            return ShortArray
+        case "IntArray":
+            return IntArray
+        case "LongArray":
+            return LongArray
+        case "FloatArray":
+            return FloatArray
+        case "DoubleArray":
+            return DoubleArray
+        case "List":
+            return List
+        case "Compound":
+            return Compound
+        case "Complex":
+            return Complex
+        case "Buff":
+            return Buff
     }
 }
 
@@ -287,7 +331,7 @@ export function createFromJSObject(obj, opt?) {
     return ret;
 }
 
-export function readFromBuffer(buff, offset) {
+export function readFromBuffer(buff, offset?) {
     offset = offset || 0;
     let type = buff.readUInt8(offset);
     let ret = getTag(type);

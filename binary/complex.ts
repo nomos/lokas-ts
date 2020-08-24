@@ -10,7 +10,7 @@ export class TAGComplex extends BinaryBase{
         super();
         this.type =  Type.TAG_Complex;
     }
-    _getNextTag(buff, offset):number {
+    _getNextTag(buff:Buffer, offset):number {
         let tagId = buff.readUInt8(offset);
         if(tagId < 0) {
             throw new Error("Unknown tag type - " + tagId + ".");

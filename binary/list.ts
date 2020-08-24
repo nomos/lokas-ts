@@ -145,6 +145,10 @@ export class TAGList extends BinaryBase{
         this.value = [];
     }
 
+    sort(compareFunc){
+        this.value.sort(compareFunc)
+    }
+
     writeBuffer(buff, offset) {
         // no element
         if(!this.value.length) {

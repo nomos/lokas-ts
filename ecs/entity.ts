@@ -7,6 +7,9 @@ import {EventEmitter} from "../utils/event_emitter";
 import {ECSUtil} from "./ecs_util";
 import {IComponent} from "./default_component";
 import * as bt from "../binary/bt"
+import {TAGComplex} from "../binary/complex";
+import {TAGList} from "../binary/list";
+import {getTagFuncByString} from "../binary/bt";
 
 /**
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
@@ -20,8 +23,8 @@ import * as bt from "../binary/bt"
  */
 
 export class Entity extends EventEmitter{
-    private _runtime: Runtime
-    private _id: number
+    private readonly _runtime: Runtime
+    private readonly _id: number
     private _step: number = 0
     private _lastStep: number = 0
     private _dirty: boolean = true
@@ -34,6 +37,8 @@ export class Entity extends EventEmitter{
     private _removeMarks: Array<string> = new Array<string>()
     private _addMarks: Array<string> = new Array<string>()
     private _modifyMarks: Array<string> = new Array<string>()
+    private _lastSnapshot:TAGComplex
+    private _snapshot:TAGComplex
 
     constructor(ea, id) {
         super()
@@ -198,12 +203,12 @@ export class Entity extends EventEmitter{
         let modComps = bt.List();
         let addComps = bt.List();
         let remComps = bt.List();
-        let compList = this._lastSnapshot.at(2);
+        let compList = <TAGList>this._lastSnapshot.at(2);
         for (let i = 0; i < this._modifyMarks.length; i++) {
             // let id = this._runtime.getComponentID(this._modifyMarks[i]);
             let id = this._modifyMarks[i];
             for (let j = 0; j < compList.getSize(); j++) {
-                if (id === compList.at(j).at(0).value) {
+                if (id === (<TAGComplex>compList.at(j)).at(0).value) {
                     modComps.push(compList.at(j));
                     break;
                 }
@@ -213,7 +218,7 @@ export class Entity extends EventEmitter{
             let id = this._removeMarks[i];
             // let id = this._runtime.getComponentID(this._removeMarks[i]);
             for (let j = 0; j < compList.getSize(); j++) {
-                if (id === compList.at(j).at(0).value) {
+                if (id === (<TAGComplex>compList.at(j)).at(0).value) {
                     addComps.push(compList.at(j));
                     break;
                 }
@@ -231,7 +236,7 @@ export class Entity extends EventEmitter{
     }
 
 
-    comp2NBT(comp, connData) {
+    comp2NBT(comp, connData?) {
         if (comp.nosync) {
             return;
         }
@@ -290,7 +295,7 @@ export class Entity extends EventEmitter{
             } else if (type === 'JSObject' || type === 'Object') {
                 dataComplex.addValue(bt.createFromJSObject(comp[i]))
             } else {
-                dataComplex.addValue(nbt[type](comp[i]));
+                dataComplex.addValue(getTagFuncByString(type)(comp[i]));
             }
         }
         compComplex.addValue(dataComplex);
@@ -402,9 +407,9 @@ export class Entity extends EventEmitter{
         comp.dirty();
     }
 
-    nbt2Command(nbt) {
+    nbt2Command(btObj) {
         let count = 0;
-        let nbtFormat = bt.defineData ? bt.defineData : bt.nbtFormat;
+        let nbtFormat = btObj.defineData ? btObj.defineData : btObj.nbtFormat;
         for (let i in nbtFormat) {
             if (!nbtFormat.hasOwnProperty(i)) {
                 continue;
@@ -418,7 +423,7 @@ export class Entity extends EventEmitter{
     }
 
     fromNBT(step, btObj) {
-        if (bt.getSize() === 3) {
+        if (btObj.getSize() === 3) {
             this._step = btObj.at(1).value.toNumber();
             let comps = btObj.at(2);
             let syncCompArr = [];
@@ -439,7 +444,7 @@ export class Entity extends EventEmitter{
                 }
             }
         }
-        if (bt.getSize() === 5) {
+        if (btObj.getSize() === 5) {
             this._step = btObj.at(1).value.toNumber();
             let modComps = btObj.at(2);
             for (let i = 0; i < modComps.getSize(); i++) {
@@ -467,7 +472,7 @@ export class Entity extends EventEmitter{
         }
     }
 
-    snapshot(connData) {
+    snapshot(connData?):TAGComplex {
         let ret = bt.Complex();
         ret.addValue(bt.Long(this._id));
         ret.addValue(bt.Long(this._step));
@@ -483,7 +488,7 @@ export class Entity extends EventEmitter{
             }
             toSyncComponents.push(comp);
         }
-        components.sort(this.getECS._sortDepends);
+        components.sort(this.engine._sortDepends);
         for (let comp of toSyncComponents) {
             components.push(this.comp2NBT(comp, connData));
         }
@@ -565,7 +570,7 @@ export class Entity extends EventEmitter{
             log.error('Component参数错误,可能未注册', comp);
             return null;
         }
-        if (this._runtime._needCheckDepends) {
+        if (this._runtime.needCheckDepends) {
             let depends = this._runtime.getDepends(type);
             for (let dependComp of depends) {
                 if (!this.get(dependComp)) {
@@ -644,7 +649,7 @@ export class Entity extends EventEmitter{
         }
         comp = this.get(comp);
         if (comp) {
-            if (this._runtime._needCheckDepends) {
+            if (this._runtime.needCheckDepends) {
                 let depends = this._runtime.getDependsBy(type);
                 if (depends)
                     for (let dependComp of depends) {

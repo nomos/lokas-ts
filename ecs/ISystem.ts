@@ -9,6 +9,7 @@ export class ISystem {
     public updateTime:number
     public lastUpdateTime:number
     public priority:number
+    public addOrder:number
     public lateUpdate:(interval,now,runtime)=>void
 
     constructor(ecs,opt){
