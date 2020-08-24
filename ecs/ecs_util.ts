@@ -1,23 +1,8 @@
 import {Long} from "../utils/long";
 import {Buffer} from "../thirdparty/buffer";
-import {DefaultComponent} from "./default_component";
+import {IComponent} from "./default_component";
 
 export namespace ECSUtil{
-    export function mountComponnet(NewComponent) {
-//TODO:这里准备更新
-        NewComponent.prototype.getComponentName = NewComponent.prototype.getComponentName||function () {
-            return this.__classname;
-        }
-        NewComponent.prototype.getECS = NewComponent.prototype.getECS||DefaultComponent.prototype.getECS;
-        NewComponent.prototype.isClient = NewComponent.prototype.isClient||DefaultComponent.prototype.isClient;
-        NewComponent.prototype.getRenderer = NewComponent.prototype.getRenderer||DefaultComponent.prototype.getRenderer;
-        NewComponent.prototype.isRenderer = NewComponent.prototype.isRenderer||DefaultComponent.prototype.isRenderer;
-        NewComponent.prototype.getEntity = NewComponent.prototype.getEntity||DefaultComponent.prototype.getEntity;
-        NewComponent.prototype.getSibling = NewComponent.prototype.getSibling||DefaultComponent.prototype.getSibling;
-        NewComponent.prototype.dirty = NewComponent.prototype.dirty||DefaultComponent.prototype.dirty;
-        NewComponent.prototype.isDirty = NewComponent.prototype.isDirty||DefaultComponent.prototype.isDirty;
-        NewComponent.prototype.clean = NewComponent.prototype.clean||DefaultComponent.prototype.clean;
-    }
 
     export function remove(arr,func) {
         for (let i=0;i<arr.length;i++) {
@@ -100,10 +85,6 @@ export namespace ECSUtil{
 
     export function isBuffer(arg) {
         return arg instanceof Buffer||arg instanceof ArrayBuffer||arg instanceof Uint8Array;
-    }
-
-    export function isObjectID(arg) {
-        return arg instanceof ObjectID;
     }
 
     export function isNumber(arg) {

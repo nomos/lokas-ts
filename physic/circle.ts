@@ -1,6 +1,6 @@
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
-export class Circle extends DefaultComponent {
+export class Circle extends IComponent {
     static get defineName(){
         return 'Circle';
     }

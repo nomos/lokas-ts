@@ -1,6 +1,6 @@
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
-export class Polygon extends DefaultComponent{
+export class Polygon extends IComponent{
     static get defineName(){
         return 'Polygon';
     }

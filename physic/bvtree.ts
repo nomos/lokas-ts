@@ -1,6 +1,6 @@
 import {Rect} from "./rect"
 import {Collider} from "./collider"
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
 const branch_pool = [];
 
@@ -15,7 +15,7 @@ export class BVBranch extends Rect{
     }
 }
 
-export class BVTree extends DefaultComponent{
+export class BVTree extends IComponent{
     static get defineName():string {
         return 'BVTree'
     }

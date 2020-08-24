@@ -150,7 +150,9 @@ export class EventEmitter {
     /**
      * Alias of addListener
      */
-    on=alias('addListener')
+    on(evt,listener) {
+        return this.addListener(evt,listener)
+    }
     /**
      * Semi-alias of addListener. It will add a listener that will be
      * automatically removed after its first execution.
@@ -165,7 +167,9 @@ export class EventEmitter {
             once:true
         });
     }
-    once=alias('addOnceListener')
+    once(evt,listener) {
+        return this.addOnceListener(evt,listener)
+    }
     /**
      * Defines an event name. This is required if you want to use a regex to add a listener to multiple events at once. If you don't do this then how do you expect it to know what event to add to? Should it just add to every possible match for a regex? No. That is scary and bad.
      * You need to tell it what event names should be matched by a regex.
@@ -217,7 +221,12 @@ export class EventEmitter {
     /**
      * Alias of removeListener
      */
-    off=alias('removeListener')
+    off(evt,listener?) {
+        if (listener) {
+            return this.removeListener(evt, listener);
+        }
+        return this.removeAllListeners(evt);
+    }
     /**
      * Adds listeners in bulk using the manipulateListeners method.
      * If you pass an object as the first argument you can add to multiple events at once. The object should contain key value pairs of events and listeners or listener arrays. You can also pass it an event name and an array of listeners to be added.
@@ -331,7 +340,7 @@ export class EventEmitter {
      *
      * Added to mirror the node API.
      */
-    removeAllListeners=alias('removeEvent')
+    removeAllListeners=this.removeEvent
 
     /**
      * Emits an event of your choice.
@@ -388,11 +397,10 @@ export class EventEmitter {
      * As with emitEvent, you can pass a regex in place of the event name to emit to all events that match it.
      *
      * @param {String|RegExp} evt Name of the event to emit and execute listeners for.
-     * @param {...*} Optional additional arguments to be passed to each listener.
+     * @param {...args} Optional additional arguments to be passed to each listener.
      * @return {Object} Current instance of EventEmitter for chaining.
      */
-    emit(evt) {
-        var args=Array.prototype.slice.call(arguments, 1);
+    emit(evt,...args) {
         return this.emitEvent(evt, args);
     }
 

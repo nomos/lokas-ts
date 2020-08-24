@@ -1,10 +1,10 @@
 import {log} from "../utils/logger";
 import {Entity} from "./entity";
 import {Group} from "./group";
-import {System} from "./system";
+import {ISystem} from "./ISystem";
 import {Connection} from "./connection";
-import {IComponent,DefaultComponent} from "./default_component";
-import {ComponentPool} from "./component_pool";
+import {IComponent} from "./default_component";
+import {ComponentPool, IComponentPool} from "./component_pool";
 import {ComponentSingleton} from "./component_singleton";
 import {Timer} from "./ecs_timer";
 import {EventEmitter} from "../utils/event_emitter";
@@ -21,127 +21,143 @@ import * as bt from "../binary/bt"
  * @param {Object} opt
  * @constructor
  */
-export class Runtime {
+export class Runtime extends EventEmitter{
+    private _entityPool: Map<number, Entity> = new Map<number, Entity>()
+    private _componentPools: Map<string, IComponentPool> = new Map<string, IComponentPool>()
+    private _groups: Map<Array<string>, Group> = new Map<Array<string>, Group>() //单个组件<Component>为键值的集合<Group>缓存
+    private _cachedGroups: Map<string, Group> = new Map<string, Group>()
+    private _systemIndexes: Map<string, number> = new Map<string, number>()           //系统的名字索引
+    private _systems: Array<ISystem> = new Array<ISystem>()
+    /**ID分配和生命周期变量*/
+    private _index = 0                            //实体<Entity>ID分配变量
+    private _indexClient = 0                      //实体<Entity>ID分配变量
+    private _server: boolean
+    private _needCheckDepends: boolean
+    private _turned: boolean
+    private _enabled: boolean = false
+    private _paused: boolean = false
+    private _readyDestroy: boolean = false
+    /**定时器变量和回调函数*/
+    private _tick = 0                     //步数
+    private _updateInterval:number
+    private _timeScale:number
+    private _timer:Timer
+    private _timeOffset = 0
+    private _dirty = true                //整个系统的脏标记d
+    private _dirtyEntities: Array<Entity> = []           //这轮的脏标记entity
+    private _dirtyComponents: Array<Entity> = []         //脏Component
+    private _newEntities: Array<Entity> = []
+    private _toDestroyEntities: Array<Entity> = []        //在这轮遍历中要删除的entity队列
+    private _toDestroyEntityIDs: Array<number> = []
+    private _snapInterval: number = 0    //全实体快照时间
+    private _prevSnap: boolean = false                //实体快照
+
+    private scheduleId = 0
+
+    private _step = 0                 //step是同步状态计数,从服务器的tick同步,客户端的tick只是自己使用
+    private _steps = []               //步数队列
+    private _snapshotDeltas = {}      //帧差异快照
+    private _snapshotSteps = []       //快照步数队列
+    private _snapshots = {}           //全实体快照
+    private _lastSnapshot = null
+    /**模块和组件映射表*/
+    private _modules = []                 //已加载的模块
+    private _addSystemCount = 0           //加载的系统order数
+    private _componentDefineArray = []    //组件:ID 服务器,当前组件:ID映射
+    private _componentDefineMap = {}      //hash ID:组件映射表
+    private _componentDefineHash = 0      //服务器组件hash
+    private _compCode:boolean      //是否加密组件名
+    private rendererMap = {}
+    private rendererArray = []
+    private _dependsPair = {}
+    private _dependsPairInverse = {}
+
+    private _commands = {}                //注册的命令组件
+    private _commandQueueMaps = []        //以命令名为键的队列
+    private _commandListener = new EventEmitter() //命令注册
+    private _connections: Map<string, Connection> = new Map<string, Connection>()           //客户端连接
+    private _renderUpdateQueue = []       //客户端脏数据view更新队列
+    private _lateAddQueue = []            //延迟Add队列
+    //其他绑定函数
+    private _uniqueSchedules = {}         //仅一次的任务标记
+    private _spawners = {}
+    private _objContainer = {}
+    private _stateMachine = 'null'
+    private destroyCb:()=>void
+
+    private alSize:number = 0
 
     constructor(updateTime, timeScale, opt) {
+        super()
         opt = opt || {}
 
         if (updateTime === 0) {
             this._turned = true;
         }
-        this._eventListener = new EventEmitter();
         /**基础变量*/
-        this._entityPool = {}              //实体<Entity>池
-        this._componentPools = {}          //各种组件池<ComponentPool>容器
-        this._groups = {}                  //各种集合<Group>容器,组件<Component>数组为键值
-        this._cachedGroups = {}            //单个组件<Component>为键值的集合<Group>缓存
-        this._systems = [];                 //各个系统和监听集合
-        this._systemIndexes = {}           //系统的名字索引
 
-        /**ID分配和生命周期变量*/
-        this._index = 0;                            //实体<Entity>ID分配变量
-        this._indexClient = 0;                      //实体<Entity>ID分配变量
+        this. _updateInterval = updateTime || 1000 / 60.0
+        this. _timeScale = Math.min(timeScale, 20) || 1.0
+        this._timer = new Timer(this._updateInterval, this._timeScale)
         this._server = opt.server || false;           //客户端的ID从Max_Long开始自减,服务器的ID从0开始自增
         this._needCheckDepends = opt.strict || false;
-        this._enabled = false;
-        this._ecsReadyDestroy = false;
 
         /**定时器变量和回调函数*/
-        this._tick = 0;                     //步数
-        this._updateInterval = updateTime || 1000 / 60.0;
-        this._timeScale = Math.min(timeScale, 20) || 1.0;
-        this._timer = new Timer(this._updateInterval, this._timeScale);
-        this._timeOffset = 0;
-        this._dirty = true;                //整个系统的脏标记d
-        this._dirtyEntities = [];           //这轮的脏标记entity
-        this._dirtyComponents = [];         //脏Component
-        this._newEntities = [];
-        this._toDestroyEntities = [];        //在这轮遍历中要删除的entity队列
-        this._toDestroyEntityIDs = [];
-
         this._snapInterval = opt.snapInterval || 0;    //全实体快照时间
         this._prevSnap = opt.canReverse || false;                //实体快照
 
-        this._step = 0;                 //step是同步状态计数,从服务器的tick同步,客户端的tick只是自己使用
-        this._steps = [];               //步数队列
-        this._snapshotDeltas = {}      //帧差异快照
-        this._snapshotSteps = [];       //快照步数队列
-        this._snapshots = {}           //全实体快照
-        this._lastSnapshot = null;
-        this._connections = {}         //连接表
-
-        /**模块和组件映射表*/
-        this._modules = [];                 //已加载的模块
-        this._addSystemCount = 0;           //加载的系统order数
-        this._componentDefineArray = [];    //组件:ID 服务器,当前组件:ID映射
-        this._componentDefineMap = {}      //hash ID:组件映射表
-        this._componentDefineHash = 0;      //服务器组件hash
         this._compCode = opt.compCode;      //是否加密组件名
-        this.rendererMap = {}
-        this.rendererArray = [];
-        this._dependsPair = {}
-        this._dependsPairInverse = {}
-
-        this._commands = {}                //注册的命令组件
-        this._commandQueueMaps = [];        //以命令名为键的队列
-        this._commandListener = new EventEmitter(); //命令注册
-        this._connections = {}             //客户端连接
-        this._renderUpdateQueue = [];       //客户端脏数据view更新队列
-        this._lateAddQueue = [];            //延迟Add队列
-
-        //其他绑定函数
-        this._uniqueSchedules = {}         //仅一次的任务标记
-        this._spawners = {}
-        this._objContainer = {}
-        this._stateMachine = 'null';
     }
-    get enabled(){
+
+    get enabled() {
         return this._enabled;
     }
-    get entityCount(){
+
+    get entityCount() {
         return Object.keys(this._entityPool).length;
     }
-    addDepends(a,b) {
+
+    addDepends(a, b) {
         a = ECSUtil.getComponentType(a);
         b = ECSUtil.getComponentType(b);
-        this._dependsPair[a] = this._dependsPair[a]||[];
+        this._dependsPair[a] = this._dependsPair[a] || [];
         this._dependsPair[a].push(b);
-        this._dependsPairInverse[b] = this._dependsPairInverse[b]||[];
+        this._dependsPairInverse[b] = this._dependsPairInverse[b] || [];
         this._dependsPairInverse[b].push(a);
     }
 
-    isDepend(a,b) {
+    isDepend(a, b) {
         a = ECSUtil.getComponentType(a);
         b = ECSUtil.getComponentType(b);
-        return (this._dependsPair[a]||[]).indexOf(b)!==-1;
+        return (this._dependsPair[a] || []).indexOf(b) !== -1;
     }
 
     getDependsBy(a) {
         a = ECSUtil.getComponentType(a);
-        return this._dependsPairInverse[a]||[];
+        return this._dependsPairInverse[a] || [];
     }
 
     getDepends(a) {
         a = ECSUtil.getComponentType(a);
-        return this._dependsPair[a]||[];
+        return this._dependsPair[a] || [];
     }
 
-    _sortDepends(a,b) {
+    _sortDepends(a, b) {
         a = ECSUtil.getComponentType(a);
         b = ECSUtil.getComponentType(b);
-        this._dependsPair[a] = this._dependsPair[a]||[];
-        if (this._dependsPair[a].indexOf(b)!==-1) {
+        this._dependsPair[a] = this._dependsPair[a] || [];
+        if (this._dependsPair[a].indexOf(b) !== -1) {
             return 1;
         }
-        this._dependsPair[b] = this._dependsPair[b]||[];
-        if (this._dependsPair[b].indexOf(a)!==-1) {
+        this._dependsPair[b] = this._dependsPair[b] || [];
+        if (this._dependsPair[b].indexOf(a) !== -1) {
             return -1;
         }
         return 0;
     }
 
-    _sortDependsInverse(a,b) {
-        return -this._sortDepends(a,b);
+    _sortDependsInverse(a, b) {
+        return -this._sortDepends(a, b);
     }
 
     getRoleString() {
@@ -153,12 +169,13 @@ export class Runtime {
     }
 
     setupUpdateFunc() {
-        this._timer.onUpdate(dt) {
+        this._timer.onUpdate((dt)=>
+        {
             if (!this._enabled) {
-                if (this._ecsReadyDestroy) {
-                    this._ecsReadyDestroy=false;
+                if (this._readyDestroy) {
+                    this._readyDestroy = false;
                     this._destroy();
-                    this.destroyCb&&this.destroyCb();
+                    this.destroyCb && this.destroyCb();
                 }
                 return;
             }
@@ -167,15 +184,16 @@ export class Runtime {
             this.emit('beforeUpdate');
             this._tick++;
             this.update(dt, this._turned);
-        }.bind(this);
+        });
 
 
-        this._timer.onLateUpdate(dt) {
+        this._timer.onLateUpdate((dt)=>
+        {
             if (!this._enabled) {
                 return;
             }
             this.lateUpdate(dt);
-            if (this._dirty&&this._server) {
+            if (this._dirty && this._server) {
                 //TODO:这里还有问题
                 // if (this._tick>1) {
                 //     this.snapStep();
@@ -185,12 +203,12 @@ export class Runtime {
                 // } else {
                 //     this.snapshot(true);
                 // }
-                this._step=this._tick;
+                this._step = this._tick;
             }
             this.cleanBuffer();
             this.emit('afterUpdate');
             this.emit('_afterUpdate');
-        }.bind(this);
+        });
     }
 
     cleanBuffer() {
@@ -199,32 +217,32 @@ export class Runtime {
             this._groups[i].removeEntityArray(this._toDestroyEntities);
         }
         //彻底删除实体并调用onDestroy方法删除所有组件
-        for (let i=0; i<this._toDestroyEntities.length; i++) {
-            let ent=this._toDestroyEntities[i];
-            let index=this._newEntities.indexOf(ent);
-            if (index!== -1) {
+        for (let i = 0; i < this._toDestroyEntities.length; i++) {
+            let ent = this._toDestroyEntities[i];
+            let index = this._newEntities.indexOf(ent);
+            if (index !== -1) {
                 this._newEntities.splice(index, 1);
             }
-            index=this._dirtyEntities.indexOf(ent);
-            if (index!== -1) {
+            index = this._dirtyEntities.indexOf(ent);
+            if (index !== -1) {
                 this._dirtyEntities.splice(index, 1);
             }
             let entId = ent.id;
             delete this._entityPool[entId];
             ent.onDestroy();
-            ent=null;
+            ent = null;
         }
         //重置实体队列
-        this._toDestroyEntities=[];
-        this._dirty=false;
+        this._toDestroyEntities = [];
+        this._dirty = false;
 
-        for (let i=0; i<this._dirtyComponents.length; i++) {
-            this._dirtyComponents[i]&&this._dirtyComponents[i].clean();
+        for (let i = 0; i < this._dirtyComponents.length; i++) {
+            this._dirtyComponents[i] && this._dirtyComponents[i].clean();
         }
-        for (let i=0; i<this._dirtyEntities.length; i++) {
+        for (let i = 0; i < this._dirtyEntities.length; i++) {
             this._dirtyEntities[i].clean();
         }
-        for (let i=0; i<this._newEntities.length; i++) {
+        for (let i = 0; i < this._newEntities.length; i++) {
             this._newEntities[i].clean();
         }
 
@@ -232,19 +250,19 @@ export class Runtime {
             this._groups[i].clean();
         }
         this._dirtyComponents = [];
-        this._dirtyEntities=[];
-        this._newEntities=[];
+        this._dirtyEntities = [];
+        this._newEntities = [];
         if (this.isClient()) {
-            for (let i=0;i<this._renderUpdateQueue.length;i++) {
+            for (let i = 0; i < this._renderUpdateQueue.length; i++) {
                 let comp = this._renderUpdateQueue[i];
-                comp&&comp._entity&&comp.updateView(comp._entity,this);
+                comp && comp._entity && comp.updateView(comp._entity, this);
             }
             this._renderUpdateQueue = [];
         }
     }
 
     setTimeScale(timeScale) {
-        this._timeScale=Math.min(timeScale, 20)||1.0;
+        this._timeScale = Math.min(timeScale, 20) || 1.0;
         this._timer.timeScale = timeScale;
     }
 
@@ -253,35 +271,35 @@ export class Runtime {
     }
 
     getScaledTimeBySecond(time) {
-        return time/1000/this._timeScale;
+        return time / 1000 / this._timeScale;
     }
 
     isState(state) {
-        return this._stateMachine===state;
+        return this._stateMachine === state;
     }
 
     setState(state) {
-        if (this._stateMachine!==state) {
+        if (this._stateMachine !== state) {
             this.offStateSystems(this._stateMachine);
-            this._stateMachine=state;
+            this._stateMachine = state;
             this.onStateSystems(state);
-            this._dirty=true;
+            this._dirty = true;
         }
     }
 
     offStateSystems(state) {
-        for (let i=0; i<this._systems.length; i++) {
-            let system=this._systems[i];
-            if (system.stateOnly&&system.stateOnly===state&&system.offState) {
+        for (let i = 0; i < this._systems.length; i++) {
+            let system = this._systems[i];
+            if (system.stateOnly && system.stateOnly === state && system.offState) {
                 system.doOffState(this._timer.runningTime, this);
             }
         }
     }
 
     onStateSystems(state) {
-        for (let i=0; i<this._systems.length; i++) {
-            let system=this._systems[i];
-            if (system.stateOnly&&system.stateOnly===state&&system.onState) {
+        for (let i = 0; i < this._systems.length; i++) {
+            let system = this._systems[i];
+            if (system.stateOnly && system.stateOnly === state && system.onState) {
                 system.doOnState(this._timer.runningTime, this);
             }
         }
@@ -291,27 +309,8 @@ export class Runtime {
         return this._stateMachine;
     }
 
-    once(evt, cb) {
-        return this._eventListener.once(evt, cb);
-    }
-
-    on(evt, cb) {
-        return this._eventListener.on(evt, cb)
-    }
-
-    off(evt, cb) {
-        if (cb) {
-            return this._eventListener.off(evt,cb);
-        }
-        return this._eventListener.removeAllListeners(evt);
-    }
-
-    emit(evt) {
-        return this._eventListener.emit.apply(this._eventListener, arguments);
-    }
-
     set(name, obj) {
-        this._objContainer[name]=obj;
+        this._objContainer[name] = obj;
     }
 
     get(name) {
@@ -319,14 +318,14 @@ export class Runtime {
     }
 
     setSpawner(name, func) {
-        this._spawners[name]=func.bind(null, this);
+        this._spawners[name] = func.bind(null, this);
     }
 
     spawnEntity(name) {
-        let spawnFunc=this._spawners[name];
+        let spawnFunc = this._spawners[name];
         let args = [].slice.call(arguments);
-        args.splice(0,1);
-        return spawnFunc&&spawnFunc.apply(null,args);
+        args.splice(0, 1);
+        return spawnFunc && spawnFunc.apply(null, args);
     }
 
     adjustTimer(time) {
@@ -335,31 +334,31 @@ export class Runtime {
 
 //事件监听'__unserializeEntity'+step每次客户端更新后从事件列表删除
     offUnserializeEntityEvent(step) {
-        this.off(new RegExp("__unserializeEntity"+step));
+        this.off(new RegExp("__unserializeEntity" + step));
     }
 
-    nbt2Entity(step,nbt) {
-        let id=nbt.at(0).value.toNumber();
-        let ent=this.getEntity(id);
+    nbt2Entity(step, nbt) {
+        let id = nbt.at(0).value.toNumber();
+        let ent = this.getEntity(id);
         if (!ent) {
-            ent=this.createEntity(id);
+            ent = this.createEntity(id);
         }
-        ent.fromNBT(step,nbt);
-        this.emit('__unserializeEntity'+step+id, id, ent);
+        ent.fromNBT(step, nbt);
+        this.emit('__unserializeEntity' + step + id, id, ent);
         ent.dirty();
         return ent;
     }
 
 //服务器保存全局快照
     snapshot(temp) {
-        let ret=bt.Complex();
-        let entityIndexes=bt.LongArray();
-        let entities=bt.List();
+        let ret = bt.Complex();
+        let entityIndexes = bt.LongArray();
+        let entities = bt.List();
         ret.addValue(bt.Long(this._tick));
         ret.addValue(bt.String(this._stateMachine));
         for (let i in this._entityPool) {
-            let ent=this._entityPool[i];
-            let snapEnt=ent.snapshot();
+            let ent = this._entityPool[i];
+            let snapEnt = ent.snapshot();
             entities.push(snapEnt);
             entityIndexes.push(ent.id);
         }
@@ -368,7 +367,7 @@ export class Runtime {
 
         if (!temp) {
             this._snapshotSteps.push(this._tick);
-            this._snapshots[this._tick]=ret;
+            this._snapshots[this._tick] = ret;
         }
         this._lastSnapshot = ret;
         return ret;
@@ -376,53 +375,53 @@ export class Runtime {
 
 //从服务器更新全局快照
     syncSnapshotFromServer(nbt) {
-        let step = this._step=nbt.at(0).value.toNumber();
+        let step = this._step = nbt.at(0).value.toNumber();
         this.setState(nbt.at(1).value);
-        let nbtEntArray=nbt.at(3);
-        for (let i=0; i<nbtEntArray.getSize(); i++) {
-            let entNbt=nbtEntArray.at(i);
-            this.nbt2Entity(this._step,entNbt);
+        let nbtEntArray = nbt.at(3);
+        for (let i = 0; i < nbtEntArray.getSize(); i++) {
+            let entNbt = nbtEntArray.at(i);
+            this.nbt2Entity(this._step, entNbt);
         }
         this.offUnserializeEntityEvent(step);
     }
 
 //差异快照切片
     snapStep() {
-        let ret=nbt.Complex();
+        let ret = nbt.Complex();
 
         ret.addValue(nbt.Long(this._tick));
         ret.addValue(nbt.String(this._stateMachine));
 
-        let modEntArr=nbt.List();
-        let newEntArr=nbt.List();
-        let remEntArr=nbt.List();
-        for (let i=0; i<this._dirtyEntities.length; i++) {
-            let ent=this._dirtyEntities[i];
-            if (false&&ent.id<0) {
+        let modEntArr = nbt.List();
+        let newEntArr = nbt.List();
+        let remEntArr = nbt.List();
+        for (let i = 0; i < this._dirtyEntities.length; i++) {
+            let ent = this._dirtyEntities[i];
+            if (false && ent.id < 0) {
                 continue;
             }
-            let entComplex=nbt.Complex();
-            let entSnapCur=ent.snapCurrent();
+            let entComplex = nbt.Complex();
+            let entSnapCur = ent.snapCurrent();
             entComplex.addValue(entSnapCur);
             if (this._prevSnap) {
-                let entSnapPrev=ent.snapPrevious();
+                let entSnapPrev = ent.snapPrevious();
                 if (entSnapPrev) {
                     entComplex.addValue(entSnapPrev);
                 }
             }
             modEntArr.push(entComplex);
         }
-        for (let i=0; i<this._newEntities.length; i++) {
-            let ent=this._newEntities[i];
-            if (false&&ent.id<0) {
+        for (let i = 0; i < this._newEntities.length; i++) {
+            let ent = this._newEntities[i];
+            if (false && ent.id < 0) {
                 continue;
             }
-            let entSnap=ent.snapshot();
+            let entSnap = ent.snapshot();
             newEntArr.push(entSnap);
         }
-        for (let i=0; i<this._toDestroyEntityIDs.length; i++) {
-            let id=this._toDestroyEntityIDs[i];
-            if (false&&id<0) {
+        for (let i = 0; i < this._toDestroyEntityIDs.length; i++) {
+            let id = this._toDestroyEntityIDs[i];
+            if (false && id < 0) {
                 continue;
             }
             remEntArr.push(this.getPrevSnapEntity(id));
@@ -434,31 +433,31 @@ export class Runtime {
         //nbtcomplex-4
         ret.addValue(remEntArr);
         this._steps.push(this._tick);
-        this._snapshotDeltas[this._tick]=ret;
+        this._snapshotDeltas[this._tick] = ret;
         return ret;
     }
 
     syncSnapDeltaFromServer(nbt, backward) {
-        let step=nbt.at(0).value.toNumber();
-        if (this._step===step) {
+        let step = nbt.at(0).value.toNumber();
+        if (this._step === step) {
             return;
         } else {
-            this._step=step;
+            this._step = step;
         }
         this.setState(nbt.at(1).value);
-        let modArr=nbt.at(2);
-        let addArr=nbt.at(3);
-        let remArr=nbt.at(4);
-        for (let i=0; i<modArr.getSize(); i++) {
-            let modNbtEnt=modArr.at(i);
-            this.nbt2Entity(step,modNbtEnt.at(0));
+        let modArr = nbt.at(2);
+        let addArr = nbt.at(3);
+        let remArr = nbt.at(4);
+        for (let i = 0; i < modArr.getSize(); i++) {
+            let modNbtEnt = modArr.at(i);
+            this.nbt2Entity(step, modNbtEnt.at(0));
         }
-        for (let i=0; i<addArr.getSize(); i++) {
-            let addNbtEnt=addArr.at(i);
-            this.nbt2Entity(step,addNbtEnt);
+        for (let i = 0; i < addArr.getSize(); i++) {
+            let addNbtEnt = addArr.at(i);
+            this.nbt2Entity(step, addNbtEnt);
         }
-        for (let i=0; i<remArr.getSize(); i++) {
-            let remId=remArr.at(i).at(0).value.toNumber();
+        for (let i = 0; i < remArr.getSize(); i++) {
+            let remId = remArr.at(i).at(0).value.toNumber();
             this.removeEntity(remId);
         }
         this.offUnserializeEntityEvent(step);
@@ -467,49 +466,49 @@ export class Runtime {
 //获取上一次的实体切片
     getPrevSnapEntity(id) {
         if (this._lastSnapshot) {
-            let entIndex=this._lastSnapshot.at(2).toJSON().indexOf(''+id);
+            let entIndex = this._lastSnapshot.at(2).toJSON().indexOf('' + id);
             return this._lastSnapshot.at(3).at(entIndex);
         }
     }
 
 //同步到客户端(时间片同步)
     syncToClient(curStep) {
-        if (curStep===this._step) {
+        if (curStep === this._step) {
             return;
         }
-        let ret=nbt.Complex();
+        let ret = nbt.Complex();
         ret.addValue(nbt.Float(this._timeScale));
         ret.addValue(nbt.Long(this._step));
         let startStep;
         let snapshot;
-        let init=false;
-        if (curStep===0) {
-            init=true;
-            startStep=this.getNearestSnapshot(curStep);
+        let init = false;
+        if (curStep === 0) {
+            init = true;
+            startStep = this.getNearestSnapshot(curStep);
             if (!startStep) {
                 return;
             }
-            snapshot=this._snapshots[startStep];
-            curStep=startStep;
+            snapshot = this._snapshots[startStep];
+            curStep = startStep;
         }
 
         //获取step之后的所有steps
-        let toSyncStepsIndex=this._steps.indexOf(curStep);
-        if (toSyncStepsIndex=== -1) {
+        let toSyncStepsIndex = this._steps.indexOf(curStep);
+        if (toSyncStepsIndex === -1) {
             log.error('客户端超过Step限制');
         }
-        let length=this._steps.length;
-        if (toSyncStepsIndex===length-1) {
+        let length = this._steps.length;
+        if (toSyncStepsIndex === length - 1) {
             // log.debug('客户端已经是最新',curStep);
         }
-        let toSyncSteps=[];
-        for (let i=toSyncStepsIndex+1; i<length; i++) {
+        let toSyncSteps = [];
+        for (let i = toSyncStepsIndex + 1; i < length; i++) {
             toSyncSteps.push(this._steps[i]);
         }
         ret.addValue(nbt.LongArray(toSyncSteps));
-        let syncFrames=nbt.List();
-        for (let i=0; i<toSyncSteps.length; i++) {
-            let syncFrameNbt=this._snapshotDeltas[toSyncSteps[i]];
+        let syncFrames = nbt.List();
+        for (let i = 0; i < toSyncSteps.length; i++) {
+            let syncFrameNbt = this._snapshotDeltas[toSyncSteps[i]];
             syncFrames.push(syncFrameNbt);
         }
         ret.addValue(syncFrames);
@@ -524,19 +523,18 @@ export class Runtime {
         if (!buff) {
             return;
         }
-        this.alSize=this.alSize||0;
-        this.alSize+=buff.length;
-        log.log('总发送字节数', this.alSize/1000.0+'k');
-        let nbtdata=nbt.readFromBuffer(buff);
-        if (!nbtdata||this._step===nbtdata.at(1).value.toNumber()) {
+        this.alSize += buff.length;
+        log.info('总发送字节数', this.alSize / 1000.0 + 'k');
+        let nbtdata = nbt.readFromBuffer(buff);
+        if (!nbtdata || this._step === nbtdata.at(1).value.toNumber()) {
             return;
         }
         this.setTimeScale(nbtdata.at(0).value);
-        if (nbtdata.getSize()==5) {
+        if (nbtdata.getSize() == 5) {
             this.syncSnapshotFromServer(nbtdata.at(5));
         }
-        let snapSteps=nbtdata.at(3);
-        for (let i=0; i<snapSteps.getSize(); i++) {
+        let snapSteps = nbtdata.at(3);
+        for (let i = 0; i < snapSteps.getSize(); i++) {
             this.syncSnapDeltaFromServer(snapSteps.at(i));
         }
     }
@@ -546,15 +544,15 @@ export class Runtime {
             log.error('服务器未初始化');
             return 0;
         }
-        if (this._snapshotSteps.length===1) {
+        if (this._snapshotSteps.length === 1) {
             return this._snapshotSteps[0];
         }
-        for (let i=this._snapshotSteps.length-1; i>=0; i--) {
-            let step=this._snapshotSteps[i];
-            if (curStep>=step) {
+        for (let i = this._snapshotSteps.length - 1; i >= 0; i--) {
+            let step = this._snapshotSteps[i];
+            if (curStep >= step) {
                 log.error('错误,超出最大限制');
             }
-            if (step>curStep) {
+            if (step > curStep) {
                 return step;
             }
         }
@@ -574,10 +572,10 @@ export class Runtime {
 
     addConnection(uid) {
         if (this.getConnection(uid)) {
-            log.error('已存在连接',uid);
+            log.error('已存在连接', uid);
             return;
         }
-        this._connections[uid] = new Connection(uid,this);
+        this._connections[uid] = new Connection(uid, this);
     }
 
     removeConnection(uid) {
@@ -587,7 +585,7 @@ export class Runtime {
 
     getComponentDefinesToNbt() {
         let ret = new nbt.List();
-        for (let i=0;i<this._componentDefineArray.length;i++) {
+        for (let i = 0; i < this._componentDefineArray.length; i++) {
             let comp = this._componentDefineArray[i];
             let strNbt = nbt.String(comp);
             ret.push(strNbt);
@@ -596,27 +594,27 @@ export class Runtime {
     }
 
     setComponentDefinesFromNbt(nbtdata) {
-        if (nbtdata.getSize()===0) {
+        if (nbtdata.getSize() === 0) {
             return;
         }
         let defines = nbtdata.toJSON();
         this._componentDefineArray = defines;
         this._componentDefineMap = {}
-        for (let i=0;i<defines.length;i++) {
+        for (let i = 0; i < defines.length; i++) {
             this._componentDefineMap[defines[i]] = true;
         }
         this.genComponentDefineHash();
     }
 
     getComponentNameFromDefine(define) {
-        if (typeof define==='string') {
+        if (typeof define === 'string') {
             return define;
         }
         return this._componentDefineArray[define];
     }
 
     getComponentDefine(comp) {
-        if (typeof comp!=='string') {
+        if (typeof comp !== 'string') {
             comp = ECSUtil.getComponentType(comp);
         }
         return this._componentDefineMap[comp];
@@ -631,11 +629,11 @@ export class Runtime {
     }
 
     genComponentDefineHash() {
-        let ret = this._componentDefineArray.length*10000;
-        for (let i=0;i<this._componentDefineArray.length;i++) {
+        let ret = this._componentDefineArray.length * 10000;
+        for (let i = 0; i < this._componentDefineArray.length; i++) {
             let comp = this._componentDefineArray[i];
-            for (let j=0;j<comp.length;j++) {
-                ret+=comp[j].charCodeAt();
+            for (let j = 0; j < comp.length; j++) {
+                ret += comp[j].charCodeAt();
             }
         }
         this._componentDefineHash = ret;
@@ -645,11 +643,11 @@ export class Runtime {
         if (this.isClient()) {
             return;
         }
-        if (this._componentDefineArray.indexOf(comp)!==-1) {
+        if (this._componentDefineArray.indexOf(comp) !== -1) {
             throw new Error('comp already defined');
         }
         this._componentDefineArray.push(comp);
-        this._componentDefineMap[comp] = this._componentDefineArray.length-1;
+        this._componentDefineMap[comp] = this._componentDefineArray.length - 1;
         this.genComponentDefineHash();
     }
 
@@ -658,42 +656,42 @@ export class Runtime {
         if (!buff) {
             return;
         }
-        this.alSize=this.alSize||0;
-        this.alSize+=buff.length;
-        let nbtdata=nbt.readFromBuffer(buff);
+        this.alSize = this.alSize || 0;
+        this.alSize += buff.length;
+        let nbtdata = nbt.readFromBuffer(buff);
         //TODO:临时赋值
         this.lastSync = nbtdata;
         // log.debug('总发送字节数', this.alSize/1000.0+'k',nbtdata.at(4).toJSON());
         this.setComponentDefinesFromNbt(nbtdata.at(1));
         let compHash = nbtdata.at(0).value;
-        if (compHash!==this._componentDefineHash) {
+        if (compHash !== this._componentDefineHash) {
             return 2;
         }
-        let timescale=nbtdata.at(2).value;
-        let oldStep=nbtdata.at(3).value.toNumber();
-        let step=nbtdata.at(4).value.toNumber();
-        if (this._step===step) {
+        let timescale = nbtdata.at(2).value;
+        let oldStep = nbtdata.at(3).value.toNumber();
+        let step = nbtdata.at(4).value.toNumber();
+        if (this._step === step) {
             return 0;   //无需更新,丢弃帧数据
-        } else if (this._step!==oldStep) {
+        } else if (this._step !== oldStep) {
             return 2;   //需要更新,上传元数据
         } else {
-            this._step=step;
+            this._step = step;
         }
         this.setTimeScale(timescale);
         this.setState(nbtdata.at(5).value);
-        let modArr=nbtdata.at(6);
-        let addArr=nbtdata.at(7);
-        let remArr=nbtdata.at(8);
-        for (let i=0; i<modArr.getSize(); i++) {
-            let modNbtEnt=modArr.at(i);
-            this.nbt2Entity(step,modNbtEnt);
+        let modArr = nbtdata.at(6);
+        let addArr = nbtdata.at(7);
+        let remArr = nbtdata.at(8);
+        for (let i = 0; i < modArr.getSize(); i++) {
+            let modNbtEnt = modArr.at(i);
+            this.nbt2Entity(step, modNbtEnt);
         }
-        for (let i=0; i<addArr.getSize(); i++) {
-            let addNbtEnt=addArr.at(i);
-            this.nbt2Entity(step,addNbtEnt);
+        for (let i = 0; i < addArr.getSize(); i++) {
+            let addNbtEnt = addArr.at(i);
+            this.nbt2Entity(step, addNbtEnt);
         }
-        for (let i=0; i<remArr.getSize(); i++) {
-            let remId=remArr.at(i).toNumber();
+        for (let i = 0; i < remArr.getSize(); i++) {
+            let remId = remArr.at(i).toNumber();
             this.removeEntity(remId);
         }
         this.offUnserializeEntityEvent(step);
@@ -703,7 +701,7 @@ export class Runtime {
     rPushToClient(uid) {
         let conn = this.getConnection(uid);
         if (!conn) {
-            log.error('Connection is not exist:',uid);
+            log.error('Connection is not exist:', uid);
         }
         if (conn.step > this._step) {
             log.error('Client Step Error');
@@ -715,18 +713,19 @@ export class Runtime {
         }
         let curStep = conn.step;
         let clientData = conn.entitySteps;
-        return this.getRSyncData(curStep,clientData,conn);
+        return this.getRSyncData(curStep, clientData, conn);
     }
+
 //客户端获取所有联网实体的step信息
     fetchEntitySyncData() {
-        let ret=nbt.Complex();
+        let ret = nbt.Complex();
         //加入客户端当前tick,如果tick和服务器一致就不需要同步
         ret.addValue(nbt.Int(this._componentDefineHash));
         ret.addValue(nbt.Long(this._step));
-        let entarr=nbt.LongArray();
+        let entarr = nbt.LongArray();
         for (let i in this._entityPool) {
-            let ent=this._entityPool[i];
-            if (ent._id>0) {
+            let ent = this._entityPool[i];
+            if (ent._id > 0) {
                 entarr.push(ent._id);
                 entarr.push(ent._step);
             }
@@ -736,35 +735,35 @@ export class Runtime {
     }
 
 //差异同步到客户端,客户端提供所有的实体entity stepID
-    rSyncToClient(buff,uid) {
+    rSyncToClient(buff, uid) {
         //获取客户端的step
         let conn = this.getConnection(uid);
         if (!conn) {
-            log.error('player not exist',uid);
+            log.error('player not exist', uid);
             return;
         }
-        let nbtdata=nbt.readFromBuffer(buff);
-        conn.compHash =  nbtdata.at(0).value;
-        let curStep=nbtdata.at(1).value.toNumber();
-        let entArr=nbtdata.at(2);
-        let clientData={}
-        for (let i=0; i<entArr.getSize(); i+=2) {
-            let index=entArr.at(i).toNumber();
-            let step=entArr.at(i+1).toNumber();
-            clientData[index]=step;
+        let nbtdata = nbt.readFromBuffer(buff);
+        conn.compHash = nbtdata.at(0).value;
+        let curStep = nbtdata.at(1).value.toNumber();
+        let entArr = nbtdata.at(2);
+        let clientData = {}
+        for (let i = 0; i < entArr.getSize(); i += 2) {
+            let index = entArr.at(i).toNumber();
+            let step = entArr.at(i + 1).toNumber();
+            clientData[index] = step;
         }
-        return this.getRSyncData(curStep,clientData,conn);
+        return this.getRSyncData(curStep, clientData, conn);
     }
 
-    getRSyncData(curStep,clientData,connection) {
-        if (curStep===this._step) {
+    getRSyncData(curStep, clientData, connection) {
+        if (curStep === this._step) {
             return;
         }
-        let ret=nbt.Complex();
+        let ret = nbt.Complex();
 
         let compDefineNbt = nbt.List();
         ret.addValue(nbt.Int(this._componentDefineHash));
-        if (connection.compHash!==this._componentDefineHash) {
+        if (connection.compHash !== this._componentDefineHash) {
             compDefineNbt = this.getComponentDefinesToNbt();
             connection.compHash = this._componentDefineHash;
         }
@@ -779,16 +778,16 @@ export class Runtime {
         //nbtcomplex-4
         ret.addValue(nbt.String(this._stateMachine));
 
-        let modEntArr=nbt.List();
-        let newEntArr=nbt.List();
-        let remEntArr=nbt.LongArray();
+        let modEntArr = nbt.List();
+        let newEntArr = nbt.List();
+        let remEntArr = nbt.LongArray();
 
         for (let index in clientData) {
-            let ent=this._entityPool[index];
+            let ent = this._entityPool[index];
             //如果有且当前实体的step小于服务器step
             if (ent) {
-                if (clientData[index]<ent._step) {
-                    let entSnapCur=ent.snapshot(connection);
+                if (clientData[index] < ent._step) {
+                    let entSnapCur = ent.snapshot(connection);
                     modEntArr.push(entSnapCur);
                 }
                 clientData[index] = ent._step;
@@ -799,15 +798,15 @@ export class Runtime {
             }
         }
         for (let i in this._entityPool) {
-            let ent=this._entityPool[i];
-            if (clientData[ent._id]===undefined) {
-                let entSnap=ent.snapshot(connection);
+            let ent = this._entityPool[i];
+            if (clientData[ent._id] === undefined) {
+                let entSnap = ent.snapshot(connection);
                 newEntArr.push(entSnap);
                 clientData[ent._id] = ent._step;
             }
         }
         //连接管理更新状态
-        connection&&connection.sync(this._step,clientData);
+        connection && connection.sync(this._step, clientData);
         //nbtcomplex-5
         ret.addValue(modEntArr);
         //nbtcomplex-6
@@ -827,18 +826,18 @@ export class Runtime {
             return;
         }
         if (mod.onLoad) {
-            let str='#载入模组:'+mod.name+'------';
+            let str = '#载入模组:' + mod.name + '------';
             if (mod.desc) {
-                str+='\n';
-                str+=mod.desc;
+                str += '\n';
+                str += mod.desc;
             }
-            log.log(str);
+            log.info(str);
             mod.onLoad(this);
-            log.log('模组:'+mod.name+'载入结束------\n');
+            log.info('模组:' + mod.name + '载入结束------\n');
         }
-        this._modules[mod.name]={
-            name:mod.name,
-            mod:mod
+        this._modules[mod.name] = {
+            name: mod.name,
+            mod: mod
         }
     }
 
@@ -846,14 +845,15 @@ export class Runtime {
     reloadModules() {
 
     }
+
     /**
      * 卸载模块
      * @param name
      */
     unloadModule(name) {
-        let mod=this._modules[name];
+        let mod = this._modules[name];
         if (!mod) {
-            log.error('模组 '+name+' 未找到');
+            log.error('模组 ' + name + ' 未找到');
             return;
         }
         if (mod.unload) {
@@ -862,28 +862,28 @@ export class Runtime {
     }
 
     asyncSystemExecute(name, cb) {
-        let system=this.getSystem(name);
+        let system = this.getSystem(name);
         if (!system) {
             return;
         }
-        system._asyncExecutions=system._asyncExecutions||[];
+        system._asyncExecutions = system._asyncExecutions || [];
         system._asyncExecutions.push(cb);
     }
 
-    registerCommand(name, command,priority) {
-        this._cmdAddPriority = this._cmdAddPriority||0;
+    registerCommand(name, command, priority) {
+        this._cmdAddPriority = this._cmdAddPriority || 0;
         this._cmdAddPriority++;
-        command.priority = (priority?priority*100000:0)+this._cmdAddPriority;
-        this._commands[name]=command;
+        command.priority = (priority ? priority * 100000 : 0) + this._cmdAddPriority;
+        this._commands[name] = command;
     }
 
-    onCommand(name,cb) {
-        return this._commandListener.on(name,cb);
+    onCommand(name, cb) {
+        return this._commandListener.on(name, cb);
     }
 
-    offCommand(name,cb) {
+    offCommand(name, cb) {
         if (cb) {
-            return this._commandListener.off(name,cb);
+            return this._commandListener.off(name, cb);
         }
         return this._commandListener.removeAllListeners(name);
     }
@@ -892,7 +892,7 @@ export class Runtime {
     updateCommands() {
         while (this._commandQueueMaps.length) {
             let cmd = this._commandQueueMaps.shift();
-            this._commandListener.emit(cmd.task,cmd);
+            this._commandListener.emit(cmd.task, cmd);
         }
     }
 
@@ -902,13 +902,13 @@ export class Runtime {
         if (cmdClass) {
             return new this._commands[cmd.task](cmd);
         } else {
-            log.error('命令格式错误或者未注册',cmd);
+            log.error('命令格式错误或者未注册', cmd);
         }
     }
 
 //接收命令
     receiveCommand(cmd) {
-        cmd=this.essCommand(cmd);
+        cmd = this.essCommand(cmd);
         if (!cmd) {
             log.error('command is nil');
             return;
@@ -929,55 +929,56 @@ export class Runtime {
         if (!name) {
             log.error('名称或组件不存在');
         }
-        if (typeof name!=='string') {
-            minSize=maxSize;
-            maxSize=Component;
-            NewComponent=name;
+        if (typeof name !== 'string') {
+            minSize = maxSize;
+            maxSize = Component;
+            NewComponent = name;
             if (!name.defineName) {
                 throw Error('组件:未定义');
             }
-            name=name.defineName?name.defineName:name.otype.__classname;
+            name = name.defineName ? name.defineName : name.otype.__classname;
         } else {
             if (!Component) {
-                throw Error('组件:'+name+'未定义');
+                throw Error('组件:' + name + '未定义');
             }
-            NewComponent=Component;
+            NewComponent = Component;
             //TODO:这里要更新了
             if (NewComponent.otype.defineName) {
-                NewComponent.otype.defineName() {
+                NewComponent.otype.defineName()
+                {
                     return name;
                 }
             } else {
-                NewComponent.otype.__classname=name;
+                NewComponent.otype.__classname = name;
             }
         }
 
         if (!ECSUtil.isString(name)) {
-            log.error(this.getRoleString()+' 注册组件失败,组件名称为空');
+            log.error(this.getRoleString() + ' 注册组件失败,组件名称为空');
             return;
         }
 
 
         ECSUtil.mountComponnet(NewComponent);
 
-        let pool=this._componentPools[name];
+        let pool = this._componentPools[name];
 
-        maxSize=(maxSize&&maxSize>0) ? maxSize:100;
-        minSize=(minSize&&minSize>0) ? minSize:10;
+        maxSize = (maxSize && maxSize > 0) ? maxSize : 100;
+        minSize = (minSize && minSize > 0) ? minSize : 10;
         if (pool) {
-            log.warn(this.getRoleString()+' 已存在组件:'+name+',不重新注册组件');
-            pool._maxSize=Math.max(pool._maxSize, maxSize||0);
-            pool._minSize=Math.max(pool._minSize, maxSize||0);
+            log.warn(this.getRoleString() + ' 已存在组件:' + name + ',不重新注册组件');
+            pool._maxSize = Math.max(pool._maxSize, maxSize || 0);
+            pool._minSize = Math.max(pool._minSize, maxSize || 0);
             return;
         }
         for (let depend of NewComponent.defineDepends) {
-            this.addDepends(name,depend);
+            this.addDepends(name, depend);
         }
         if (NewComponent.otype.onRegister) {
             NewComponent.otype.onRegister(this);
         }
-        this._componentPools[name]=new ComponentPool(NewComponent, maxSize, minSize, this);
-        log.info(this.getRoleString()+" 注册组件池:"+name+" 成功,最小保留对象数:"+minSize+" 最大对象数:"+maxSize);
+        this._componentPools[name] = new ComponentPool(NewComponent, maxSize, minSize, this);
+        log.info(this.getRoleString() + " 注册组件池:" + name + " 成功,最小保留对象数:" + minSize + " 最大对象数:" + maxSize);
 
         this.setComponentDefine(name);
     }
@@ -987,46 +988,48 @@ export class Runtime {
      */
     registerSingleton(name, Component) {
         let NewComponent;
-        if (typeof name!=='string') {
-            NewComponent=name;
+        if (typeof name !== 'string') {
+            NewComponent = name;
             if (!name.defineName) {
                 throw Error('组件:未定义');
             }
-            name=name.defineName?name.defineName:name.otype.__classname;
+            name = name.defineName ? name.defineName : name.otype.__classname;
         } else {
             if (!Component) {
-                throw Error('组件:'+name+'未定义');
+                throw Error('组件:' + name + '未定义');
             }
-            NewComponent=Component;
+            NewComponent = Component;
             //TODO:这里要更新了
             if (NewComponent.otype.defineName) {
-                NewComponent.otype.defineName() {
+                NewComponent.otype.defineName()
+                {
                     return name;
                 }
             } else {
-                NewComponent.otype.__classname=name;
+                NewComponent.otype.__classname = name;
             }
         }
 
 
-        let pool=this._componentPools[name];
+        let pool = this._componentPools[name];
         if (pool) {
-            log.warn(this.getRoleString()+' 已存在组件单例:'+name+',不重新注册组件');
+            log.warn(this.getRoleString() + ' 已存在组件单例:' + name + ',不重新注册组件');
             return;
         }
         for (let depend of NewComponent.defineDepends) {
-            this.addDepends(name,depend);
+            this.addDepends(name, depend);
         }
         ECSUtil.mountComponnet(NewComponent);
-        this._componentPools[name]=new ComponentSingleton(NewComponent, this);
+        this._componentPools[name] = new ComponentSingleton(NewComponent, this);
         this.setComponentDefine(name);
 
 
         if (NewComponent.otype.onRegister) {
             NewComponent.otype.onRegister(this);
         }
-        NewComponent.otype.dirty() {
-            this.onDirty&&this.onDirty(this._entity, this._entity._ecs);
+        NewComponent.otype.dirty()
+        {
+            this.onDirty && this.onDirty(this._entity, this._entity._ecs);
             if (this.isClient()) {
                 if (this.updateView) {
                     this.getECS().addRenderQueue(this);
@@ -1034,7 +1037,7 @@ export class Runtime {
                     let renderer = this.getRenderer();
                     if (renderer) {
                         let renderComp = this.getSibling(renderer);
-                        renderComp&&renderComp.dirty();
+                        renderComp && renderComp.dirty();
                     }
                 }
             }
@@ -1042,17 +1045,17 @@ export class Runtime {
                 this._entity.markDirty(this);
             }
         }
-        log.info(this.getRoleString()+" 注册组件单例:"+name+" 成功");
+        log.info(this.getRoleString() + " 注册组件单例:" + name + " 成功");
     }
 
     addRenderQueue(comp) {
-        if (this._renderUpdateQueue.indexOf(comp)===-1) {
+        if (this._renderUpdateQueue.indexOf(comp) === -1) {
             this._renderUpdateQueue.push(comp);
         }
     }
 
     lateAdd(comp) {
-        if (this._lateAddQueue.indexOf(comp)===-1) {
+        if (this._lateAddQueue.indexOf(comp) === -1) {
             this._lateAddQueue.push(comp);
         }
     }
@@ -1061,29 +1064,29 @@ export class Runtime {
         return this.rendererMap[ECSUtil.getComponentType(comp)];
     }
 
-    bindRenderer(compName,rendererName) {
+    bindRenderer(compName, rendererName) {
         //TODO:这里的绑定关系应该在ECS里建表
         this.rendererMap[ECSUtil.getComponentType(compName)] = ECSUtil.getComponentType(rendererName);
         this.rendererArray.push(ECSUtil.getComponentType(rendererName));
     }
 
-    createSingleton(Component){
+    createSingleton(Component) {
         let name;
-        if (typeof Component==='string') {
-            name=Component;
+        if (typeof Component === 'string') {
+            name = Component;
         } else if (Component.defineName) {
-            name=Component.defineName;
+            name = Component.defineName;
         } else {
-            name=Component.getComponentName?Component.getComponentName():Component.otype.__classname;
+            name = Component.getComponentName ? Component.getComponentName() : Component.otype.__classname;
         }
         if (!this._componentPools[name]) {
-            log.error(this.getRoleString()+' 单例组件:'+name+'不存在');
+            log.error(this.getRoleString() + ' 单例组件:' + name + '不存在');
             return;
         }
 
         let args = [].slice.call(arguments);
-        args.splice(0,1);
-        let comp=this._componentPools[name].get.apply(this._componentPools[name],args);
+        args.splice(0, 1);
+        let comp = this._componentPools[name].get.apply(this._componentPools[name], args);
         if (!comp._entity) {
             let ent = this.createEntity();
             ent.forceAdd(comp);
@@ -1094,28 +1097,28 @@ export class Runtime {
 
 //获取一个单例组件force强制创建
     getSingleton(Component, force) {
-        let args=[].slice.call(arguments);
-        if (args.length>0) {
+        let args = [].slice.call(arguments);
+        if (args.length > 0) {
             args.splice(0, 1);
         }
         let name;
-        if (typeof Component==='string') {
-            name=Component;
+        if (typeof Component === 'string') {
+            name = Component;
         } else if (Component.defineName) {
-            name=Component.defineName;
+            name = Component.defineName;
         } else {
-            name=Component.getComponentName?Component.getComponentName():Component.otype.__classname;
+            name = Component.getComponentName ? Component.getComponentName() : Component.otype.__classname;
         }
         if (!this._componentPools[name]) {
-            log.error(this.getRoleString()+' 单例组件:'+name+'不存在');
+            log.error(this.getRoleString() + ' 单例组件:' + name + '不存在');
             return;
         }
         // if (args.length > 0) {
         //     return this._componentPools[name].get.apply(this._componentPools[name], args);
         // }
-        let comp=this._componentPools[name].get();
+        let comp = this._componentPools[name].get();
         if (!comp._entity) {
-            if (!(force||this._server)) {
+            if (!(force || this._server)) {
                 return;
             }
             let ent = this.createEntity();
@@ -1129,14 +1132,14 @@ export class Runtime {
      * @returns {Entity}
      */
     createEntity(id) {
-        id=id||this.generateID();
+        id = id || this.generateID();
         if (this._entityPool[id]) {
-            throw new Error(id+' entity already exist');
+            throw new Error(id + ' entity already exist');
         }
-        this._dirty=true;
-        let ent=new Entity(this, id);
+        this._dirty = true;
+        let ent = new Entity(this, id);
         this._newEntities.push(ent);
-        this._entityPool[id]=ent;
+        this._entityPool[id] = ent;
         return ent
     }
 
@@ -1145,11 +1148,11 @@ export class Runtime {
      * @param id
      * @return {*}
      */
-    hasEntity(id) {
+    hasEntity(id):boolean {
         return this._entityPool[id];
     }
 
-    getEntity(id,a) {
+    getEntity(id):Entity {
         return this._entityPool[id];
     }
 
@@ -1158,24 +1161,24 @@ export class Runtime {
      * @param ent
      */
     removeEntityInstant(ent) {
-        let entity=ent;
+        let entity = ent;
         if (ECSUtil.isNumber(ent)) {
-            entity=this._entityPool[ent];
+            entity = this._entityPool[ent];
         }
         if (!entity) {
             //log.error('Entity不存在');
             return;
         }
-        let id=entity.id;
+        let id = entity.id;
         for (let i in this._groups) {
             if (!this._groups.hasOwnProperty(i)) {
                 continue;
             }
             this._groups[i].removeEntity(entity);
         }
-        this._dirty=true;
+        this._dirty = true;
         entity.onDestroy();
-        entity=null;
+        entity = null;
         delete this._entityPool[id];
         let decoy = this.createEntity(id);
         this._toDestroyEntities.push(decoy);
@@ -1183,15 +1186,15 @@ export class Runtime {
     }
 
     removeEntity(ent) {
-        let entity=ent;
+        let entity = ent;
         if (ECSUtil.isNumber(ent)) {
-            entity=this._entityPool[ent];
+            entity = this._entityPool[ent];
         }
         if (!entity) {
             //log.error('Entity不存在');
             return;
         }
-        this._dirty=true;
+        this._dirty = true;
         this._toDestroyEntities.push(entity);
         this._toDestroyEntityIDs.push(entity.id);
         return entity;
@@ -1200,41 +1203,43 @@ export class Runtime {
     getComponentPrototype(name) {
         return this.getComponentPool(name)._component;
     }
+
     /**
      * 获取一个组件池<ComponentPool>
      * @param comp
      * @returns {*}
      */
     getComponentPool(comp) {
-        let name=ECSUtil.getComponentType(comp);
+        let name = ECSUtil.getComponentType(comp);
         if (!name) {
-            log.error(this.getRoleString()+' 组件错误或未注册',comp);
+            log.error(this.getRoleString() + ' 组件错误或未注册', comp);
             return;
         }
-        let pool=this._componentPools[name];
+        let pool = this._componentPools[name];
         if (!pool) {
-            log.error(this.getRoleString()+' ComponentPool:'+name+'不存在');
+            log.error(this.getRoleString() + ' ComponentPool:' + name + '不存在');
             return null;
         }
         return pool;
     }
+
     /**
      * 创建组件
      * @param comp
      * @returns {null}
      */
     createComponent(comp) {
-        let args=[].slice.call(arguments);
-        comp=args[0];
+        let args = [].slice.call(arguments);
+        comp = args[0];
         args.splice(0, 1);
-        let pool=this.getComponentPool(comp);
+        let pool = this.getComponentPool(comp);
         if (pool) {
-            if (args.length>0) {
+            if (args.length > 0) {
                 return pool.get.apply(pool, args);
             }
             return pool.get();
         }
-        log.error(this.getRoleString()+' 参数出错');
+        log.error(this.getRoleString() + ' 参数出错');
         return null;
     }
 
@@ -1243,13 +1248,13 @@ export class Runtime {
      * @param comp <string>
      */
     cacheGroups(comp) {
-        let ret=[];
+        let ret = [];
         for (let i in this._groups) {
             if (ECSUtil.includes(i, comp)) {
                 ret.push(this._groups[i]);
             }
         }
-        this._cachedGroups[comp]=ret;
+        this._cachedGroups[comp] = ret;
         return ret;
     }
 
@@ -1259,8 +1264,8 @@ export class Runtime {
      * @param ent
      */
     assignEntity(comp, ent) {
-        let cachedGroups=this._cachedGroups[comp] ? this._cachedGroups[comp]:this.cacheGroups(comp);
-        for (let i=0; i<cachedGroups.length; i++) {
+        let cachedGroups = this._cachedGroups[comp] ? this._cachedGroups[comp] : this.cacheGroups(comp);
+        for (let i = 0; i < cachedGroups.length; i++) {
             cachedGroups[i].addEntity(ent);
             cachedGroups[i].addDirtyEntity(ent);
         }
@@ -1272,15 +1277,15 @@ export class Runtime {
      * @param ent
      */
     reassignEntity(comp, ent) {
-        let cachedGroups=this._cachedGroups[comp] ? this._cachedGroups[comp]:this.cacheGroups(comp);
-        for (let i=0; i<cachedGroups.length; i++) {
+        let cachedGroups = this._cachedGroups[comp] ? this._cachedGroups[comp] : this.cacheGroups(comp);
+        for (let i = 0; i < cachedGroups.length; i++) {
             cachedGroups[i].removeEntity(ent);
             cachedGroups[i].removeDirtyEntity(ent);
         }
     }
 
     markDirtyEntity(ent) {
-        if (this._dirtyEntities.indexOf(ent)===-1&&this._newEntities.indexOf(ent)===-1) {
+        if (this._dirtyEntities.indexOf(ent) === -1 && this._newEntities.indexOf(ent) === -1) {
             this._dirtyEntities.push(ent);
         }
         this._dirty = true;
@@ -1294,7 +1299,7 @@ export class Runtime {
      * @param comp
      */
     recycleComponent(comp) {
-        let pool=this.getComponentPool(comp);
+        let pool = this.getComponentPool(comp);
         if (pool) {
             pool.recycle(comp);
         }
@@ -1305,17 +1310,17 @@ export class Runtime {
      * @param compGroup
      * @returns {[string]}
      */
-    hashGroups(compGroup) {
+    hashGroups(compGroup):Array<Array<string>> {
         if (!ECSUtil.isArray(compGroup)) {
-            compGroup=[compGroup];
+            compGroup = [compGroup];
         }
-        let retArr = [[]];
-        for (let i=0; i<compGroup.length; i++) {
+        let retArr:Array<Array<string>> = [[]];
+        for (let i = 0; i < compGroup.length; i++) {
             let comp = compGroup[i];
             if (ECSUtil.isArray(comp)) {
                 let tempArr = [];
-                for (let j=0;j<comp.length;j++) {
-                    for (let k=0;k<retArr.length;k++) {
+                for (let j = 0; j < comp.length; j++) {
+                    for (let k = 0; k < retArr.length; k++) {
                         let arr = retArr[k].slice();
                         arr.push(ECSUtil.getComponentType(comp[j]));
                         tempArr.push(arr);
@@ -1324,12 +1329,12 @@ export class Runtime {
                 retArr = [];
                 retArr = tempArr;
             } else {
-                for (let j=0;j<retArr.length;j++) {
+                for (let j = 0; j < retArr.length; j++) {
                     retArr[j].push(ECSUtil.getComponentType(comp));
                 }
             }
         }
-        for (let i=0;i<retArr.length;i++) {
+        for (let i = 0; i < retArr.length; i++) {
             retArr[i].sort();
         }
         return retArr;
@@ -1348,22 +1353,22 @@ export class Runtime {
      * @returns {*}
      */
     registerGroups(compGroups) {
-        if (!compGroups||compGroups.length===0) {
+        if (!compGroups || compGroups.length === 0) {
             return [];
         }
-        let hashes=this.hashGroups(compGroups);
+        let hashes = this.hashGroups(compGroups);
         //获取注册相关的集合<Group>,如果有就作为updater方法的参数,没有就创建一个
         let groups = [];
-        for (let i=0;i<hashes.length;i++) {
+        for (let i = 0; i < hashes.length; i++) {
             let hash = hashes[i];
-            let group=this._groups[hash];
+            let group = this._groups[hash];
             if (!group) {
-                group=new Group(hash,this);
+                group = new Group(hash, this);
                 group._hash = hash;
-                this._groups[hash]=group;
+                this._groups[hash] = group;
                 for (let i in this._cachedGroups) {
-                    if (ECSUtil.includes(hash,i)) {
-                        if (this._cachedGroups[i].indexOf(group)===-1) {
+                    if (ECSUtil.includes(hash, i)) {
+                        if (this._cachedGroups[i].indexOf(group) === -1) {
                             this._cachedGroups[i].push(group);
                         }
                     }
@@ -1398,17 +1403,17 @@ export class Runtime {
         return groups;
     }
 
-    getGroup(name){
+    getGroup(name) {
         if (!ECSUtil.isArray(name)) {
             name = [].concat(name);
         }
         return this.registerGroups(name);
     }
 
-    getEntities(name){
-        let groups = this.getGroup.apply(this,arguments);
+    getEntities(name) {
+        let groups = this.getGroup.apply(this, arguments);
         let ret = [];
-        for (let j=0;j<groups.length;j++) {
+        for (let j = 0; j < groups.length; j++) {
             let group = groups[j];
             for (let i = 0; i < group._entityIndexes.length; i++) {
                 let id = group._entityIndexes[i];
@@ -1429,37 +1434,37 @@ export class Runtime {
     registerSystem(system) {
         //如果是数组则分别添加其中的子系统
         if (ECSUtil.isArray(system)) {
-            for (let i=0; i<system.length; i++) {
+            for (let i = 0; i < system.length; i++) {
                 this.registerSystem(system[i]);
             }
             return;
         }
         let sys;
-        if (ECSUtil.isInheritFrom(system,System)) {
+        if (ECSUtil.isInheritFrom(system, ISystem)) {
             sys = new system(this);
         } else if (ECSUtil.isObject(system)) {
-            sys=new System(this, system);
+            sys = new ISystem(this, system);
         } else if (ECSUtil.isFunction(system)) {
-            sys=new System(this, new system());
+            sys = new ISystem(this, new system());
         }
 
         if (!sys.name) {
-            log.error(this.getRoleString()+' System无名称不合法', sys, sys.name);
+            log.error(this.getRoleString() + ' System无名称不合法', sys, sys.name);
             return;
         }
 
         // sys.groups = this.registerGroups(sys.components);
 
-        sys.onRegister&&sys.onRegister(this);
+        sys.onRegister && sys.onRegister(this);
         if (sys.enabled) {
-            sys.onEnable&&sys.onEnable(this);
+            sys.onEnable && sys.onEnable(this);
         }
 
         this._addSystemCount++;
         sys.setAddOrder(this._addSystemCount);
-        this._systemIndexes[sys.name]=this._systems.length;
+        this._systemIndexes[sys.name] = this._systems.length;
         this._systems.push(sys);
-        let desc=sys.desc&&ECSUtil.isString(sys.desc) ? "\n"+"说明: "+sys.desc:'';
+        let desc = sys.desc && ECSUtil.isString(sys.desc) ? "\n" + "说明: " + sys.desc : '';
         // if (!sys.components||sys.components.length===0) {
         //     log.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
         //     sys.components=[];
@@ -1475,7 +1480,7 @@ export class Runtime {
         //     }
         //     compstr+='}';
         // }
-        log.info(this.getRoleString()+"\n添加系统: "+sys.name+" 优先级: "+(sys.priority ? sys.priority:0)+" 添加次序: "+sys._addOrder+desc);
+        log.info(this.getRoleString() + "\n添加系统: " + sys.name + " 优先级: " + (sys.priority ? sys.priority : 0) + " 添加次序: " + sys._addOrder + desc);
         this.sortSystems();
     }
 
@@ -1484,42 +1489,42 @@ export class Runtime {
      */
     sortSystems() {
         this._systems.sort(function (a, b) {
-            if (!a.priority&& !b.priority) {
-                return a._addOrder>b._addOrder;
+            if (!a.priority && !b.priority) {
+                return a._addOrder > b._addOrder;
             }
-            if (a.priority===b.priority) {
-                return a._addOrder>b._addOrder;
+            if (a.priority === b.priority) {
+                return a._addOrder > b._addOrder;
             }
-            return a.priority>b.priority
+            return a.priority > b.priority
         });
-        this._systemIndexes={}
-        for (let i=0; i<this._systems.length; i++) {
-            let system=this._systems[i];
-            this._systemIndexes[system.name]=i;
+        this._systemIndexes = {}
+        for (let i = 0; i < this._systems.length; i++) {
+            let system = this._systems[i];
+            this._systemIndexes[system.name] = i;
         }
     }
 
     sortOrder(a, b) {
-        if (a.activeTime===b.activeTime) {
-            if (!a.system.priority&& !b.system.priority) {
-                return a.system._addOrder-b.system._addOrder;
+        if (a.activeTime === b.activeTime) {
+            if (!a.system.priority && !b.system.priority) {
+                return a.system._addOrder - b.system._addOrder;
             }
-            if (a.system.priority===b.system.priority) {
-                return a.system._addOrder-b.system._addOrder;
+            if (a.system.priority === b.system.priority) {
+                return a.system._addOrder - b.system._addOrder;
             }
-            return a.system.priority-b.system.priority;
+            return a.system.priority - b.system.priority;
         }
-        if (a.activeTime<b.activeTime) {
+        if (a.activeTime < b.activeTime) {
             return -1;
         }
-        if (a.activeTime>b.activeTime) {
+        if (a.activeTime > b.activeTime) {
             return 1;
         }
     }
 
     getSystem(name) {
-        let index=this._systemIndexes[name];
-        if (index!==undefined) {
+        let index = this._systemIndexes[name];
+        if (index !== undefined) {
             return this._systems[index];
         }
     }
@@ -1534,27 +1539,27 @@ export class Runtime {
         }
     }
 
-    update(dt) {
+    update(dt,turned?) {
 //按照顺序来迭代系统
-        let systemReadyToUpdate=[];
-        for (let i=0; i<this._systems.length; i++) {
-            let system=this._systems[i];
-            let updates=system.calUpdate(this._updateInterval, this._timer.runningTime, this);
-            for (let j=0; j<updates.length; j++) {
+        let systemReadyToUpdate = [];
+        for (let i = 0; i < this._systems.length; i++) {
+            let system = this._systems[i];
+            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime, this);
+            for (let j = 0; j < updates.length; j++) {
                 systemReadyToUpdate.push({
-                    interval:updates[j].interval,
-                    activeTime:updates[j].activeTime,
-                    system:system
+                    interval: updates[j].interval,
+                    activeTime: updates[j].activeTime,
+                    system: system
                 })
             }
         }
 
         systemReadyToUpdate.sort(this.sortOrder.bind(this));
 
-        for (let i=0; i<systemReadyToUpdate.length; i++) {
-            let system=systemReadyToUpdate[i].system;
-            let dt=systemReadyToUpdate[i].interval;
-            let now=systemReadyToUpdate[i].activeTime;
+        for (let i = 0; i < systemReadyToUpdate.length; i++) {
+            let system = systemReadyToUpdate[i].system;
+            let dt = systemReadyToUpdate[i].interval;
+            let now = systemReadyToUpdate[i].activeTime;
             system.doUpdates(dt, now, this);
         }
 
@@ -1565,110 +1570,109 @@ export class Runtime {
     }
 
     getComponentCount() {
-        let ret=0;
+        let ret = 0;
         for (let i in this._componentPools) {
             if (this._componentPools[i]._itemCount) {
-                ret+=this._componentPools[i]._itemCount;
+                ret += this._componentPools[i]._itemCount;
             }
         }
         return ret;
     }
 
-    lateUpdate() {
-        for (let i=0;i<this._lateAddQueue.length;i++) {
+    lateUpdate(dt:number) {
+        for (let i = 0; i < this._lateAddQueue.length; i++) {
             let addComp = this._lateAddQueue[i];
-            addComp.onAdd(addComp._entity,this);
+            addComp.onAdd(addComp._entity, this);
         }
         this._lateAddQueue = [];
-        let systemReadyToUpdate=[];
-        for (let i=0; i<this._systems.length; i++) {
-            let system=this._systems[i];
-            let updates=system.calUpdate(this._updateInterval, this._timer.runningTime, this);
-            for (let j=0; j<updates.length; j++) {
+        let systemReadyToUpdate = [];
+        for (let i = 0; i < this._systems.length; i++) {
+            let system = this._systems[i];
+            let updates = system.calUpdate(this._updateInterval, this._timer.runningTime, this);
+            for (let j = 0; j < updates.length; j++) {
                 systemReadyToUpdate.push({
-                    interval:updates[j].interval,
-                    activeTime:updates[j].activeTime,
-                    system:system
+                    interval: updates[j].interval,
+                    activeTime: updates[j].activeTime,
+                    system: system
                 })
             }
         }
 
         systemReadyToUpdate.sort(this.sortOrder.bind(this));
 
-        for (let i=systemReadyToUpdate.length-1; i>=0; i--) {
-            let system=systemReadyToUpdate[i].system;
-            let dt=systemReadyToUpdate[i].interval;
-            let now=systemReadyToUpdate[i].activeTime;
+        for (let i = systemReadyToUpdate.length - 1; i >= 0; i--) {
+            let system = systemReadyToUpdate[i].system;
+            let dt = systemReadyToUpdate[i].interval;
+            let now = systemReadyToUpdate[i].activeTime;
             system.doLateUpdates(dt, now, this);
         }
     }
 
     destroy(cb) {
         log.debug('ECS destroy');
-        this.cleanBuffer&&this.cleanBuffer();
-        this._enabled=false;
-        this.onDisable&&this.onDisable();
-        this._ecsReadyDestroy=true;
+        this.cleanBuffer && this.cleanBuffer();
+        this._enabled = false;
+        this.onDisable && this.onDisable();
+        this._readyDestroy = true;
         this.destroyCb = cb;
     }
 
     _destroy() {
-        this._enabled=false;
+        this._enabled = false;
         this.unscheduleAll();
         this._timer.destroy();
         for (let i in this._entityPool) {
             this.removeEntityInstant(this._entityPool[i]);
         }
 
-        for (let i=0; i<this._toDestroyEntities; i++) {
-            let ent=this._toDestroyEntities[i];
+        for (let i = 0; i < this._toDestroyEntities.length; i++) {
+            let ent = this._toDestroyEntities[i];
             delete this._entityPool[ent.id];
             ent.onDestroy();
-            ent=null;
+            ent = null;
         }
-        this._toDestroyEntities=[];
+        this._toDestroyEntities = [];
 
         for (let i in this._componentPools) {
             this._componentPools[i].destroy();
         }
-        this._entityPool={}            //实体<Entity>池
-        this._commands={}                //注册的命令组件
-        this._commandQueueMaps=[];        //以命令名为键的队列
-        this._componentPools={}        //各种组件池<ComponentPool>容器
-        this._groups={}                //各种集合<Group>容器,组件<Component>数组为键值
-        this._cachedGroups={}          //单个组件<Component>为键值的集合<Group>缓存
-        this._systems=[];               //各个系统和监听集合
-        this._toDestroyEntities=[];    //在这轮遍历中要删除的entity队列
-        this._index=0;                  //实体<Entity>ID分配变量
-        this._addSystemCount=0;
-        this._objContainer={}
+        this._entityPool = new Map<number, Entity>()            //实体<Entity>池
+        this._commands = {}                //注册的命令组件
+        this._commandQueueMaps = [];        //以命令名为键的队列
+        this._componentPools = new Map<string, IComponentPool>()        //各种组件池<ComponentPool>容器
+        this._groups = new Map<Array<string>, Group>()                //各种集合<Group>容器,组件<Component>数组为键值
+        this._cachedGroups = new Map<string, Group>()          //单个组件<Component>为键值的集合<Group>缓存
+        this._systems = [];               //各个系统和监听集合
+        this._toDestroyEntities = [];    //在这轮遍历中要删除的entity队列
+        this._index = 0;                  //实体<Entity>ID分配变量
+        this._addSystemCount = 0;
+        this._objContainer = {}
 
-        this._ecsDestroyed=true;
+        this._ecsDestroyed = true;
 
     }
 
     schedule(name, callback, interval, repeat, delay) {
-        if (ECSUtil.isFunction(name)){
+        if (ECSUtil.isFunction(name)) {
             delay = repeat;
             repeat = interval;
             interval = callback;
             callback = name;
-            this.scheduleId=this.scheduleId||0;
             this.scheduleId++;
-            name=this.scheduleId;
+            name = this.scheduleId;
         }
-        if (callback<0) {
-            log.error(this.getRoleString()+' 参数为空');
+        if (callback < 0) {
+            log.error(this.getRoleString() + ' 参数为空');
             throw Error;
         }
-        if (interval<0) {
-            log.error(this.getRoleString()+' 时间间隔不能小于0');
+        if (interval < 0) {
+            log.error(this.getRoleString() + ' 时间间隔不能小于0');
             throw Error;
         }
 
-        interval=interval||0;
-        repeat=isNaN(repeat) ? Number.MAX_VALUE-1:repeat;
-        delay=delay||0;
+        interval = interval || 0;
+        repeat = isNaN(repeat) ? Number.MAX_VALUE - 1 : repeat;
+        delay = delay || 0;
         this._timer.schedule(name, callback, interval, repeat, delay, 0);
     }
 
@@ -1685,8 +1689,8 @@ export class Runtime {
     }
 
     scheduleUnique(name, callback, delay) {
-        if (!name||typeof name !== 'string') {
-            log.error(this.getRoleString()+' 唯一任务必须有名称!');
+        if (!name || typeof name !== 'string') {
+            log.error(this.getRoleString() + ' 唯一任务必须有名称!');
             return;
         }
         if (this._uniqueSchedules[name]) {
@@ -1697,7 +1701,7 @@ export class Runtime {
     }
 
     scheduleOnce(name, callback, delay) {
-        this.schedule(name,callback,0,1,delay);
+        this.schedule(name, callback, 0, 1, delay);
     }
 
     unscheduleAll() {
@@ -1705,18 +1709,18 @@ export class Runtime {
     }
 
     disableSystem(name) {
-        let sys=this.getSystem(name);
-        if (sys&&sys.enabled) {
-            sys.enabled=false;
-            sys.onDisable&&sys.onDisable(this);
+        let sys = this.getSystem(name);
+        if (sys && sys.enabled) {
+            sys.enabled = false;
+            sys.onDisable && sys.onDisable(this);
         }
     }
 
     enableSystem(name) {
-        let sys=this.getSystem(name);
-        if (sys&&!sys.enabled) {
-            sys.enabled=true;
-            sys.onDisable&&sys.onDisable(this);
+        let sys = this.getSystem(name);
+        if (sys && !sys.enabled) {
+            sys.enabled = true;
+            sys.onDisable && sys.onDisable(this);
         }
     }
 
@@ -1728,13 +1732,17 @@ export class Runtime {
         return !this._server;
     }
 
+    getTick(){
+        return this._tick
+    }
+
     start() {
         if (!this._enabled) {
             this.setupUpdateFunc();
-            this._enabled=true;
-            this.onEnable&&this.onEnable();
+            this._enabled = true;
+            this.onEnable && this.onEnable();
             if (this._turned) {
-                this.tick();
+                this._timer.tick();
             } else {
                 this._timer.start();
             }

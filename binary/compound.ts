@@ -1,6 +1,7 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
 import {Type} from "./tags"
+import {getTagType} from "./bt";
 
 export class TAGCompound extends BinaryBase{
     constructor(){
@@ -9,19 +10,18 @@ export class TAGCompound extends BinaryBase{
         this.type =  Type.TAG_Compound;
     }
     _getNextTag(buff, offset) {
-        let tagType = buff.readUInt8(offset);
-        if(tagType < 0) {
-            throw new Error("Unknown tag type - " + tagType + ".");
+        let tagId = buff.readUInt8(offset);
+        if(tagId < 0) {
+            throw new Error("Unknown tag type - " + tagId + ".");
         }
 
-        if(tagType === 0) {
+        if(tagId === 0) {
             return -1;
         }
 
-        let Tags = require("./nbt");
-        let Tag = Tags[tagType];
+        let Tag = getTagType(tagId);
         if(null === Tag || undefined === Tag) {
-            throw new Error("Tag type " + tagType + " is not supported by this module yet.");
+            throw new Error("Tag type " + tagId + " is not supported by this module yet.");
         }
 
         let tag = new Tag();
@@ -94,7 +94,7 @@ export class TAGCompound extends BinaryBase{
             this.addValue(key,value);
         }
     }
-    addValue(name,value,replace){
+    addValue(name,value,replace?){
         if (typeof name !== 'string') {
             replace = value;
             value = name;

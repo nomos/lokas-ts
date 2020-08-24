@@ -4,13 +4,19 @@
  * @param ecs
  * @constructor
  */
+import {IComponent} from "./default_component";
+import {Runtime} from "./runtime";
 
-export class ComponentSingleton {
-    constructor(ComponentType, ecs) {
-        this._component = ComponentType;            //给对象赋值
-        this._instance = null;
-        this._name = ComponentType.defineName;  //名称为对象定义的原型名
-        this._ecs = ecs;
+export class ComponentSingleton<T extends IComponent>{
+    public name:string
+    public instance:T
+    public runtime:Runtime
+    private readonly component:{new():T}
+    constructor(ComponentType:{new():T}, ecs) {
+        this.component = ComponentType;            //给对象赋值
+        this.instance = null;
+        this.name = Object.getPrototypeOf(ComponentType).defineName;  //名称为对象定义的原型名
+        this.runtime = ecs;
     }
 
     /**
@@ -19,14 +25,14 @@ export class ComponentSingleton {
      */
     create() {
         let args = [].slice.call(arguments);
-        this._instance = Object.create(this._component.prototype);
-        this._component.prototype.constructor.apply(this._instance, args);
-        this._instance._dirty = true;
-        this._instance._ecs = this._ecs;
-        if (this._instance.onCreate) {
-            this._instance.onCreate(this._ecs);
+        this.instance = new this.component();
+        this.component.apply(this.instance, args);
+        this.instance.markDirty();
+        this.instance.setRuntime(this.runtime)
+        if (this.instance.onCreate) {
+            this.instance.onCreate(this.runtime);
         }
-        return this._instance;
+        return this.instance;
     }
 
     /**
@@ -34,10 +40,10 @@ export class ComponentSingleton {
      * @param comp
      */
     recycle(comp) {
-        if (this._instance) {
-            this._instance.onDestroy && this._instance.onDestroy(this._ecs);
+        if (this.instance) {
+            this.instance.onDestroy && this.instance.onDestroy(this.runtime);
         }
-        this._instance = null;
+        this.instance = null;
     }
 
     /**
@@ -46,11 +52,11 @@ export class ComponentSingleton {
      */
     get() {
         let args = [].slice.call(arguments);
-        if (this._instance) {
+        if (this.instance) {
             if (args.length > 0) {
-                this._component.prototype.constructor.apply(this._instance, args);
+                this.component.apply(this.instance, args);
             }
-            return this._instance;
+            return this.instance;
         } else {
             return this.create.apply(this, args);
         }
@@ -61,10 +67,10 @@ export class ComponentSingleton {
     }
 
     destroy() {
-        if (this._instance) {
-            this._instance.destroy();
+        if (this.instance) {
+            this.instance.onDestroy(this.runtime);
         }
-        this._instance = null;
+        this.instance = null;
     }
 }
 

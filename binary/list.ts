@@ -1,9 +1,11 @@
 import {BinaryBase} from "./binary_base";
 import {Type} from "./tags"
 import {util} from "../utils/util";
+import {getTagType} from "./bt"
 
 export class TAGList extends BinaryBase{
     public childType: Type
+    public value:Array<BinaryBase>
     constructor(){
         super();
         this.type =  Type.TAG_List;
@@ -14,18 +16,13 @@ export class TAGList extends BinaryBase{
         let typeId = buff.readUInt8(offset);
         let len = buff.readUInt32BE(offset + 1);
 
-        let Tag = this.$tags[typeId];
+        let Tag = getTagType(typeId);
         if((null === Tag || undefined === Tag) && 0 !== typeId) {
             throw new Error("Tag type " + typeId + " is not supported yet in list.");
         }
 
         if(0 !== typeId) {
-            for(let key in this.$tags) {
-                if(!this.$tags.hasOwnProperty(key)) continue;
-                if(this.$tags[key] === typeId) {
-                    this.childType = key;
-                }
-            }
+            this.childType = typeId;
         }
 
         this.value = [];
@@ -56,18 +53,12 @@ export class TAGList extends BinaryBase{
             this.value = value;
             return;
         }
-
-        let typeName = this.childType;
-        let typeId = this.childType === "TAG_End" ? 0 : this.$tags[typeName];
-        if(!typeId) {
-            typeName = value[0].type;
-            typeId = this.$tags[typeName];
-            if(!typeId) {
-                throw new Error("Invalid TAG_List element.");
-            }
+        if (!this.childType) {
+            this.childType = value.type
         }
+        let typeId = this.childType;
 
-        let TagType = this.$tags[typeId];
+        let TagType = getTagType(typeId)
         let array = [];
         for(let i = 0; i < value.length; i++) {
             if(!(value[i] instanceof TagType)) {
@@ -77,7 +68,6 @@ export class TAGList extends BinaryBase{
             array.push(value[i]);
         }
 
-        this.childType = typeName;
         this.value = array;
     }
 
@@ -85,43 +75,39 @@ export class TAGList extends BinaryBase{
         return this.value.shift();
     }
 
-    unshift(value) {
-        let typeName = this.childType;
-        let typeId = this.childType === "TAG_End" ? 0 : this.$tags[typeName];
+    unshift(value:BinaryBase) {
+        let typeId = this.childType;
         if(!typeId) {
-            typeName = value.type;
-            typeId = this.$tags[typeName];
+            typeId = value.type;
             if(!typeId) {
                 throw new Error("Invalid TAG_List element.");
             }
         }
 
-        let TagType = this.$tags[typeId];
+        let TagType = getTagType(typeId);
         if(!(value instanceof TagType)) {
             throw new Error("Element does not TAG_List's current type.");
         }
 
-        this.childType = typeName;
+        this.childType = typeId;
         return this.value.unshift(value);
     }
 
-    push(value) {
-        let typeName = this.childType;
-        let typeId = this.childType === "TAG_End" ? 0 : this.$tags[typeName];
+    push(value:BinaryBase) {
+        let typeId = this.childType;
         if(!typeId) {
-            typeName = value.type;
-            typeId = this.$tags[typeName];
+            typeId = value.type;
             if(!typeId) {
                 throw new Error("Invalid TAG_List element.");
             }
         }
 
-        let TagType = this.$tags[typeId];
+        let TagType = getTagType(typeId);
         if(!(value instanceof TagType)) {
             throw new Error("Element does not TAG_List's current type.");
         }
 
-        this.childType = typeName;
+        this.childType = typeId;
         return this.value.push(value);
     }
 
@@ -134,24 +120,21 @@ export class TAGList extends BinaryBase{
     }
 
     insert(value, pos) {
-        let typeName = this.childType;
-        let typeId = this.childType === "TAG_End" ? 0 : this.$tags[typeName];
+        let typeId = this.childType;
         if(!typeId) {
-            typeName = value.type;
-            typeId = this.$tags[typeName];
+            typeId = value.type;
             if(!typeId) {
                 throw new Error("Invalid TAG_List element.");
             }
         }
 
-        let TagType = this.$tags[typeId];
+        let TagType = getTagType(typeId);
         if(!(value instanceof TagType)) {
             throw new Error("Element does not TAG_List's current type.");
         }
 
         if(pos < 0) pos = 0;
         if(pos > this.value.length) pos = this.value.length;
-        this.value.push([]);
         for(let i = this.value.length - 1; i >= pos; i--) {
             this.value[i + 1] = this.value[i];
         }

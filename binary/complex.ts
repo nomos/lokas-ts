@@ -1,26 +1,27 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
 import {Type} from "./tags"
+import {getTagType} from "./bt";
 
 export class TAGComplex extends BinaryBase{
+    public length:number
+    public value:Array<BinaryBase> = new Array<BinaryBase>()
     constructor(){
         super();
         this.type =  Type.TAG_Complex;
-        this.value     = [];
     }
     _getNextTag(buff, offset):number {
-        let tagType = buff.readUInt8(offset);
-        if(tagType < 0) {
-            throw new Error("Unknown tag type - " + tagType + ".");
+        let tagId = buff.readUInt8(offset);
+        if(tagId < 0) {
+            throw new Error("Unknown tag type - " + tagId + ".");
         }
 
-        if(tagType === 0) {
+        if(tagId === 0) {
             return -1;
         }
-        let Tags = require("./nbt");
-        let Tag = Tags[tagType];
+        let Tag = getTagType(tagId);
         if(null === Tag || undefined === Tag) {
-            throw new Error("Tag type " + tagType + " is not supported by this module yet.");
+            throw new Error("Tag type " + tagId + " is not supported by this module yet.");
         }
 
         let tag = new Tag();
@@ -29,7 +30,7 @@ export class TAGComplex extends BinaryBase{
         return len;
     }
     _readBodyFromBuffer(buff, offset) {
-        this.value = {};
+        this.value = new Array<BinaryBase>();
 
         let nextOffset = offset;
         while(true) {
@@ -48,16 +49,16 @@ export class TAGComplex extends BinaryBase{
         len += 1;
         return len;
     }
-    setValue(value) {
+    setValue(value:Array<BinaryBase>) {
         if(typeof value !== "object") {
             throw new Error("Invalid Tag_Complex value.");
         }
         for(let i=0;i<this.value.length;i++) {
             let object = value[i];
             if(!(object instanceof BinaryBase)) {
-                throw new Error("Invalid Tag_Complex element in key \"" + key + "\".");
+                throw new Error("Invalid Tag_Complex element at index \"" + i + "\".");
             }
-            this.addValue(i,object);
+            this.addValue(object);
         }
     }
     addValue(value) {
@@ -102,5 +103,3 @@ export class TAGComplex extends BinaryBase{
         return this.getSize();
     }
 }
-
-module.exports = TAGComplex;

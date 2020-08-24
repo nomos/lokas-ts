@@ -1,9 +1,9 @@
 import {Position,Velocity,Acceleration} from "./base_components";
-import {System} from "../ecs/system";
+import {ISystem} from "../ecs/ISystem";
 import {Circle} from "./circle"
 import {Polygon} from "./polygon"
 
-export class AccelSubSystem extends System {
+export class AccelSubSystem extends ISystem {
     constructor(ecs,opt) {
         super(ecs,opt);
         this.name = 'AccelSubSystem';
@@ -18,7 +18,7 @@ export class AccelSubSystem extends System {
 }
 
 
-export class MoveSubSystem extends System {
+export class MoveSubSystem extends ISystem {
     constructor(ecs,opt) {
         super(ecs,opt);
         this.name = 'MoveSubSystem';

@@ -1,6 +1,6 @@
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
-export class Contact extends DefaultComponent{
+export class Contact extends IComponent{
     static get defineName(){
         return 'Contact';
     }

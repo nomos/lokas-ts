@@ -147,7 +147,8 @@ export class BinaryBase{
 
         return _val;
     }
-    writeBuffer(buff, offset) {
+    writeBuffer(buff, offset):number {
+        return 0
     }
     calcBufferLength() {
         return 0;

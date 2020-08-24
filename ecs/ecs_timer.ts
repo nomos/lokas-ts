@@ -1,10 +1,5 @@
 import {Logger,log} from "../utils/logger";
 
-enum TYPE{
-    ASYNC,
-    FIXED,
-}
-
 enum STATE {
     STOP,
     START,
@@ -12,11 +7,32 @@ enum STATE {
 }
 
 export class Timer {
-    constructor(updateTime, timescale, isAsync) {
+    private _timeScale:number
+    private readonly _updateTime:number
+    private _interval:number
+    private _startTime:number
+    private _timeOffset:number
+    private _runningTime:number
+    private _lastUpdateTime:number
+    private _prevInterval:number
+    private _taskIdGen:number
+    private _tick:number
+    private _state:STATE
+    private _onStartCb:(runningTime:number)=>void
+    private _onStopCb:(runningTime:number)=>void
+    private _onPauseCb:(runningTime:number)=>void
+    private _onResumeCb:(runningTime:number)=>void
+    private _onDestroyCb:(runningTime:number)=>void
+    private _onUpdateCb:(prevInterval:number,runningTime:number)=>void
+    private _onLateUpdateCb:(prevInterval:number,runningTime:number)=>void
+    private _scheduleTasks:object = {}
+    private taskQueue = []
+    private removeTasks = []
+
+    constructor(updateTime, timescale) {
         this._timeScale = timescale || 1.0;
-        this.reset();
         this._updateTime = updateTime || 1000;
-        this._type = isAsync || TYPE.SYNC;
+        this.reset();
     }
 
     reset() {
@@ -24,20 +40,19 @@ export class Timer {
         this._startTime = 0;            //开始时间
         this._timeOffset = 0;           //时间偏移量
         this._runningTime = 0;          //运行时间
-        this._onUpdateCb = null;        //更新回调
-        this._onLateUpdateCb = null;    //延迟更新回调
         this._lastUpdateTime = 0;       //最后更新时间
         this._prevInterval = 0;           //更新时间间隔
+        this._state = STATE.STOP;  //定时器状态
+        this._taskIdGen = 0;            //任务ID生成
+        this._tick = 0;
+        this._onUpdateCb = null;        //更新回调
+        this._onLateUpdateCb = null;    //延迟更新回调
         this._onStartCb = null;           //开启事件回调
         this._onStopCb = null;            //结束事件回调
         this._onPauseCb = null;           //暂停事件回调
         this._onResumeCb = null;          //恢复事件回调
         this._onDestroyCb = null;         //销毁事件回调
-        this._state = STATE.STOP;  //定时器状态
-        this._type = TYPE.SYNC;    //定时器类型 SYNC 同步定时器 ASYNC 异步定时器
         this.unscheduleAll();
-        this._taskIdGen = 0;            //任务ID生成
-        this._tick = 0;
     }
 
     setOffset(offset) {
@@ -50,7 +65,7 @@ export class Timer {
         return Date.now() + this._timeOffset;
     }
 
-    start(time) {
+    start(time?) {
         if (this._interval) return;
         this._startTime = time ? time : Date.now();
         this._startTimer();
@@ -208,22 +223,13 @@ export class Timer {
         }
     }
 
+    tick(){
+        this._tick++;
+        this.instantUpdate();
+    }
+
     _startTimer() {
-        if (this._type === TYPE.SYNC) {
-            this._syncUpdate();
-        } else if (this._type === TYPE.ASYNC) {
-            let interval = setInterval(function () {
-                if (this._state === STATE.STOP) {
-                    this._asyncUpdate();
-                    clearInterval(interval);
-                }
-            }.bind(this), Math.min(100, this._updateTime / 2));
-            setTimeout(function () {
-                if (interval) {
-                    clearInterval(interval);
-                }
-            }, this._updateTime * 2)
-        }
+        this._syncUpdate();
     }
 
     _stopTimer() {
@@ -232,23 +238,23 @@ export class Timer {
     }
 
     _onStart() {
-        this._onStartCb && this._onStartCb();
+        this._onStartCb && this._onStartCb(this._runningTime);
     }
 
     _onResume() {
-        this._onResumeCb && this._onResumeCb();
+        this._onResumeCb && this._onResumeCb(this._runningTime);
     }
 
     _onStop() {
-        this._onStopCb && this._onStopCb();
+        this._onStopCb && this._onStopCb(this._runningTime);
     }
 
     _onPause() {
-        this._onPauseCb && this._onPauseCb();
+        this._onPauseCb && this._onPauseCb(this._runningTime);
     }
 
     _onDestroy() {
-        this._onDestroyCb && this._onDestroyCb();
+        this._onDestroyCb && this._onDestroyCb(this._runningTime);
     }
 
     set timeScale(v){
@@ -256,6 +262,10 @@ export class Timer {
     }
     get timeScale(){
         return this._timeScale
+    }
+
+    get runningTime(){
+        return this._runningTime
     }
 
     set updateTime(v){

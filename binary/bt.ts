@@ -69,6 +69,49 @@ export function getTag(tagId: Type) {
     }
 }
 
+export function getTagType(tagId: Type) {
+    switch (tagId) {
+        case Type.TAG_Bool:
+            return TAGBool
+        case Type.TAG_Byte:
+            return TAGByte
+        case Type.TAG_Short:
+            return TAGShort
+        case Type.TAG_Int:
+            return TAGInt
+        case Type.TAG_Long:
+            return TAGLong
+        case Type.TAG_Float:
+            return TAGFloat
+        case Type.TAG_Double:
+            return TAGDouble
+        case Type.TAG_String:
+            return TAGString
+        case Type.TAG_Bool_Array:
+            return TAGBoolArray
+        case Type.TAG_Byte_Array:
+            return TAGByteArray
+        case Type.TAG_Short_Array:
+            return TAGShortArray
+        case Type.TAG_Int_Array:
+            return TAGIntArray
+        case Type.TAG_Long_Array:
+            return TAGLongArray
+        case Type.TAG_Float_Array:
+            return TAGFloatArray
+        case Type.TAG_Double_Array:
+            return TAGDoubleArray
+        case Type.TAG_List:
+            return TAGList
+        case Type.TAG_Compound:
+            return TAGCompound
+        case Type.TAG_Complex:
+            return TAGComplex
+        case Type.TAG_Buffer:
+            return TAGBuffer
+    }
+}
+
 //类型 Object>Array>String>Double>Float>Long>Int>Boolean
 export function checkArrayType(arr): Type {
     let type = 0;

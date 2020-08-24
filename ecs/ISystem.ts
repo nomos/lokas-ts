@@ -1,7 +1,18 @@
-export class System {
+import {Runtime} from "./runtime";
+
+export class ISystem {
+    public runtime:Runtime
+    public enabled:boolean
+    public stateOnly:string
+    public name:string
+    public desc:string
+    public updateTime:number
+    public lastUpdateTime:number
+    public priority:number
+    public lateUpdate:(interval,now,runtime)=>void
+
     constructor(ecs,opt){
-        this._ecs = ecs;
-        this.type = 'system';
+        this.runtime = ecs;
         this.enabled = true;
         this.lastUpdateTime = 0;
         this.priority = 0;
@@ -21,16 +32,12 @@ export class System {
         }
     }
 
-    setAddOrder(order) {
-        this._addOrder = order;
-    }
-
     getECS(){
-        return this._ecs;
+        return this.runtime;
     }
 
     isClient(){
-        return this._ecs.isClient();
+        return this.runtime.isClient();
     }
 
     isServer(){
@@ -68,8 +75,8 @@ export class System {
             let group = groups[j];
             for (let i = 0; i < group._entityIndexes.length; i++) {
                 let id = group._entityIndexes[i];
-                let ent = this._ecs._entityPool[id];
-                if (!ent || ent._onDestroy) {
+                let ent = this.runtime.getEntity(id);
+                if (!ent || ent.isOnDestroy()) {
                     continue;
                 }
                 ret.push(ent);
@@ -107,7 +114,7 @@ export class System {
     doOnState(now,ecs) {
         if (this.enabled) {
             let self = this;
-            this._ecs.once('_afterUpdate',function () {
+            this.runtime.once('_afterUpdate',function () {
                 self.onState(now, ecs);
             });
         }
@@ -116,7 +123,7 @@ export class System {
     doOffState(now,ecs) {
         if (this.enabled) {
             let self = this;
-            this._ecs.once('_afterUpdate',function () {
+            this.runtime.once('_afterUpdate',function () {
                 self.offState(now, ecs);
             });
         }
@@ -129,7 +136,7 @@ export class System {
             }
         }
         ecs.updateCommands();
-        this.update(dt, now, this._ecs);
+        this.update(dt, now, this.runtime);
     }
 
     doLateUpdates(dt,now,ecs) {
@@ -138,7 +145,7 @@ export class System {
                 return;
             }
         }
-        this.lateUpdate(dt, now, this._ecs);
+        this.lateUpdate(dt, now, this.runtime);
     }
 }
 

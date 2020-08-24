@@ -1,11 +1,7 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
 
-export interface IComponent {
-
-}
-
-export class DefaultComponent implements IComponent {
+export class IComponent{
     
     static get defineName(): string {
         return 'Component'
@@ -19,9 +15,9 @@ export class DefaultComponent implements IComponent {
         return {}
     }
 
-    private _dirty: boolean = true
-    private _entity: Entity = null
-    private _runtime: Runtime = null
+    private dirty: boolean = true
+    private entity: Entity = null
+    private runtime: Runtime = null
 
     get defineDepends(): Array<string> {
         return Object.getPrototypeOf(this).constructor.defineDepends;
@@ -39,35 +35,39 @@ export class DefaultComponent implements IComponent {
 
     }
 
+    setRuntime(runtime:Runtime){
+        this.runtime = runtime
+    }
+
     getComponentName() {
         return Object.getPrototypeOf(this).constructor.defineName;
     }
 
     getSibling(comp) {
-        if (this._entity) {
-            return this._entity.get(comp);
+        if (this.entity) {
+            return this.entity.get(comp);
         }
     }
 
     setEntity(ent) {
-        this._entity = ent;
+        this.entity = ent;
     }
 
     isClient() {
-        return this._runtime.isClient();
+        return this.runtime.isClient();
     }
 
     getEntity() {
-        return this._entity;
+        return this.entity;
     }
 
     getECS() {
-        return this._runtime;
+        return this.runtime;
     }
 
-    dirty() {
-        this._dirty = true;
-        this.onDirty && this.onDirty(this._entity, this._entity.getECS());
+    markDirty() {
+        this.dirty = true;
+        this.onDirty && this.onDirty(this.entity, this.entity.getECS());
         if (this.isClient()) {
 
             if (this.updateView) {
@@ -79,20 +79,20 @@ export class DefaultComponent implements IComponent {
                 renderComp && renderComp.dirty();
             }
         }
-        if (this._entity) {
-            this._entity.markDirty(this);
+        if (this.entity) {
+            this.entity.markDirty(this);
         }
-        if (this._runtime && this._runtime._dirtyComponents.indexOf(this) === -1) {
-            this._runtime._dirtyComponents.push(this);
+        if (this.runtime && this.runtime._dirtyComponents.indexOf(this) === -1) {
+            this.runtime._dirtyComponents.push(this);
         }
     }
 
     isDirty() {
-        return this._dirty;
+        return this.dirty;
     }
 
     clean() {
-        this._dirty = false;
+        this.dirty = false;
     }
 
     getRenderer() {

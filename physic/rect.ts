@@ -1,6 +1,6 @@
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
-export class Rect extends DefaultComponent {
+export class Rect extends IComponent {
     static get defineName() {
         return 'Rect';
     }

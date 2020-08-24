@@ -1,8 +1,8 @@
 import {ECSUtil} from "../ecs/ecs_util";
 
-import {DefaultComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 
-export class Vector extends DefaultComponent {
+export class Vector extends IComponent {
     static get defineName() {
         return 'Vector';
     }
@@ -241,7 +241,7 @@ export class Acceleration extends Vector {
     }
 }
 
-export class Angle extends DefaultComponent {
+export class Angle extends IComponent {
     static get defineName(){
         return 'Angle';
     }
@@ -400,7 +400,7 @@ export class Angle extends DefaultComponent {
     }
 }
 
-export class AngularMovement extends DefaultComponent {
+export class AngularMovement extends IComponent {
     static get defineName(){
         return 'AngularMovement';
     }
@@ -427,7 +427,7 @@ export class AngularMovement extends DefaultComponent {
     }
 }
 
-export class Size extends DefaultComponent {
+export class Size extends IComponent {
     static get defineName() {
         return 'Size';
     }
@@ -461,7 +461,7 @@ export class Size extends DefaultComponent {
     }
 }
 
-export class TimeStamp extends DefaultComponent {
+export class TimeStamp extends IComponent {
     static get defineName() {
         return 'TimeStamp';
     }

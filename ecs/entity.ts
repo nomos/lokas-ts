@@ -5,6 +5,8 @@ import {Runtime} from "./runtime";
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {ECSUtil} from "./ecs_util";
+import {IComponent} from "./default_component";
+import * as bt from "../binary/bt"
 
 /**
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
@@ -17,84 +19,88 @@ import {ECSUtil} from "./ecs_util";
  *  客户端的Entity用于本地逻辑处理,不同步到服务器
  */
 
-export class Entity {
-    private _runtime:Runtime
-    constructor(ea, id){
-        this._components = {}          //组件<Component>数组
+export class Entity extends EventEmitter{
+    private _runtime: Runtime
+    private _id: number
+    private _step: number = 0
+    private _lastStep: number = 0
+    private _dirty: boolean = true
+    private _onDestroy: boolean = false
+    private _components: Map<string, IComponent> = new Map<string, IComponent>()
+    private _tags: Array<string> = new Array<string>()
+    private _eventListener: EventEmitter = new EventEmitter();
+    private __unserializeEntityCount: number = 0
+    private _groupHashes: Array<string> = new Array<string>()
+    private _removeMarks: Array<string> = new Array<string>()
+    private _addMarks: Array<string> = new Array<string>()
+    private _modifyMarks: Array<string> = new Array<string>()
+
+    constructor(ea, id) {
+        super()
         this._runtime = ea;                 //实体管理器<ECS>对象引用
         this._id = id;                  //实体<Entity>ID对象的标记
-        this._step = 0;                 //当前步数
-        this._dirty = true;            //脏标记
-        this._tags = [];                //标签
-        this._owner = 0;
-        this._lastStep = 0;             //上一次的步数
         this._lastSnapshot = null;      //上一步的快照
         this._snapshot = null;          //当前步的快照
-        this._onDestroy = false;        //移除标记
-        this._removeMarks = [];
-        this._addMarks = [];
-        this._modifyMarks = [];
-        this._groupHashes = [];
-        this.__unserializeEntityCount = 0;
-        this._eventListener = new EventEmitter();
     }
+
     getECS() {
         return this._runtime;
     }
+
     debug() {
         let ret = {}
-        ret.id = this.id;
-        ret.dirty = this._dirty;
-        ret.step = this._step;
-        ret.components = {}
+        ret["id"] = this.id;
+        ret["dirty"] = this._dirty;
+        ret["step"] = this._step;
+        ret["components"] = {}
         for (let i in this._components) {
             let comp = this._components[i];
             let compObj = {}
             let comName = ECSUtil.getComponentType(comp);
             //TODO:这里要更新
-            let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
+            let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
             if (!nbtFormat) {
                 return;
             }
             for (let j in nbtFormat) {
                 let type = nbtFormat[j];
-                if (type!=='Entity'||type!=='EntityMap'||type!=='EntityArray') {
+                if (type !== 'Entity' || type !== 'EntityMap' || type !== 'EntityArray') {
                     compObj[j] = comp[j];
                 }
-                if (type!=='Entity'&&comp[j]) {
-                    compObj[j] =comp[j].id;
+                if (type !== 'Entity' && comp[j]) {
+                    compObj[j] = comp[j].id;
                 }
-                if (type!=='EntityMap'&&comp[j]) {
-                    compObj[j] ={}
+                if (type !== 'EntityMap' && comp[j]) {
+                    compObj[j] = {}
                     for (let k in comp[j]) {
-                        compObj[j][k] = comp[j][k]?comp[j][k].id:'null';
+                        compObj[j][k] = comp[j][k] ? comp[j][k].id : 'null';
                     }
                 }
-                if (type!=='Entity'&&comp[j]) {
-                    compObj[j] =[];
+                if (type !== 'Entity' && comp[j]) {
+                    compObj[j] = [];
                     for (let k in comp[j]) {
-                        compObj[j].push(comp[j][k]?comp[j][k].id:'null');
+                        compObj[j].push(comp[j][k] ? comp[j][k].id : 'null');
                     }
                 }
             }
-            ret.components[comName] = compObj;
+            ret["components"][comName] = compObj;
         }
         return ret;
     }
 
     addGroup(hash) {
         let index = this._groupHashes.indexOf(hash);
-        if (index===-1) {
+        if (index === -1) {
             this._groupHashes.push(hash);
         }
     }
+
     removeGroup(hash) {
         let index = this._groupHashes.indexOf(hash);
-        if (index!==-1) {
-            this._groupHashes.splice(index,1);
+        if (index !== -1) {
+            this._groupHashes.splice(index, 1);
         }
     }
-
 
 
     clean() {
@@ -111,9 +117,9 @@ export class Entity {
         }
         this._runtime.markDirtyEntity(this);
         this._dirty = true;
-        if (this._runtime._server) {
+        if (this._runtime.isServer()) {
             this._lastStep = this._step;
-            this._step = this._runtime._tick;
+            this._step = this._runtime.getTick();
         }
     }
 
@@ -123,7 +129,7 @@ export class Entity {
             return;
         }
         let name = ECSUtil.getComponentType(comp);
-        if (this._modifyMarks.indexOf(name)===-1&&this._addMarks.indexOf(name)===-1) {
+        if (this._modifyMarks.indexOf(name) === -1 && this._addMarks.indexOf(name) === -1) {
             this._modifyMarks.push(name);
         }
     }
@@ -134,10 +140,10 @@ export class Entity {
             return;
         }
         let name = ECSUtil.getComponentType(comp);
-        if (this._addMarks.indexOf(name)===-1) {
+        if (this._addMarks.indexOf(name) === -1) {
             let modIndex = this._modifyMarks.indexOf(name);
-            if (modIndex!==-1) {
-                this._modifyMarks.splice(modIndex,1);
+            if (modIndex !== -1) {
+                this._modifyMarks.splice(modIndex, 1);
             }
             this._addMarks.push(name);
         }
@@ -149,73 +155,74 @@ export class Entity {
             return;
         }
         let name = ECSUtil.getComponentType(comp);
-        if (this._removeMarks.indexOf(name)===-1) {
+        if (this._removeMarks.indexOf(name) === -1) {
             this._removeMarks.push(name);
         }
     }
 
 //获取当前步与上一步差异值
     snapCurrent() {
-        let ret = nbt.Complex();
-        ret.addValue(nbt.Long(this._id));
-        ret.addValue(nbt.Long(this._step));
-        let modComps = nbt.List();
-        let addComps = nbt.List();
-        let remComps = nbt.List();
-        for (let i=0;i<this._modifyMarks.length;i++) {
+        let ret = bt.Complex();
+        ret.addValue(bt.Long(this._id));
+        ret.addValue(bt.Long(this._step));
+        let modComps = bt.List();
+        let addComps = bt.List();
+        let remComps = bt.List();
+        for (let i = 0; i < this._modifyMarks.length; i++) {
             let comp = this._components[this._modifyMarks[i]];
             modComps.push(this.comp2NBT(comp));
         }
-        for (let i=0;i<this._addMarks.length;i++) {
+        for (let i = 0; i < this._addMarks.length; i++) {
             let comp = this._components[this._addMarks[i]];
             addComps.push(this.comp2NBT(comp));
         }
-        for (let i=0;i<this._removeMarks.length;i++) {
+        for (let i = 0; i < this._removeMarks.length; i++) {
             // let id = this._runtime.getComponentID(this._addMarks[i]);
             let id = this._modifyMarks[i];
-            remComps.push(nbt.String(id));
+            remComps.push(bt.String(id));
         }
         ret.addValue(modComps);
         ret.addValue(addComps);
         ret.addValue(remComps);
         return ret;
     }
+
 //获取上一步与当前步差值
     snapPrevious() {
         if (!this._lastSnapshot) {
             return;
         }
-        let ret = nbt.Complex();
+        let ret = bt.Complex();
         ret.addValue(this._lastSnapshot.at(0));
         ret.addValue(this._lastSnapshot.at(1));
-        let modComps = nbt.List();
-        let addComps = nbt.List();
-        let remComps = nbt.List();
+        let modComps = bt.List();
+        let addComps = bt.List();
+        let remComps = bt.List();
         let compList = this._lastSnapshot.at(2);
-        for (let i=0;i<this._modifyMarks.length;i++) {
+        for (let i = 0; i < this._modifyMarks.length; i++) {
             // let id = this._runtime.getComponentID(this._modifyMarks[i]);
             let id = this._modifyMarks[i];
-            for (let j=0;j<compList.getSize();j++) {
+            for (let j = 0; j < compList.getSize(); j++) {
                 if (id === compList.at(j).at(0).value) {
                     modComps.push(compList.at(j));
                     break;
                 }
             }
         }
-        for (let i=0;i<this._addMarks.length;i++) {
+        for (let i = 0; i < this._addMarks.length; i++) {
             let id = this._removeMarks[i];
             // let id = this._runtime.getComponentID(this._removeMarks[i]);
-            for (let j=0;j<compList.getSize();j++) {
+            for (let j = 0; j < compList.getSize(); j++) {
                 if (id === compList.at(j).at(0).value) {
                     addComps.push(compList.at(j));
                     break;
                 }
             }
         }
-        for (let i=0;i<this._removeMarks.length;i++) {
+        for (let i = 0; i < this._removeMarks.length; i++) {
             let id = this._addMarks[i];
             // let id = this._runtime.getComponentID(this._addMarks[i]);
-            remComps.push(nbt.String(id));
+            remComps.push(bt.String(id));
         }
         ret.addValue(modComps);
         ret.addValue(addComps);
@@ -224,19 +231,19 @@ export class Entity {
     }
 
 
-    comp2NBT(comp,connData) {
+    comp2NBT(comp, connData) {
         if (comp.nosync) {
             return;
         }
-        if (comp.onSync&&connData) {
-            comp = comp.onSync(this,this._runtime,connData);
+        if (comp.onSync && connData) {
+            comp = comp.onSync(this, this._runtime, connData);
         }
-        let compComplex = nbt.Complex();
-        // compComplex.addValue(nbt.Int(this._runtime.getComponentID(comp)));
+        let compComplex = bt.Complex();
+        // compComplex.addValue(bt.Int(this._runtime.getComponentID(comp)));
         let ecs = this._runtime;
         compComplex.addValue(ecs.getComponentDefineToNbt(comp));
         if (Object.keys(comp).length === 0) {
-            compComplex.addValue(nbt.Complex());
+            compComplex.addValue(bt.Complex());
             return compComplex;
         }
         if (comp.toNBT) {
@@ -244,15 +251,15 @@ export class Entity {
             return compComplex;
         }
 
-        let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
+        let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
         if (!nbtFormat) {
-            throw new Error(comp.getComponentName?comp.getComponentName():comp.__proto__.__classname+' dont have nbtFormat');
+            throw new Error(comp.getComponentName ? comp.getComponentName() : comp.__proto__.__classname + ' dont have nbtFormat');
         }
         if (Object.keys(nbtFormat).length === 0) {
-            compComplex.addValue(nbt.Complex());
+            compComplex.addValue(bt.Complex());
             return compComplex;
         }
-        let dataComplex = nbt.Complex();
+        let dataComplex = bt.Complex();
         for (let i in nbtFormat) {
             if (!nbtFormat.hasOwnProperty(i)) {
                 return;
@@ -262,48 +269,48 @@ export class Entity {
                 let arr = comp[i];
                 let entArr = [];
                 for (let j = 0; j < arr.length; j++) {
-                    let id = arr[j]?arr[j].id:0;
+                    let id = arr[j] ? arr[j].id : 0;
                     entArr.push(id);
                 }
-                dataComplex.addValue(nbt.LongArray(entArr));
+                dataComplex.addValue(bt.LongArray(entArr));
             } else if (type === 'EntityMap') {
                 let obj = comp[i];
-                let nbtObj = new nbt.Compound();
+                let nbtObj = bt.Compound();
                 for (let j in obj) {
                     if (!obj.hasOwnProperty(j)) {
                         continue;
                     }
-                    let id = obj[j]?obj[j].id:0;
-                    nbtObj.addValue(j, nbt.Long(id));
+                    let id = obj[j] ? obj[j].id : 0;
+                    nbtObj.addValue(j, bt.Long(id));
                 }
                 dataComplex.addValue(nbtObj);
-            } else if (type==='Entity') {
-                let eid = comp[i]?comp[i].id:0;
-                dataComplex.addValue(nbt.Long(eid))
-            } else if (type==='JSObject'||type==='Object') {
-                dataComplex.addValue(nbt.createFromJSObject(comp[i]))
+            } else if (type === 'Entity') {
+                let eid = comp[i] ? comp[i].id : 0;
+                dataComplex.addValue(bt.Long(eid))
+            } else if (type === 'JSObject' || type === 'Object') {
+                dataComplex.addValue(bt.createFromJSObject(comp[i]))
             } else {
                 dataComplex.addValue(nbt[type](comp[i]));
             }
         }
         compComplex.addValue(dataComplex);
         if (comp.onSyncFinish) {
-            comp.onSyncFinish(this,this._runtime,connData);
+            comp.onSyncFinish(this, this._runtime, connData);
         }
         return compComplex;
     }
 
-    compFormatFromNBT(step,comp, nbt) {
+    compFormatFromNBT(step, comp, btObj) {
         let self = this;
-        if (nbt.length === 0) {
+        if (btObj.length === 0) {
             return;
         }
         if (comp.fromNBT) {
-            comp.fromNBT(nbt);
+            comp.fromNBT(btObj);
             comp.dirty();
             return;
         }
-        let nbtFormat = comp.defineData?comp.defineData:comp.nbtFormat;
+        let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
         if (!nbtFormat) {
             throw new Error('comp dont have nbtFormat');
         }
@@ -314,7 +321,7 @@ export class Entity {
             }
             let type = nbtFormat[i];
             if (type === 'EntityArray') {
-                let entarr = nbt.at(count);
+                let entarr = btObj.at(count);
                 comp[i] = [];
                 for (let j = 0; j < entarr.getSize(); j++) {
                     let id = entarr.at(j).toNumber();
@@ -324,14 +331,14 @@ export class Entity {
                     } else if (ent) {
                         comp[i].push(ent);
                     } else {
-                        comp[i].push(new Entity(null,id));
+                        comp[i].push(new Entity(null, id));
                         self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity'+step+id,function (idx,ent) {
+                        this._runtime.once('__unserializeEntity' + step + id, function (idx, ent) {
                             self.__unserializeEntityCount--;
                             if (idx === id) {
                                 comp[i][j] = ent;
                             }
-                            if (self.__unserializeEntityCount===0) {
+                            if (self.__unserializeEntityCount === 0) {
                                 comp.dirty();
                             }
                         });
@@ -339,7 +346,7 @@ export class Entity {
                 }
 
             } else if (type === 'EntityMap') {
-                let entmap = nbt.at(count);
+                let entmap = btObj.at(count);
                 comp[i] = {}
                 let names = entmap.getNames();
                 for (let j = 0; j < names.length; j++) {
@@ -347,23 +354,23 @@ export class Entity {
                     let ent = this._runtime.getEntity(id);
                     if (id === 0) {
                         comp[i][names[j]] = null;
-                    }else if (ent) {
+                    } else if (ent) {
                         comp[i][names[j]] = ent;
                     } else {
                         self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity'+step+id,function (idx,ent) {
+                        this._runtime.once('__unserializeEntity' + step + id, function (idx, ent) {
                             self.__unserializeEntityCount--;
                             if (idx === id) {
                                 comp[i][names[j]] = ent;
                             }
-                            if (self.__unserializeEntityCount===0) {
+                            if (self.__unserializeEntityCount === 0) {
                                 comp.dirty();
                             }
                         });
                     }
                 }
             } else if (type === 'Entity') {
-                let eid = nbt.at(count).value.toNumber();
+                let eid = btObj.at(count).value.toNumber();
                 if (eid === 0) {
                     comp[i] = null;
                 } else {
@@ -373,22 +380,22 @@ export class Entity {
                     } else {
 
                         self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity'+step+eid,function (idx,ent) {
+                        this._runtime.once('__unserializeEntity' + step + eid, function (idx, ent) {
                             self.__unserializeEntityCount--;
                             if (idx === eid) {
                                 comp[i] = ent;
                             }
-                            if (self.__unserializeEntityCount===0) {
+                            if (self.__unserializeEntityCount === 0) {
                                 comp.dirty();
                             }
                         });
                     }
                 }
 
-            } else if (type === 'JSObject'||'Object') {
-                comp[i] = nbt.at(count).toJSObject();
+            } else if (type === 'JSObject' || 'Object') {
+                comp[i] = btObj.at(count).toJSObject();
             } else {
-                comp[i] = nbt.at(count).value;
+                comp[i] = btObj.at(count).value;
             }
             count++;
         }
@@ -397,7 +404,7 @@ export class Entity {
 
     nbt2Command(nbt) {
         let count = 0;
-        let nbtFormat = nbt.defineData?nbt.defineData:nbt.nbtFormat;
+        let nbtFormat = bt.defineData ? bt.defineData : bt.nbtFormat;
         for (let i in nbtFormat) {
             if (!nbtFormat.hasOwnProperty(i)) {
                 continue;
@@ -410,50 +417,50 @@ export class Entity {
 
     }
 
-    fromNBT(step,nbt) {
-        if (nbt.getSize()===3) {
-            this._step = nbt.at(1).value.toNumber();
-            let comps = nbt.at(2);
+    fromNBT(step, btObj) {
+        if (bt.getSize() === 3) {
+            this._step = btObj.at(1).value.toNumber();
+            let comps = btObj.at(2);
             let syncCompArr = [];
-            for (let i=0;i<comps.getSize();i++) {
+            for (let i = 0; i < comps.getSize(); i++) {
                 let compNbt = comps.at(i);
                 let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
                 syncCompArr.push(compName);
-                let comp = this.get(compName)||this.add(compName);
-                this.compFormatFromNBT(step,comp,compNbt.at(1));
+                let comp = this.get(compName) || this.add(compName);
+                this.compFormatFromNBT(step, comp, compNbt.at(1));
                 comp.dirty();
             }
             for (let i in this._components) {
-                if (syncCompArr.indexOf(i)===-1) {
+                if (syncCompArr.indexOf(i) === -1) {
                     let comp = this._components[i];
-                    if (this._runtime.getComponentDefine(comp)!==undefined) {
+                    if (this._runtime.getComponentDefine(comp) !== undefined) {
                         this.remove(comp);
                     }
                 }
             }
         }
-        if (nbt.getSize()===5) {
-            this._step = nbt.at(1).value.toNumber();
-            let modComps = nbt.at(2);
-            for (let i=0;i<modComps.getSize();i++) {
+        if (bt.getSize() === 5) {
+            this._step = btObj.at(1).value.toNumber();
+            let modComps = btObj.at(2);
+            for (let i = 0; i < modComps.getSize(); i++) {
                 let compNbt = modComps.at(i);
                 let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
-                let comp = this.get(compName)||this.add(compName);
+                let comp = this.get(compName) || this.add(compName);
                 let compParams = compNbt.at(1);
-                this.compFormatFromNBT(step,comp,compParams);
+                this.compFormatFromNBT(step, comp, compParams);
                 comp.dirty();
             }
-            let addComps = nbt.at(3);
-            for (let i=0;i<addComps.getSize();i++) {
+            let addComps = btObj.at(3);
+            for (let i = 0; i < addComps.getSize(); i++) {
                 let compNbt = addComps.at(i);
                 let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
                 let comp = this.add(compName);
                 let compParams = compNbt.at(1);
-                this.compFormatFromNBT(step,comp,compParams);
+                this.compFormatFromNBT(step, comp, compParams);
                 comp.dirty();
             }
-            let removeComps = nbt.at(4);
-            for (let i=0;i<removeComps.getSize();i++) {
+            let removeComps = btObj.at(4);
+            for (let i = 0; i < removeComps.getSize(); i++) {
                 let compName = this._runtime.getComponentNameFromDefine(removeComps.at(i).value);
                 this.remove(compName);
             }
@@ -461,10 +468,10 @@ export class Entity {
     }
 
     snapshot(connData) {
-        let ret = nbt.Complex();
-        ret.addValue(nbt.Long(this._id));
-        ret.addValue(nbt.Long(this._step));
-        let components = nbt.List();
+        let ret = bt.Complex();
+        ret.addValue(bt.Long(this._id));
+        ret.addValue(bt.Long(this._step));
+        let components = bt.List();
         let toSyncComponents = [];
         for (let i in this._components) {
             if (!this._components.hasOwnProperty(i)) {
@@ -478,7 +485,7 @@ export class Entity {
         }
         components.sort(this.getECS._sortDepends);
         for (let comp of toSyncComponents) {
-            components.push(this.comp2NBT(comp,connData));
+            components.push(this.comp2NBT(comp, connData));
         }
         ret.addValue(components);
         this._lastSnapshot = this._snapshot;
@@ -490,11 +497,11 @@ export class Entity {
         return this._dirty;
     }
 
-    get id(){
+    get id() {
         return this._id
     }
 
-    get engine(){
+    get engine() {
         return this._runtime
     }
 
@@ -513,7 +520,7 @@ export class Entity {
                     return ret;
                 }
             }
-            log.error('Entity:get:cant find comp',comp);
+            log.error('Entity:get:cant find comp', comp);
             return null;
         }
         let name = ECSUtil.getComponentType(comp);
@@ -524,6 +531,7 @@ export class Entity {
 
         return this._components[name];
     }
+
     forceAdd(comp) {
         let args = [].slice.call(arguments);
         args.splice(0, 1);
@@ -537,11 +545,12 @@ export class Entity {
         this._runtime.assignEntity(type, this);
         comp.dirty();
         this._runtime.markDirtyEntity(this);
-        this.getECS().emit('add component',comp,this,this._runtime);
-        this.emit('add component',comp,this,this._runtime);
+        this.getECS().emit('add component', comp, this, this._runtime);
+        this.emit('add component', comp, this, this._runtime);
         return comp;
 
     }
+
     /**
      * 为Entity添加一个组件<Component>并初始化属性
      * @param comp 可以是一个string或者组件<Component>实例
@@ -560,7 +569,7 @@ export class Entity {
             let depends = this._runtime.getDepends(type);
             for (let dependComp of depends) {
                 if (!this.get(dependComp)) {
-                    throw new Error('component type <'+type+' > depends <'+dependComp+'> not found');
+                    throw new Error('component type <' + type + ' > depends <' + dependComp + '> not found');
                 }
             }
         }
@@ -575,7 +584,7 @@ export class Entity {
             if (args.length > 0) {
                 args = [type].concat(args);
                 isApply = true;
-                comp = Reflect.apply(this._runtime.createComponent,this._runtime, args);
+                comp = Reflect.apply(this._runtime.createComponent, this._runtime, args);
             } else {
 
                 comp = this._runtime.createComponent(type);
@@ -585,8 +594,8 @@ export class Entity {
         if (!comp) {
             throw new Error('Component参数错误,可能未注册');
         }
-        if (comp._entity&&comp._entity!==this) {
-            log.error('组件已经绑定有实体',comp,comp._entity);
+        if (comp._entity && comp._entity !== this) {
+            log.error('组件已经绑定有实体', comp, comp._entity);
         }
         comp._entity = this;
         if (args.length > 0 && !isApply) {
@@ -599,7 +608,7 @@ export class Entity {
                 }
             } else {
                 if (comp.onAdd) {
-                    if (ECSUtil.getComponentType(comp)=='ControlButton') {
+                    if (ECSUtil.getComponentType(comp) == 'ControlButton') {
                         log.debug('添加ControlButton组件');
                     }
                     comp.onAdd(this, this._runtime);
@@ -615,34 +624,15 @@ export class Entity {
         if (renderer) {
             this.add(renderer);
         }
-        this.getECS().emit('add component',comp,this,this._runtime);
-        this.emit('add component',comp,this,this._runtime);
+        this.getECS().emit('add component', comp, this, this._runtime);
+        this.emit('add component', comp, this, this._runtime);
         return comp;
     }
 
-
-    once=function (evt, cb) {
-        return this._eventListener.once(evt, cb)
-    }
-
-    on=function (evt, cb) {
-        return this._eventListener.on(evt, cb)
-    }
-
-    off=function (evt, cb) {
-        if (cb) {
-            return this._eventListener.off(evt,cb);
-        }
-        return this._eventListener.removeAllListeners(evt);
-    }
-
-    emit=function (evt) {
-        return this._eventListener.emit.apply(this._eventListener, arguments);
-    }
-
     isComponentDirty(compName) {
-        return this._modifyMarks.indexOf(compName)!==-1||this._addMarks.indexOf(compName)!==-1||this._removeMarks.indexOf(compName)!==-1;
+        return this._modifyMarks.indexOf(compName) !== -1 || this._addMarks.indexOf(compName) !== -1 || this._removeMarks.indexOf(compName) !== -1;
     }
+
     /**
      * 移除实体的一个组件
      */
@@ -654,13 +644,12 @@ export class Entity {
         }
         comp = this.get(comp);
         if (comp) {
-
             if (this._runtime._needCheckDepends) {
                 let depends = this._runtime.getDependsBy(type);
                 if (depends)
                     for (let dependComp of depends) {
                         if (!this.get(dependComp)) {
-                            throw new Error('component type <'+dependComp+' > depends <'+type+'> cannot remove now');
+                            throw new Error('component type <' + dependComp + ' > depends <' + type + '> cannot remove now');
                         }
                     }
             }
@@ -669,8 +658,8 @@ export class Entity {
             if (renderer) {
                 this.remove(renderer);
             }
-            this.getECS().emit('remove component',comp,this,this._runtime);
-            this.emit('remove component',comp,this,this._runtime);
+            this.getECS().emit('remove component', comp, this, this._runtime);
+            this.emit('remove component', comp, this, this._runtime);
             if (comp.onRemove) {
                 comp.onRemove(this, this._runtime);
             }
@@ -683,6 +672,7 @@ export class Entity {
         }
         log.error('组件不存在');
     }
+
     /**
      * 标记一个实体<Entity>为删除状态
      */
@@ -690,10 +680,16 @@ export class Entity {
         this._onDestroy = true;
         this._runtime.removeEntity(this);
     }
+
     destroyInstant() {
         this._onDestroy = true;
         this._runtime.removeEntityInstant(this);
     }
+    
+    isOnDestroy(){
+        return this._onDestroy
+    }
+
     /**
      * 调用组件<Component>的销毁方法并销毁所有组件<Component>
      */
@@ -710,25 +706,24 @@ export class Entity {
             this._runtime.recycleComponent(comp);
         }
         this._groupHashes = [];
-        this._components = {}
+        this._components = new Map<string, IComponent>()
     }
 
     getComponentTypes() {
         let ret = [];
         for (let i in this._components) {
             let comp = this._components[i];
-            ret.push(comp.getComponentName?comp.getComponentName():comp.__proto__.__classname);
+            ret.push(comp.getComponentName ? comp.getComponentName() : comp.__proto__.__classname);
         }
         return ret;
     }
+
     /**
      *  Entity是否包含这些实体组件
      */
     includes(componentTypes) {
         return ECSUtil.includes(this.getComponentTypes(), componentTypes);
     }
-
 }
-
 
 
