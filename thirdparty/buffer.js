@@ -8,8 +8,8 @@
 
 'use strict'
 
-var base64 = require('EnvolverseClient/assets/lokas/thirdparty/base64-js')
-var ieee754 = require('EnvolverseClient/assets/lokas/thirdparty/ieee754')
+var base64 = require('./base64-js')
+var ieee754 = require('./ieee754')
 var customInspectSymbol =
     (typeof Symbol === 'function' && typeof Symbol.for === 'function')
         ? Symbol.for('nodejs.util.inspect.custom')
