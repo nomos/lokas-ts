@@ -1,10 +1,19 @@
 import {Rect} from "./rect"
 import {Collider} from "./collider"
-import {IComponent} from "../ecs/default_component";
+import {defineName,IComponent} from "../ecs/default_component";
+import {Entity} from "../ecs/entity";
+import {Polygon} from "./polygon"
+import {PhysicWorld} from "./physicworld";
 
 const branch_pool = [];
 
 export class BVBranch extends Rect{
+    public parent:BVBranch
+    public left:BVBranch
+    public right:BVBranch
+    public branch:boolean
+    public world:boolean
+
     constructor(minX=0,maxX=0,minY=0,maxY=0,world=null){
         super(minX,maxX,minY,maxY);
         this.parent = null;
@@ -15,7 +24,9 @@ export class BVBranch extends Rect{
     }
 }
 
-export class BVTree extends IComponent{
+export class BVTree extends IComponent implements PhysicWorld{
+    public colliders:Array<Collider>
+    public root:BVTree
     static get defineName():string {
         return 'BVTree'
     }
@@ -41,9 +52,9 @@ export class BVTree extends IComponent{
         return ret;
     }
 
-    insert(collider,updating = false){
+    insert(collider:Entity|Collider,updating = false){
         if (collider instanceof Entity) {
-            collider = collider.get('Collider');
+            collider = <Collider>collider.get('Collider');
         }
         if(!updating) {
             const world = collider.world;
@@ -53,7 +64,7 @@ export class BVTree extends IComponent{
             this.colliders.push(collider);
             collider.world = this;
         }
-        let cPolygon = collider.getSibling('Polygon')||collider.getSibling('Point');
+        let cPolygon = <Polygon>collider.getSibling('Polygon')||collider.getSibling('Point');
         let cCircle = collider.getSibling('Circle');
 
         const body_x  = cPolygon?cPolygon.x:cCircle.x;

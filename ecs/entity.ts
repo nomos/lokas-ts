@@ -5,7 +5,7 @@ import {Runtime} from "./runtime";
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
-import {IComponent} from "./default_component";
+import {defineName,IComponent} from "./default_component";
 import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
 import {TAGList} from "../binary/list";
@@ -437,7 +437,7 @@ export class Entity extends EventEmitter{
                 syncCompArr.push(compName);
                 let comp = this.get(compName) || this.add(compName);
                 this.compFormatFromNBT(step, comp, compNbt.at(1));
-                comp.dirty();
+                comp.markDirty();
             }
             for (let i in this._components) {
                 if (syncCompArr.indexOf(i) === -1) {
@@ -457,7 +457,7 @@ export class Entity extends EventEmitter{
                 let comp = this.get(compName) || this.add(compName);
                 let compParams = compNbt.at(1);
                 this.compFormatFromNBT(step, comp, compParams);
-                comp.dirty();
+                comp.markDirty();
             }
             let addComps = btObj.at(3);
             for (let i = 0; i < addComps.getSize(); i++) {
@@ -466,7 +466,7 @@ export class Entity extends EventEmitter{
                 let comp = this.add(compName);
                 let compParams = compNbt.at(1);
                 this.compFormatFromNBT(step, comp, compParams);
-                comp.dirty();
+                comp.markDirty();
             }
             let removeComps = btObj.at(4);
             for (let i = 0; i < removeComps.getSize(); i++) {
@@ -511,7 +511,6 @@ export class Entity extends EventEmitter{
     }
 
     get engine() {
-        this.get("aaaa")
         return this._runtime
     }
 
@@ -520,17 +519,11 @@ export class Entity extends EventEmitter{
      * @param comp 可以是一个string或者Component实例
      * @returns {Component}
      */
-    get(comp:(string|{new():IComponent})):IComponent {
-        if (util.isString(comp)) {
-            return this._components[<string>comp];
-        } else {
-            return this._components[Object.getPrototypeOf(comp).defineName];
-        }
+    get<T extends IComponent>(comp:{new():T}):T {
+        return <T>this._components[Object.getPrototypeOf(comp).defineName];
     }
 
-    forceAdd(comp) {
-        let args = [].slice.call(arguments);
-        args.splice(0, 1);
+    forceAdd(comp,...args) {
         let type = util.getComponentType(comp);
         comp._entity = this;
         if (args.length > 0) {
@@ -549,16 +542,11 @@ export class Entity extends EventEmitter{
 
     /**
      * 为Entity添加一个组件<Component>并初始化属性
-     * @param comp 可以是一个string或者组件<Component>实例
-     * @returns {Component}
      */
-    add(comp) {
-        let args = [].slice.call(arguments);
-        comp = args[0];
-        args.splice(0, 1);
-        let type = util.getComponentType(comp);
+    add<T extends IComponent>(iComp:{new():T},...args) {
+        let type = util.getComponentType(iComp);
         if (!type) {
-            log.error('Component参数错误,可能未注册', comp);
+            log.error('Component参数错误,可能未注册', iComp);
             return null;
         }
         if (this._runtime.needCheckDepends) {
@@ -569,7 +557,7 @@ export class Entity extends EventEmitter{
                 }
             }
         }
-        comp = this.get(comp);
+        let comp = this.get(iComp);
 
         let isApply = false;
         let isExist = false;
@@ -590,12 +578,12 @@ export class Entity extends EventEmitter{
         if (!comp) {
             throw new Error('Component参数错误,可能未注册');
         }
-        if (comp._entity && comp._entity !== this) {
-            log.error('组件已经绑定有实体', comp, comp._entity);
+        if (comp.getEntity() && comp.getEntity() !== this) {
+            log.error('组件已经绑定有实体', comp, comp.getEntity);
         }
-        comp._entity = this;
+        comp.setEntity(this);
         if (args.length > 0 && !isApply) {
-            comp.__proto__.constructor.apply(comp, args);
+            iComp.apply(comp,args)
         }
         if (!isExist) {
             if (comp.isRenderer()) {
@@ -610,7 +598,7 @@ export class Entity extends EventEmitter{
                     comp.onAdd(this, this._runtime);
                 }
             }
-            comp.dirty();
+            comp.markDirty();
         }
         this._components[type] = comp;
         this.addMark(comp);

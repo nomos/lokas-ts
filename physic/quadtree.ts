@@ -1,8 +1,10 @@
 
 import {Rect} from "./rect"
 import {Entity} from "../ecs/entity";
+import {PhysicWorld} from "./physicworld";
+import {Collider} from "./collider";
 
-export class QuadTree extends Rect{
+export class QuadTree extends Rect implements PhysicWorld{
     static get defineName(){
         return 'QuadTree';
     }
@@ -95,18 +97,13 @@ export class QuadTree extends Rect{
 }
 
 export class QuadBranch extends Rect{
+    public level:number
+    public parent:QuadBranch
+    public nodes:Array<QuadBranch>
+    public objects:Array<Collider>
     static get defineName(){
         return 'QuadTree';
     }
-
-    /**
-     * @constructor
-     * @param {Number} minX
-     * @param {Number} minY
-     * @param {Number} maxX
-     * @param {Number} maxY
-     * @param {Number} level
-     */
     constructor(minX,minY,maxX,maxY,level=0){
         super(minX,minY,maxX,maxY);
         this.level=level;
@@ -163,7 +160,7 @@ export class QuadBranch extends Rect{
     }
 
     get root(){
-        let parent = this;
+        let parent = <QuadBranch>this;
         while(parent.parent) {
             parent = parent.parent;
         }
@@ -277,7 +274,7 @@ export class QuadBranch extends Rect{
     /**
      * 分割四叉树
      */
-    split(){
+    private split(){
         const nextLevel = this.level+1;
         const x = this.x;
         const y = this.y;
@@ -300,7 +297,7 @@ export class QuadBranch extends Rect{
      * @param {Collider} collider
      * @returns {number}
      */
-    getIndex(collider){
+    private getIndex(collider){
         if (collider instanceof Entity) {
             collider = collider.get('Collider');
         }

@@ -1,6 +1,6 @@
 import {Long} from "./long";
 import {Buffer} from "../thirdparty/buffer";
-import {IComponent} from "../ecs/default_component";
+import {defineName,IComponent} from "../ecs/default_component";
 
 export class CountTimer {
     public lastTime: number

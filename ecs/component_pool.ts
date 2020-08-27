@@ -5,7 +5,7 @@
  * @param minSize
  * @constructor
  */
-import {IComponent} from "./default_component";
+import {defineName,IComponent} from "./default_component";
 import {Runtime} from "./runtime";
 
 export interface IComponentPool {
@@ -71,7 +71,7 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
      * @param comp
      */
     recycle(comp) {
-        // comp.__proto__.constructor();
+        comp.reset()
         this.pool.push(comp);
     }
 

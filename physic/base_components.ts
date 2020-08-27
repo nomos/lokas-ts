@@ -1,22 +1,14 @@
 
-import {IComponent} from "../ecs/default_component";
+import {defineName,IComponent} from "../ecs/default_component";
 
+
+
+@defineName('Vector')
 export class Vector extends IComponent {
-    static get defineName() {
-        return 'Vector';
-    }
-
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
 
-    static get defineData() {
-        return {
-            x: 'Float',
-            y: 'Float',
-            z: 'Float',
-        }
-    }
     public x:number
     public y:number
     public z:number
@@ -49,7 +41,7 @@ export class Vector extends IComponent {
     }
 
     clone() {
-        return new this.__proto__.constructor(this.x, this.y, this.z);
+        return Object.getPrototypeOf(this).constructor(this.x, this.y, this.z);
     }
 
     reverse(self) {
@@ -195,6 +187,7 @@ export class Vector extends IComponent {
     }
 }
 
+
 export class Position extends Vector {
     static get defineName(){
         return 'Position';
@@ -204,9 +197,6 @@ export class Position extends Vector {
         return [].concat(super.defineDepends);
     }
 
-    static get defineData(){
-        return {};
-    }
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
@@ -255,6 +245,8 @@ export class Angle extends IComponent {
         };
     }
 
+    protected _angle:number
+
     constructor(angle=0){
         super();
         this.angle = angle;
@@ -274,7 +266,7 @@ export class Angle extends IComponent {
         }
         this._angle = angle;
     }
-    get angle(){
+    get angle():number{
         return this._angle;
     }
 
@@ -292,7 +284,7 @@ export class Angle extends IComponent {
 
 
     clone() {
-        return new this.__proto__.constructor(this.angle);
+        return Object.getPrototypeOf(this).constructor(this.angle);
     }
 
     reverse(self=false) {

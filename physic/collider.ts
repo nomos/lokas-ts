@@ -1,8 +1,27 @@
 import {Contact} from "./contact";
 import {Rect} from "./rect";
 import {collision} from "./collision";
+import {PhysicWorld} from "./physicworld";
+import {QuadBranch, QuadTree} from "./quadtree";
+import {BVBranch, BVTree} from "./bvtree";
+import {Entity} from "../ecs/entity";
+import {Polygon} from "./polygon";
+import {Circle} from "./circle"
 
 export class Collider extends Rect{
+    public padding:number
+    public minX:number
+    public maxX:number
+    public minY:number
+    public maxY:number
+    public tag:number
+    public branch:QuadBranch
+    public quadTree:QuadTree
+    public parent:BVBranch
+    public world:BVTree
+    public contacts:Array<Entity>
+    public collideCount:number
+    public isCollide:boolean
     static get defineName(){
         return 'Collider';
     }
@@ -14,8 +33,8 @@ export class Collider extends Rect{
         this.minY = 0;
         this.maxY = 0;
         this.tag = 0;
-        this.quadTree = null;   //所在的四叉树节点
-        this.quadWorld = null;  //所在的四叉树世界
+        this.branch = null;   //所在的四叉树节点
+        this.quadTree = null;  //所在的四叉树世界
         this.parent = null;     //层次包围盒父节点
         this.world = null;      //层次包围盒世界节点
         this.contacts = [];
@@ -60,7 +79,7 @@ export class Collider extends Rect{
         codA.addContact(B,cent);
         contact.dispatchEnterEvent();
     }
-    isContact(A,B,world) {
+    isContact(A,B) {
         return A.get(Collider).contacts[B.id];
     }
     deleteContactfunction (A,B) {
@@ -72,17 +91,13 @@ export class Collider extends Rect{
         let codA = A.get(Collider);
         codA.removeContact(B);
     }
-    getFirstContact() {
-        for (let i in this.contacts) {
-            if (this.contacts[i]) {
-                return this.contacts[i];
-            }
-        }
+    getFirstContactEntity():Entity {
+        return this.contacts[0]
     }
-    getFirstCollider() {
-        let contact =this.getFirstContact();
-        if (!contact) return;
-        contact = contact.get('Contact');
+    getFirstColliderEntity():Entity {
+        let ent =this.getFirstContactEntity();
+        if (!ent) return;
+        let contact = ent.get(Contact);
         if (!contact) return;
         return contact.getCollider(this.getEntity());
     }
@@ -92,7 +107,7 @@ export class Collider extends Rect{
             this.collideCount--;
             contact.destroy();
             let ent = this.getEntity();
-            let cod = contact.get('Contact').getCollider(ent).get('Collider');
+            let cod = contact.get(Contact).getCollider(ent).get(Collider);
             cod.collideCount--;
             delete cod.contacts[ent.id];
             delete this.contacts[id];
@@ -110,8 +125,8 @@ export class Collider extends Rect{
         }
     }
     updateBorder(){
-        let cPolygon = this.getSibling('Polygon')||this.getSibling('Point');
-        let cCircle = this.getSibling('Circle');
+        let cPolygon = <Polygon>(this.getSibling('Polygon')||this.getSibling('Point'));
+        let cCircle = <Circle>this.getSibling('Circle');
         cPolygon&&cPolygon._calculateCoords();
         this.minX = cPolygon?cPolygon.minX:cCircle.x-cCircle.radius*cCircle.scale-this.padding;
         this.maxX = cPolygon?cPolygon.maxX:cCircle.x+cCircle.radius*cCircle.scale+this.padding;

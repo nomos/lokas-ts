@@ -1,7 +1,17 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
 
+export function defineName(name:string) {
+    return function (target:Function) {
+        target.prototype.defineName = name
+    }
+}
+
 export class IComponent{
+    protected dirty: boolean = true
+    protected entity: Entity = null
+    protected runtime: Runtime = null
+
     static get defineName(): string {
         return 'Component'
     }
@@ -16,9 +26,6 @@ export class IComponent{
 
     static nosync:boolean = false
 
-    private dirty: boolean = true
-    private entity: Entity = null
-    private runtime: Runtime = null
 
     get nosync():boolean{
         return Object.getPrototypeOf(this).constructor.nosync;
@@ -32,23 +39,23 @@ export class IComponent{
         return Object.getPrototypeOf(this).constructor.defineName;
     }
 
-    get defineData(): Object {
-        return Object.getPrototypeOf(this).constructor.defineData;
-    }
-
     constructor() {
 
+    }
+
+    reset(){
+        this.dirty = true
     }
 
     setRuntime(runtime:Runtime){
         this.runtime = runtime
     }
 
-    getComponentName() {
+    getComponentName():string {
         return Object.getPrototypeOf(this).constructor.defineName;
     }
 
-    getSibling(comp:string|{new():IComponent}):IComponent {
+    getSibling<T extends IComponent>(comp:{new():T}):T {
         if (this.entity) {
             return this.entity.get(comp);
         }
@@ -58,15 +65,15 @@ export class IComponent{
         this.entity = ent;
     }
 
-    isClient() {
+    isClient():boolean {
         return this.runtime.isClient();
     }
 
-    getEntity() {
+    getEntity():Entity {
         return this.entity;
     }
 
-    getECS() {
+    getECS():Runtime {
         return this.runtime;
     }
 

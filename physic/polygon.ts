@@ -1,4 +1,6 @@
-import {IComponent} from "../ecs/default_component";
+'use strict'
+import {defineName,IComponent} from "../ecs/default_component";
+import {Angle, Position} from "./base_components";
 
 export class Polygon extends IComponent{
     static get defineName(){
@@ -12,6 +14,24 @@ export class Polygon extends IComponent{
     static get defineData(){
         return {};
     }
+
+    public scale_x:number
+    public scale_y:number
+    private _scale_x:number
+    private _scale_y:number
+    private _x:number
+    private _y:number
+    private _angle:number
+    public minX:number
+    public minY:number
+    public maxX:number
+    public maxY:number
+    public _points:Float64Array
+    public _coords:Float64Array
+    public _edges:Float64Array
+    public _normals:Float64Array
+    public _dirty_coords:boolean
+    public _dirty_normals:boolean
 
     constructor(points = [],scale_x = 1, scale_y = 1, padding = 0){
         super();
@@ -33,8 +53,8 @@ export class Polygon extends IComponent{
     }
 
     onAdd(ent,ecs) {
-        let cPos = this.getSibling('Position');
-        let cAngle = this.getSibling('Angle');
+        let cPos = this.getSibling(Position);
+        let cAngle = this.getSibling(Angle);
         this._x = cPos.x;
         this._y = cPos.y;
         this._angle = cAngle.degree;

@@ -3,7 +3,7 @@ import {Entity} from "./entity";
 import {Group} from "./group";
 import {ISystem} from "./system";
 import {Connection} from "./connection";
-import {IComponent} from "./default_component";
+import {defineName,IComponent} from "./default_component";
 import {ComponentPool, IComponentPool} from "./component_pool";
 import {ComponentSingleton} from "./component_singleton";
 import {Timer} from "./ecs_timer";

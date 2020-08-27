@@ -1,10 +1,21 @@
-import {IComponent} from "../ecs/default_component";
+import {defineName,IComponent} from "../ecs/default_component";
+import {Entity} from "../ecs/entity";
+import {Collider} from "./collider"
 
 export class Contact extends IComponent{
+    public a:Entity
+    public b:Entity
+    public time:number
+    public collision:boolean
+    public a_in_b:boolean
+    public b_in_a:boolean
+    public overlap:number
+    public overlap_x:number
+    public overlap_y:number
     static get defineName(){
         return 'Contact';
     }
-    constructor(a,b,time){
+    constructor(a?:Entity,b?:Entity,time?:number){
         super();
         this.a = a;
         this.b = b;
@@ -16,12 +27,12 @@ export class Contact extends IComponent{
         this.overlap_x = 0;
         this.overlap_y = 0;
     }
-    getCollider(ent) {
+    getCollider(ent:Entity):Entity {
         return this.a===ent?this.b:this.b===ent?this.a:null;
     }
     dispatchEnterEvent() {
-        let codA = this.a.get('Collider');
-        let codB = this.b.get('Collider');
+        let codA = this.a.get(Collider);
+        let codB = this.b.get(Collider);
         if (codA&&codA.onCollisionEnter) {
             codA.onCollisionEnter(this.a,this.b)
         }
@@ -30,8 +41,8 @@ export class Contact extends IComponent{
         }
     }
     dispatchStayEvent() {
-        let codA = this.a.get('Collider');
-        let codB = this.b.get('Collider');
+        let codA = this.a.get(Collider);
+        let codB = this.b.get(Collider);
         if (codA&&codA.onCollisionStay) {
             codA.onCollisionStay(this.a,this.b)
         }
@@ -40,8 +51,8 @@ export class Contact extends IComponent{
         }
     }
     dispatchExitEvent() {
-        let codA = this.a.get('Collider');
-        let codB = this.b.get('Collider');
+        let codA = this.a.get(Collider);
+        let codB = this.b.get(Collider);
         if (codA&&codA.onCollisionExit) {
             codA.onCollisionExit(this.a,this.b)
         }
