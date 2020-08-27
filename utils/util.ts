@@ -1,5 +1,6 @@
 import {Long} from "./long";
 import {Buffer} from "../thirdparty/buffer";
+import {IComponent} from "../ecs/default_component";
 
 export class CountTimer {
     public lastTime: number
@@ -86,17 +87,15 @@ export namespace util {
         return true;
     }
 
-    export function getComponentType(comp) {
+    export function getComponentType(comp:(string|{new():IComponent}|IComponent)):string {
         if (isString(comp)) {
-            return comp;
+            return <string>comp;
         }
-        if (comp.defineName) {
-            return comp.defineName;
+
+        if (comp["defineName"]) {
+            return <string>comp["defineName"]
         }
-        if (comp.prototype && comp.prototype.__classname) {
-            return comp.prototype.__classname;
-        }
-        return comp.__proto__.getComponentName();
+        throw new Error("not a component")
     }
 
     export function clone(comp) {
@@ -137,10 +136,6 @@ export namespace util {
 
     export function isBuffer(arg) {
         return arg instanceof Buffer || arg instanceof ArrayBuffer || arg instanceof Uint8Array;
-    }
-
-    export function isObjectID(arg) {
-        return arg instanceof ObjectID;
     }
 
     export function isNumber(arg) {

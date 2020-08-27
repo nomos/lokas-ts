@@ -4,7 +4,7 @@ import {Runtime} from "./runtime";
 
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
-import {ECSUtil} from "./ecs_util";
+import {util} from "../utils/util";
 import {IComponent} from "./default_component";
 import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
@@ -33,7 +33,7 @@ export class Entity extends EventEmitter{
     private _tags: Array<string> = new Array<string>()
     private _eventListener: EventEmitter = new EventEmitter();
     private __unserializeEntityCount: number = 0
-    private _groupHashes: Array<string> = new Array<string>()
+    private _groupHashes: Array<Array<string>> = new Array<Array<string>>()
     private _removeMarks: Array<string> = new Array<string>()
     private _addMarks: Array<string> = new Array<string>()
     private _modifyMarks: Array<string> = new Array<string>()
@@ -48,6 +48,10 @@ export class Entity extends EventEmitter{
         this._snapshot = null;          //当前步的快照
     }
 
+    getGroupHashes():Array<Array<string>>{
+        return this._groupHashes
+    }
+
     getECS() {
         return this._runtime;
     }
@@ -58,12 +62,12 @@ export class Entity extends EventEmitter{
         ret["dirty"] = this._dirty;
         ret["step"] = this._step;
         ret["components"] = {}
-        for (let i in this._components) {
-            let comp = this._components[i];
+        this._components.forEach(function (value, key, map) {
+            let comp = value;
             let compObj = {}
-            let comName = ECSUtil.getComponentType(comp);
+            let comName = comp.defineName;
             //TODO:这里要更新
-            let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
+            let nbtFormat = comp.defineData;
             if (!nbtFormat) {
                 return;
             }
@@ -89,7 +93,7 @@ export class Entity extends EventEmitter{
                 }
             }
             ret["components"][comName] = compObj;
-        }
+        })
         return ret;
     }
 
@@ -128,23 +132,23 @@ export class Entity extends EventEmitter{
         }
     }
 
-    markDirty(comp) {
+    markDirty(comp:IComponent) {
         this.dirty();
         if (comp.nosync) {
             return;
         }
-        let name = ECSUtil.getComponentType(comp);
+        let name = comp.defineName;
         if (this._modifyMarks.indexOf(name) === -1 && this._addMarks.indexOf(name) === -1) {
             this._modifyMarks.push(name);
         }
     }
 
-    addMark(comp) {
+    addMark(comp:IComponent) {
         this.dirty();
         if (comp.nosync) {
             return;
         }
-        let name = ECSUtil.getComponentType(comp);
+        let name = comp.defineName;
         if (this._addMarks.indexOf(name) === -1) {
             let modIndex = this._modifyMarks.indexOf(name);
             if (modIndex !== -1) {
@@ -154,12 +158,12 @@ export class Entity extends EventEmitter{
         }
     }
 
-    removeMark(comp) {
+    removeMark(comp:IComponent) {
         this.dirty();
         if (comp.nosync) {
             return;
         }
-        let name = ECSUtil.getComponentType(comp);
+        let name = comp.defineName;
         if (this._removeMarks.indexOf(name) === -1) {
             this._removeMarks.push(name);
         }
@@ -507,6 +511,7 @@ export class Entity extends EventEmitter{
     }
 
     get engine() {
+        this.get("aaaa")
         return this._runtime
     }
 
@@ -515,32 +520,18 @@ export class Entity extends EventEmitter{
      * @param comp 可以是一个string或者Component实例
      * @returns {Component}
      */
-    get(comp) {
-
-        if (ECSUtil.isArray(comp)) {
-            for (let comp_1 of comp) {
-                let name = ECSUtil.getComponentType(comp_1);
-                let ret = this._components[name];
-                if (ret) {
-                    return ret;
-                }
-            }
-            log.error('Entity:get:cant find comp', comp);
-            return null;
+    get(comp:(string|{new():IComponent})):IComponent {
+        if (util.isString(comp)) {
+            return this._components[<string>comp];
+        } else {
+            return this._components[Object.getPrototypeOf(comp).defineName];
         }
-        let name = ECSUtil.getComponentType(comp);
-        if (!name) {
-            throw new Error('Component参数错误,可能未注册');
-
-        }
-
-        return this._components[name];
     }
 
     forceAdd(comp) {
         let args = [].slice.call(arguments);
         args.splice(0, 1);
-        let type = ECSUtil.getComponentType(comp);
+        let type = util.getComponentType(comp);
         comp._entity = this;
         if (args.length > 0) {
             comp.__proto__.constructor.apply(comp, args);
@@ -565,7 +556,7 @@ export class Entity extends EventEmitter{
         let args = [].slice.call(arguments);
         comp = args[0];
         args.splice(0, 1);
-        let type = ECSUtil.getComponentType(comp);
+        let type = util.getComponentType(comp);
         if (!type) {
             log.error('Component参数错误,可能未注册', comp);
             return null;
@@ -613,7 +604,7 @@ export class Entity extends EventEmitter{
                 }
             } else {
                 if (comp.onAdd) {
-                    if (ECSUtil.getComponentType(comp) == 'ControlButton') {
+                    if (util.getComponentType(comp) == 'ControlButton') {
                         log.debug('添加ControlButton组件');
                     }
                     comp.onAdd(this, this._runtime);
@@ -641,13 +632,13 @@ export class Entity extends EventEmitter{
     /**
      * 移除实体的一个组件
      */
-    remove(comp) {
-        let type = ECSUtil.getComponentType(comp);
+    remove(_comp:(string|{new():IComponent})) {
+        let type = util.getComponentType(_comp);
         if (!type) {
             log.error('Component参数错误');
             return;
         }
-        comp = this.get(comp);
+        let comp = this.get(type);
         if (comp) {
             if (this._runtime.needCheckDepends) {
                 let depends = this._runtime.getDependsBy(type);
@@ -668,7 +659,7 @@ export class Entity extends EventEmitter{
             if (comp.onRemove) {
                 comp.onRemove(this, this._runtime);
             }
-            comp._entity = null;
+            comp.setEntity(null);
             this.removeMark(comp);
             this._runtime.recycleComponent(comp);
             this._runtime.reassignEntity(type, this);
@@ -718,7 +709,7 @@ export class Entity extends EventEmitter{
         let ret = [];
         for (let i in this._components) {
             let comp = this._components[i];
-            ret.push(comp.getComponentName ? comp.getComponentName() : comp.__proto__.__classname);
+            ret.push(comp.getComponentName());
         }
         return ret;
     }
@@ -727,7 +718,7 @@ export class Entity extends EventEmitter{
      *  Entity是否包含这些实体组件
      */
     includes(componentTypes) {
-        return ECSUtil.includes(this.getComponentTypes(), componentTypes);
+        return util.includes(this.getComponentTypes(), componentTypes);
     }
 }
 

@@ -1,14 +1,14 @@
 import {log} from "../utils/logger";
 import {Entity} from "./entity";
 import {Group} from "./group";
-import {ISystem} from "./ISystem";
+import {ISystem} from "./system";
 import {Connection} from "./connection";
 import {IComponent} from "./default_component";
 import {ComponentPool, IComponentPool} from "./component_pool";
 import {ComponentSingleton} from "./component_singleton";
 import {Timer} from "./ecs_timer";
 import {EventEmitter} from "../utils/event_emitter";
-import {ECSUtil} from "./ecs_util";
+import {util} from "../utils/util";
 import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
 import {TAGLongArray} from "../binary/long_array";
@@ -36,7 +36,7 @@ export class Runtime extends EventEmitter{
     private _indexClient = 0                      //实体<Entity>ID分配变量
     private _server: boolean
     private _needCheckDepends: boolean
-    private _turned: boolean
+    private _turned: boolean = false
     private _enabled: boolean = false
     private _paused: boolean = false
     private _readyDestroy: boolean = false
@@ -48,7 +48,7 @@ export class Runtime extends EventEmitter{
     private _timeOffset = 0
     private _dirty = true                //整个系统的脏标记d
     private _dirtyEntities: Array<Entity> = []           //这轮的脏标记entity
-    private _dirtyComponents: Array<Entity> = []         //脏Component
+    public dirtyComponents: Array<Entity> = []         //脏Component
     private _newEntities: Array<Entity> = []
     private _toDestroyEntities: Array<Entity> = []        //在这轮遍历中要删除的entity队列
     private _toDestroyEntityIDs: Array<number> = []
@@ -87,6 +87,7 @@ export class Runtime extends EventEmitter{
     private _objContainer = {}
     private _stateMachine = 'null'
     private destroyCb:()=>void
+    private _cmdAddPriority:number = 0
 
     private alSize:number = 0
     private lastSync:TAGComplex
@@ -126,8 +127,8 @@ export class Runtime extends EventEmitter{
     }
 
     addDepends(a, b) {
-        a = ECSUtil.getComponentType(a);
-        b = ECSUtil.getComponentType(b);
+        a = util.getComponentType(a);
+        b = util.getComponentType(b);
         this._dependsPair[a] = this._dependsPair[a] || [];
         this._dependsPair[a].push(b);
         this._dependsPairInverse[b] = this._dependsPairInverse[b] || [];
@@ -135,24 +136,24 @@ export class Runtime extends EventEmitter{
     }
 
     isDepend(a, b) {
-        a = ECSUtil.getComponentType(a);
-        b = ECSUtil.getComponentType(b);
+        a = util.getComponentType(a);
+        b = util.getComponentType(b);
         return (this._dependsPair[a] || []).indexOf(b) !== -1;
     }
 
     getDependsBy(a) {
-        a = ECSUtil.getComponentType(a);
+        a = util.getComponentType(a);
         return this._dependsPairInverse[a] || [];
     }
 
     getDepends(a) {
-        a = ECSUtil.getComponentType(a);
+        a = util.getComponentType(a);
         return this._dependsPair[a] || [];
     }
 
     _sortDepends(a, b) {
-        a = ECSUtil.getComponentType(a);
-        b = ECSUtil.getComponentType(b);
+        a = util.getComponentType(a);
+        b = util.getComponentType(b);
         this._dependsPair[a] = this._dependsPair[a] || [];
         if (this._dependsPair[a].indexOf(b) !== -1) {
             return 1;
@@ -244,8 +245,8 @@ export class Runtime extends EventEmitter{
         this._toDestroyEntities = [];
         this._dirty = false;
 
-        for (let i = 0; i < this._dirtyComponents.length; i++) {
-            this._dirtyComponents[i] && this._dirtyComponents[i].clean();
+        for (let i = 0; i < this.dirtyComponents.length; i++) {
+            this.dirtyComponents[i] && this.dirtyComponents[i].clean();
         }
         for (let i = 0; i < this._dirtyEntities.length; i++) {
             this._dirtyEntities[i].clean();
@@ -257,7 +258,7 @@ export class Runtime extends EventEmitter{
         for (let i in this._groups) {
             this._groups[i].clean();
         }
-        this._dirtyComponents = [];
+        this.dirtyComponents = [];
         this._dirtyEntities = [];
         this._newEntities = [];
         if (this.isClient()) {
@@ -623,7 +624,7 @@ export class Runtime extends EventEmitter{
 
     getComponentDefine(comp) {
         if (typeof comp !== 'string') {
-            comp = ECSUtil.getComponentType(comp);
+            comp = util.getComponentType(comp);
         }
         return this._componentDefineMap[comp];
     }
@@ -632,7 +633,7 @@ export class Runtime extends EventEmitter{
         if (this._compCode) {
             return bt.Byte(this.getComponentDefine(comp));
         } else {
-            return bt.String(ECSUtil.getComponentType(comp));
+            return bt.String(util.getComponentType(comp));
         }
     }
 
@@ -870,7 +871,6 @@ export class Runtime extends EventEmitter{
     }
 
     registerCommand(name, command, priority) {
-        this._cmdAddPriority = this._cmdAddPriority || 0;
         this._cmdAddPriority++;
         command.priority = (priority ? priority * 100000 : 0) + this._cmdAddPriority;
         this._commands[name] = command;
@@ -943,7 +943,7 @@ export class Runtime extends EventEmitter{
             NewComponent = Component;
         }
 
-        if (!ECSUtil.isString(name)) {
+        if (!util.isString(name)) {
             log.error(this.getRoleString() + ' 注册组件失败,组件名称为空');
             return;
         }
@@ -1016,13 +1016,13 @@ export class Runtime extends EventEmitter{
     }
 
     getComponentRenderer(comp) {
-        return this.rendererMap[ECSUtil.getComponentType(comp)];
+        return this.rendererMap[util.getComponentType(comp)];
     }
 
     bindRenderer(compName, rendererName) {
         //TODO:这里的绑定关系应该在ECS里建表
-        this.rendererMap[ECSUtil.getComponentType(compName)] = ECSUtil.getComponentType(rendererName);
-        this.rendererArray.push(ECSUtil.getComponentType(rendererName));
+        this.rendererMap[util.getComponentType(compName)] = util.getComponentType(rendererName);
+        this.rendererArray.push(util.getComponentType(rendererName));
     }
 
     createSingleton(Component) {
@@ -1117,7 +1117,7 @@ export class Runtime extends EventEmitter{
      */
     removeEntityInstant(ent) {
         let entity = ent;
-        if (ECSUtil.isNumber(ent)) {
+        if (util.isNumber(ent)) {
             entity = this._entityPool[ent];
         }
         if (!entity) {
@@ -1142,7 +1142,7 @@ export class Runtime extends EventEmitter{
 
     removeEntity(ent) {
         let entity = ent;
-        if (ECSUtil.isNumber(ent)) {
+        if (util.isNumber(ent)) {
             entity = this._entityPool[ent];
         }
         if (!entity) {
@@ -1165,7 +1165,7 @@ export class Runtime extends EventEmitter{
      * @returns {*}
      */
     getComponentPool(comp) {
-        let name = ECSUtil.getComponentType(comp);
+        let name = util.getComponentType(comp);
         if (!name) {
             log.error(this.getRoleString() + ' 组件错误或未注册', comp);
             return;
@@ -1205,7 +1205,7 @@ export class Runtime extends EventEmitter{
     cacheGroups(comp) {
         let ret = [];
         for (let i in this._groups) {
-            if (ECSUtil.includes(i, comp)) {
+            if (util.includes(i, comp)) {
                 ret.push(this._groups[i]);
             }
         }
@@ -1266,18 +1266,18 @@ export class Runtime extends EventEmitter{
      * @returns {[string]}
      */
     hashGroups(compGroup):Array<Array<string>> {
-        if (!ECSUtil.isArray(compGroup)) {
+        if (!util.isArray(compGroup)) {
             compGroup = [compGroup];
         }
         let retArr:Array<Array<string>> = [];
         for (let i = 0; i < compGroup.length; i++) {
             let comp = compGroup[i];
-            if (ECSUtil.isArray(comp)) {
+            if (util.isArray(comp)) {
                 let tempArr = [];
                 for (let j = 0; j < comp.length; j++) {
                     for (let k = 0; k < retArr.length; k++) {
                         let arr = retArr[k].slice();
-                        arr.push(ECSUtil.getComponentType(comp[j]));
+                        arr.push(util.getComponentType(comp[j]));
                         tempArr.push(arr);
                     }
                 }
@@ -1285,7 +1285,7 @@ export class Runtime extends EventEmitter{
                 retArr = tempArr;
             } else {
                 for (let j = 0; j < retArr.length; j++) {
-                    retArr[j].push(ECSUtil.getComponentType(comp));
+                    retArr[j].push(util.getComponentType(comp));
                 }
             }
         }
@@ -1323,7 +1323,7 @@ export class Runtime extends EventEmitter{
                 group._hash = hash;
                 this._groups[hash_str] = group;
                 for (let i in this._cachedGroups) {
-                    if (ECSUtil.includes(hash, i)) {
+                    if (util.includes(hash, i)) {
                         if (this._cachedGroups[i].indexOf(group) === -1) {
                             this._cachedGroups[i].push(group);
                         }
@@ -1360,7 +1360,7 @@ export class Runtime extends EventEmitter{
     }
 
     getGroup(name) {
-        if (!ECSUtil.isArray(name)) {
+        if (!util.isArray(name)) {
             name = [].concat(name);
         }
         return this.registerGroups(name);
@@ -1400,7 +1400,7 @@ export class Runtime extends EventEmitter{
         sys.addOrder = this._addSystemCount;
         this._systemIndexes[sys.name] = this._systems.length;
         this._systems.push(sys);
-        let desc = sys.desc && ECSUtil.isString(sys.desc) ? "\n" + "说明: " + sys.desc : '';
+        let desc = sys.desc && util.isString(sys.desc) ? "\n" + "说明: " + sys.desc : '';
         // if (!sys.components||sys.components.length===0) {
         //     log.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
         //     sys.components=[];
@@ -1593,7 +1593,7 @@ export class Runtime extends EventEmitter{
     }
 
     schedule(name, callback, interval, repeat, delay) {
-        if (ECSUtil.isFunction(name)) {
+        if (util.isFunction(name)) {
             delay = repeat;
             repeat = interval;
             interval = callback;

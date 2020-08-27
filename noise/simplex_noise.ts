@@ -116,7 +116,6 @@ export class SimplexNoise {
     noise2D(xin, yin) {
         let permMod12 = this.permMod12;
         let perm = this.perm;
-        let grad3 = grad3;
         let n0 = 0; // Noise contributions from the three corners
         let n1 = 0;
         let n2 = 0;
@@ -176,7 +175,6 @@ export class SimplexNoise {
     noise3D(xin, yin, zin) {
         let permMod12 = this.permMod12;
         let perm = this.perm;
-        let grad3 = grad3;
         let n0, n1, n2, n3; // Noise contributions from the four corners
         // Skew the input space to determine which simplex cell we're in
         let s = (xin + yin + zin) * F3; // Very nice and simple skew factor for 3D

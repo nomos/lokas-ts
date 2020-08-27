@@ -1,4 +1,3 @@
-import {ECSUtil} from "../ecs/ecs_util";
 
 import {IComponent} from "../ecs/default_component";
 

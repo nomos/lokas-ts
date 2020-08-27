@@ -1,5 +1,7 @@
 import {Runtime} from "./runtime";
 
+
+
 export class ISystem {
     public runtime:Runtime
     public enabled:boolean

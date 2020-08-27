@@ -15,8 +15,7 @@ enum BinaryType{
 }
 
 export class ComposeData implements Serializable{
-    public transId:number
-    public msgId:number
+    public id:number
     public data:Buffer
     type():BinaryType{
         return BinaryType.CP
@@ -25,7 +24,7 @@ export class ComposeData implements Serializable{
 
     }
     marshalTo():Buffer{
-
+        return null
     }
 }
 
@@ -40,6 +39,7 @@ export class ErrMsg implements Serializable{
 
     }
     marshalTo():Buffer{
+        return null
 
     }
 }
@@ -51,6 +51,10 @@ export class BinaryMessage implements Serializable{
     type():BinaryType{
         return BinaryType.BT
     }
-    unmarshalFrom(buff:Buffer)
-    marshalTo():Buffer
+    unmarshalFrom(buff:Buffer) {
+
+    }
+    marshalTo():Buffer {
+        return null
+    }
 }

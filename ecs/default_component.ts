@@ -2,7 +2,6 @@ import {Entity} from "./entity";
 import {Runtime} from "./runtime";
 
 export class IComponent{
-    
     static get defineName(): string {
         return 'Component'
     }
@@ -15,9 +14,15 @@ export class IComponent{
         return {}
     }
 
+    static nosync:boolean = false
+
     private dirty: boolean = true
     private entity: Entity = null
     private runtime: Runtime = null
+
+    get nosync():boolean{
+        return Object.getPrototypeOf(this).constructor.nosync;
+    }
 
     get defineDepends(): Array<string> {
         return Object.getPrototypeOf(this).constructor.defineDepends;
@@ -43,7 +48,7 @@ export class IComponent{
         return Object.getPrototypeOf(this).constructor.defineName;
     }
 
-    getSibling(comp) {
+    getSibling(comp:string|{new():IComponent}):IComponent {
         if (this.entity) {
             return this.entity.get(comp);
         }
@@ -76,14 +81,14 @@ export class IComponent{
             let renderer = this.getRenderer();
             if (renderer) {
                 let renderComp = this.getSibling(renderer);
-                renderComp && renderComp.dirty();
+                renderComp && renderComp.markDirty();
             }
         }
         if (this.entity) {
             this.entity.markDirty(this);
         }
-        if (this.runtime && this.runtime._dirtyComponents.indexOf(this) === -1) {
-            this.runtime._dirtyComponents.push(this);
+        if (this.runtime && this.runtime.dirtyComponents.indexOf(this.entity) === -1) {
+            this.runtime.dirtyComponents.push(this.entity);
         }
     }
 
