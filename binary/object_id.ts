@@ -6,7 +6,7 @@
 // export class TAGObjectID extends BinaryBase{
 //     constructor(){
 //         super();
-//         // this.type =  Type.TAG_ObjectID;
+//         // this.type =  Type.ObjectID;
 //     }
 //     _readBodyFromBuffer(buff, offset) {
 //         let tempbuff = Buffer.alloc(12);

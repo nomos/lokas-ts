@@ -1,13 +1,15 @@
 
 import {Rect} from "./rect"
 import {Entity} from "../ecs/entity";
-import {PhysicWorld} from "./physicworld";
 import {Collider} from "./collider";
+import {comp} from "../type/types";
 
-export class QuadTree extends Rect implements PhysicWorld{
-    static get defineName(){
-        return 'QuadTree';
-    }
+@comp('QuadTree')
+export class QuadTree extends Rect {
+    public root:QuadBranch
+    public maxObject:number
+    public maxLevel:number
+    public colliders:Array<Collider>
     constructor(x,y,w,h,maxObject=8,maxLevel=4){
         super(x-w/2,y-h/2,x+w/2,y+h/2);
         this.maxObject = maxObject;
@@ -18,7 +20,7 @@ export class QuadTree extends Rect implements PhysicWorld{
     }
     remove(collider,updating=false){
         if (collider instanceof Entity) {
-            collider = collider.get('Collider');
+            collider = collider.get(Collider);
         }
         if(!updating) {
             const world = collider.quadWorld;
@@ -34,14 +36,11 @@ export class QuadTree extends Rect implements PhysicWorld{
         collider.quadTree = null;
         tree.tryCollapse(this.maxObject);
     }
-    insert(collider,updating = false){
+    insert(collider:Collider,updating = false){
         if(!updating) {
-            const world = collider.quadWorld;
+            const world = collider.quadTree;
             if(world && world !== this) {
                 throw new Error('Collider belongs to another quad system');
-            }
-            if (collider instanceof Entity) {
-                collider = collider.get('Collider');
             }
             collider.updateBorder();
             if (this.colliders.indexOf(collider)!==-1) {
@@ -50,9 +49,7 @@ export class QuadTree extends Rect implements PhysicWorld{
                 return;
             }
             this.colliders.push(collider);
-            collider.quadWorld = this;
-
-
+            collider.quadTree = this;
         }
         return this.root.insert(collider,this.maxObject,this.maxLevel);
     }
@@ -96,6 +93,7 @@ export class QuadTree extends Rect implements PhysicWorld{
     }
 }
 
+@comp('QuadQuadBranchTree')
 export class QuadBranch extends Rect{
     public level:number
     public parent:QuadBranch
@@ -114,7 +112,7 @@ export class QuadBranch extends Rect{
 
     remove(collider,max_object){
         if (collider instanceof Entity) {
-            collider = collider.get('Collider');
+            collider = collider.get(Collider);
         }
         let tree = collider.quadTree;
         let index = tree.objects.indexOf(collider);
@@ -139,11 +137,11 @@ export class QuadBranch extends Rect{
         return ret;
     }
 
-    static remove(collider){
+    static remove(collider:Collider){
         if (collider instanceof Entity) {
-            collider = collider.get('Collider');
+            collider = collider.get(Collider);
         }
-        let tree = collider.quadTree;
+        let tree = collider.branch;
         let index = tree.objects.indexOf(collider);
         tree.objects.splice(index,1);
         collider.quadTree = null;
@@ -167,7 +165,7 @@ export class QuadBranch extends Rect{
         return parent;
     }
 
-    tryCollapse(max_object){
+    tryCollapse(max_object?){
         if (!this.parent||this.nodes.length) {
             return;
         }
@@ -181,7 +179,7 @@ export class QuadBranch extends Rect{
             let objects = this.nodes[i].objects;
 
             for (let j=0;j<objects.length;j++) {
-                objects[j].quadTree = this;
+                objects[j].branch = this;
             }
             this.objects.concat(objects);
             this.nodes[i].clear();
@@ -197,10 +195,7 @@ export class QuadBranch extends Rect{
      * @param {Number} max_object
      * @param {Number} max_level
      */
-    insert(collider,max_object,max_level){
-        if (collider instanceof Entity) {
-            collider = collider.get('Collider');
-        }
+    insert(collider:Collider,max_object,max_level){
         let i=0;
         let index;
         if (typeof this.nodes[0]!=='undefined') {
@@ -212,7 +207,7 @@ export class QuadBranch extends Rect{
         }
 
         this.objects.push(collider);
-        collider.quadTree = this;
+        collider.branch = this;
         if (!max_object) {
             return;
         }
@@ -236,10 +231,7 @@ export class QuadBranch extends Rect{
      * @param {Entity} collider
      * @returns {Array}
      */
-    potentials(collider) {
-        if (collider instanceof Entity) {
-            collider = collider.get('Collider');
-        }
+    potentials(collider:Collider) {
         let index = this.getIndex(collider);
         let returnObjects = this.objects;
         if (typeof this.nodes[0]!=='undefined') {
@@ -297,10 +289,7 @@ export class QuadBranch extends Rect{
      * @param {Collider} collider
      * @returns {number}
      */
-    private getIndex(collider){
-        if (collider instanceof Entity) {
-            collider = collider.get('Collider');
-        }
+    private getIndex(collider:Collider){
         let index = -1;
         const c_min_x = collider.minX;
         const c_max_x = collider.maxX;

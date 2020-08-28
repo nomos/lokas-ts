@@ -1,18 +1,15 @@
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
+import {comp, format,Tag} from "../type/types";
 
+@comp('Circle')
 export class Circle extends IComponent {
-    static get defineName(){
-        return 'Circle';
-    }
 
     static get defineDepends(): Array<string> {
         return ['Position'].concat(super.defineDepends);
     }
-
-    static get defineData(){
-        return {};
-    }
+    @format(Tag.Double)
     public radius:number
+    @format(Tag.Double)
     public scale:number
     constructor(radius=0,scale=1){
         super();

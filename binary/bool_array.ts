@@ -1,12 +1,12 @@
 import {BinaryBase} from "./binary_base";
 import {util} from "../utils/util";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 export class TAGBoolArray extends BinaryBase {
     public value:Array<boolean> = []
     constructor(){
         super();
-        this.type =  Type.TAG_Bool_Array;
+        this.type =  Tag.Bool_Array;
     }
     _readBodyFromBuffer(buff, offset):number {
         let len        = buff.readUInt32BE(offset);

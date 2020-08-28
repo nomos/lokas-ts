@@ -1,11 +1,11 @@
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags";
+import {Tag} from "../type/types";
 
 export class TAGBool extends BinaryBase{
     public value:boolean
     constructor(){
         super();
-        this.type =  Type.TAG_Bool;
+        this.type =  Tag.Bool;
     }
     _readBodyFromBuffer(buff, offset):number {
         this.value = !!(buff.readInt8(offset));

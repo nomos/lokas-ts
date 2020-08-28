@@ -1,7 +1,9 @@
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 import {Entity} from "../ecs/entity";
 import {Collider} from "./collider"
+import {comp} from "../type/types";
 
+@comp('Contact')
 export class Contact extends IComponent{
     public a:Entity
     public b:Entity
@@ -12,9 +14,6 @@ export class Contact extends IComponent{
     public overlap:number
     public overlap_x:number
     public overlap_y:number
-    static get defineName(){
-        return 'Contact';
-    }
     constructor(a?:Entity,b?:Entity,time?:number){
         super();
         this.a = a;

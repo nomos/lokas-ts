@@ -18,54 +18,54 @@ import {TAGDoubleArray} from "./double_array";
 import {TAGComplex} from './complex';
 import {TAGBuffer} from "./buffer_type";
 import {Buffer} from "../thirdparty/buffer";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 import {util} from "../utils/util";
 import {BinaryBase} from "./binary_base";
 
 // let zlib = require('zlib');
 
-export {Type} from "./tags"
+export {Tag} from "../type/types"
 
 
-export function getTag(tagId: Type) {
+export function getTag(tagId: Tag) {
     switch (tagId) {
-        case Type.TAG_Bool:
+        case Tag.Bool:
             return new TAGBool()
-        case Type.TAG_Byte:
+        case Tag.Byte:
             return new TAGByte()
-        case Type.TAG_Short:
+        case Tag.Short:
             return new TAGShort()
-        case Type.TAG_Int:
+        case Tag.Int:
             return new TAGInt()
-        case Type.TAG_Long:
+        case Tag.Long:
             return new TAGLong()
-        case Type.TAG_Float:
+        case Tag.Float:
             return new TAGFloat()
-        case Type.TAG_Double:
+        case Tag.Double:
             return new TAGDouble()
-        case Type.TAG_String:
+        case Tag.String:
             return new TAGString()
-        case Type.TAG_Bool_Array:
+        case Tag.Bool_Array:
             return new TAGBoolArray()
-        case Type.TAG_Byte_Array:
+        case Tag.Byte_Array:
             return new TAGByteArray()
-        case Type.TAG_Short_Array:
+        case Tag.Short_Array:
             return new TAGShortArray()
-        case Type.TAG_Int_Array:
+        case Tag.Int_Array:
             return new TAGIntArray()
-        case Type.TAG_Long_Array:
+        case Tag.Long_Array:
             return new TAGLongArray()
-        case Type.TAG_Float_Array:
+        case Tag.Float_Array:
             return new TAGFloatArray()
-        case Type.TAG_Double_Array:
+        case Tag.Double_Array:
             return new TAGDoubleArray()
-        case Type.TAG_List:
+        case Tag.List:
             return new TAGList()
-        case Type.TAG_Compound:
+        case Tag.Compound:
             return new TAGCompound()
-        case Type.TAG_Complex:
+        case Tag.Complex:
             return new TAGComplex()
-        case Type.TAG_Buffer:
+        case Tag.Buffer:
             return new TAGBuffer()
     }
 }
@@ -113,86 +113,86 @@ export function getTagFuncByString(t:string):(value?)=>BinaryBase {
     }
 }
 
-export function getTagType(tagId: Type) {
+export function getTagType(tagId: Tag) {
     switch (tagId) {
-        case Type.TAG_Bool:
+        case Tag.Bool:
             return TAGBool
-        case Type.TAG_Byte:
+        case Tag.Byte:
             return TAGByte
-        case Type.TAG_Short:
+        case Tag.Short:
             return TAGShort
-        case Type.TAG_Int:
+        case Tag.Int:
             return TAGInt
-        case Type.TAG_Long:
+        case Tag.Long:
             return TAGLong
-        case Type.TAG_Float:
+        case Tag.Float:
             return TAGFloat
-        case Type.TAG_Double:
+        case Tag.Double:
             return TAGDouble
-        case Type.TAG_String:
+        case Tag.String:
             return TAGString
-        case Type.TAG_Bool_Array:
+        case Tag.Bool_Array:
             return TAGBoolArray
-        case Type.TAG_Byte_Array:
+        case Tag.Byte_Array:
             return TAGByteArray
-        case Type.TAG_Short_Array:
+        case Tag.Short_Array:
             return TAGShortArray
-        case Type.TAG_Int_Array:
+        case Tag.Int_Array:
             return TAGIntArray
-        case Type.TAG_Long_Array:
+        case Tag.Long_Array:
             return TAGLongArray
-        case Type.TAG_Float_Array:
+        case Tag.Float_Array:
             return TAGFloatArray
-        case Type.TAG_Double_Array:
+        case Tag.Double_Array:
             return TAGDoubleArray
-        case Type.TAG_List:
+        case Tag.List:
             return TAGList
-        case Type.TAG_Compound:
+        case Tag.Compound:
             return TAGCompound
-        case Type.TAG_Complex:
+        case Tag.Complex:
             return TAGComplex
-        case Type.TAG_Buffer:
+        case Tag.Buffer:
             return TAGBuffer
     }
 }
 
 //类型 Object>Array>String>Double>Float>Long>Int>Boolean
-export function checkArrayType(arr): Type {
+export function checkArrayType(arr): Tag {
     let type = 0;
     let strType = false;
     let integer = true;
     if (!arr.length) {
-        return Type.TAG_String;
+        return Tag.String;
     }
     for (let i = 0; i < arr.length; i++) {
         let item = arr[i];
         if (util.isObject(item)) {
-            type = Type.TAG_Compound;
+            type = Tag.Compound;
             break;
         }
         if (util.isArray(item)) {
-            type = Type.TAG_List;
+            type = Tag.List;
             break;
         }
 
         if (util.isString(item)) {
             strType = true;
-            type = Type.TAG_String;
+            type = Tag.String;
         }
         if (util.isBoolean(item)) {
-            type = Type.TAG_Bool_Array;
+            type = Tag.Bool_Array;
             break;
         }
         if (strType) {
             if (!util.isLongString(item)) {
-                type = Type.TAG_String;
+                type = Tag.String;
                 break;
             } else {
                 if (item > Number.MAX_SAFE_INTEGER) {
-                    type = Type.TAG_Long_Array;
+                    type = Tag.Long_Array;
                 }
-                if (type !== Type.TAG_Long_Array) {
-                    type = Type.TAG_Int_Array;
+                if (type !== Tag.Long_Array) {
+                    type = Tag.Int_Array;
                 }
             }
         } else {
@@ -201,25 +201,25 @@ export function checkArrayType(arr): Type {
                 integer = false;
             }
             if (integer) {
-                if (type <= Type.TAG_Long_Array && !util.isInt(item)) {
-                    type = Type.TAG_Long_Array;
+                if (type <= Tag.Long_Array && !util.isInt(item)) {
+                    type = Tag.Long_Array;
                     break;
                 }
-                if (type <= Type.TAG_Int_Array && !util.isByte(item)) {
-                    type = Type.TAG_Int_Array;
+                if (type <= Tag.Int_Array && !util.isByte(item)) {
+                    type = Tag.Int_Array;
                 }
-                if (type <= Type.TAG_Short_Array && !util.isByte(item)) {
-                    type = Type.TAG_Short_Array;
+                if (type <= Tag.Short_Array && !util.isByte(item)) {
+                    type = Tag.Short_Array;
                 }
-                if (type <= Type.TAG_Byte_Array && util.isByte(item)) {
-                    type = Type.TAG_Byte_Array;
+                if (type <= Tag.Byte_Array && util.isByte(item)) {
+                    type = Tag.Byte_Array;
                 }
             } else {
                 if (!util.isFloat(item)) {
-                    type = Type.TAG_Double_Array;
+                    type = Tag.Double_Array;
                     break;
                 }
-                type = Type.TAG_Float_Array;
+                type = Tag.Float_Array;
             }
         }
     }
@@ -287,27 +287,27 @@ export function createFromJSObject(obj, opt?) {
     //如果是数组要确定数组类型
     if (util.isArray(obj)) {
         let type = checkArrayType(obj);
-        if (type === Type.TAG_Bool_Array ||
-            type === Type.TAG_Byte_Array ||
-            type === Type.TAG_Short_Array ||
-            type === Type.TAG_Int_Array ||
-            type === Type.TAG_Long_Array ||
-            type === Type.TAG_Float_Array ||
-            type === Type.TAG_Double_Array
+        if (type === Tag.Bool_Array ||
+            type === Tag.Byte_Array ||
+            type === Tag.Short_Array ||
+            type === Tag.Int_Array ||
+            type === Tag.Long_Array ||
+            type === Tag.Float_Array ||
+            type === Tag.Double_Array
         ) {
             ret = getTag(type);
             for (let i = 0; i < obj.length; i++) {
                 ret.push(obj[i]);
             }
         }
-        if (type === Type.TAG_String) {
+        if (type === Tag.String) {
             ret = new TAGList();
             for (let i = 0; i < obj.length; i++) {
                 ret.push(String(obj[i]));
             }
         }
 
-        if (type === Type.TAG_Compound || type === Type.TAG_List) {
+        if (type === Tag.Compound || type === Tag.List) {
             ret = new TAGList();
             for (let i = 0; i < obj.length; i++) {
                 let nbtobj = createFromJSObject(obj[i]);

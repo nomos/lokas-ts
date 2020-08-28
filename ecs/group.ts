@@ -1,6 +1,6 @@
 import {Runtime} from "./runtime";
 import {Entity} from "./entity";
-import {defineName,IComponent} from "./default_component";
+import {IComponent} from "./default_component";
 import {util} from "../utils/util";
 
 /**

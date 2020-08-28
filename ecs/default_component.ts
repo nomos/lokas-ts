@@ -1,20 +1,18 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
+import {comp,Tag} from "../type/types";
+import {Logger,log} from "../utils/logger";
 
-export function defineName(name:string) {
-    return function (target:Function) {
-        target.prototype.defineName = name
-    }
-}
-
+@comp('Component')
 export class IComponent{
+    static __defineName = 'Component'
+    static get defineName (){
+        return this.__defineName
+    }
+
     protected dirty: boolean = true
     protected entity: Entity = null
     protected runtime: Runtime = null
-
-    static get defineName(): string {
-        return 'Component'
-    }
 
     static get defineDepends(): Array<string> {
         return []
@@ -36,7 +34,7 @@ export class IComponent{
     }
 
     get defineName(): string {
-        return Object.getPrototypeOf(this).constructor.defineName;
+        return Object.getPrototypeOf(this).constructor.defineName();
     }
 
     constructor() {
@@ -61,7 +59,7 @@ export class IComponent{
         }
     }
 
-    setEntity(ent) {
+    setEntity(ent:Entity) {
         this.entity = ent;
     }
 
@@ -115,27 +113,27 @@ export class IComponent{
         return this.getECS().rendererArray.indexOf(this.getComponentName()) !== -1;
     }
 
-    onAdd(ent, ecs) {
+    onAdd(ent:Entity, runtime:Runtime) {
 
     }
 
-    onRemove(ent, ecs) {
+    onRemove(ent:Entity, runtime:Runtime) {
 
     }
 
-    onDirty(ent, ecs) {
+    onCreate(runtime:Runtime) {
 
     }
 
-    onCreate(ecs) {
+    onDestroy(runtime:Runtime) {
 
     }
 
-    onDestroy(ecs) {
+    onDirty(ent:Entity, runtime:Runtime) {
 
     }
 
-    onRegister(ecs) {
+    onRegister(runtime:Runtime) {
 
     }
 }

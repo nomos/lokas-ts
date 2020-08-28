@@ -5,14 +5,14 @@ import {Long} from "../utils/long";
 let TAG_TYPE_OFFSET = 1;
 import {Buffer} from "../thirdparty/buffer";
 import {util} from "../utils/util";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 export class BinaryBase{
-    public type: Type
+    public type: Tag
     public value:any
     public id:string
     constructor(id?:string){
-        this.type  =  Type.TAG_End;
+        this.type  =  Tag.End;
         this.id    = id||"";
         this.value = undefined;
     }
@@ -35,7 +35,7 @@ export class BinaryBase{
             nameLength);
         return TAG_TYPE_OFFSET + nameLength + bodyLength;
     }
-    getType(): Type {
+    getType(): Tag {
         return this.type;
     }
     getName():string {
@@ -69,14 +69,14 @@ export class BinaryBase{
     }
     toJSObject() {
         let val = this.value;
-        if(this.type ===  Type.TAG_Complex) {
+        if(this.type ===  Tag.Complex) {
             let _val = [];
             for(let key in val) {
                 _val[key] = val[key].toJSObject();
             }
             return _val;
         }
-        if(this.type ===  Type.TAG_Compound) {
+        if(this.type ===  Tag.Compound) {
             let _val = {};
             for(let key in val) {
                 if(!val.hasOwnProperty(key)) continue;
@@ -84,7 +84,7 @@ export class BinaryBase{
             }
             return _val;
         }
-        if(this.type ===  Type.TAG_List) {
+        if(this.type ===  Tag.List) {
             let _val = [];
             for(let i = 0; i < val.length; i++) {
                 _val.push(val[i].toJSObject());
@@ -113,17 +113,17 @@ export class BinaryBase{
             return val.toNumber();
         }
 
-        if(this.type ===  Type.TAG_Int_Array
-            || this.type ===  Type.TAG_Byte_Array
-            || this.type ===  Type.TAG_Float_Array
-            || this.type ===  Type.TAG_Double_Array
-            || this.type ===  Type.TAG_Short_Array
-            || this.type ===  Type.TAG_Long_Array
-            || this.type ===  Type.TAG_Bool_Array
+        if(this.type ===  Tag.Int_Array
+            || this.type ===  Tag.Byte_Array
+            || this.type ===  Tag.Float_Array
+            || this.type ===  Tag.Double_Array
+            || this.type ===  Tag.Short_Array
+            || this.type ===  Tag.Long_Array
+            || this.type ===  Tag.Bool_Array
         ) {
             return val;
         }
-        if(this.type ===  Type.TAG_Complex) {
+        if(this.type ===  Tag.Complex) {
             let _val = [];
             for(let i in val) {
                 _val.push(val[i].toJSON());
@@ -131,7 +131,7 @@ export class BinaryBase{
             return _val;
         }
 
-        if(this.type ===  Type.TAG_List) {
+        if(this.type ===  Tag.List) {
             let _val = [];
             for(let i = 0; i < val.length; i++) {
                 _val.push(val[i].toJSON());

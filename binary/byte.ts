@@ -1,12 +1,12 @@
 
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 export class TAGByte extends BinaryBase{
     public value:number
     constructor(){
         super();
-        this.type =  Type.TAG_Byte;
+        this.type =  Tag.Byte;
     }
     _readBodyFromBuffer(buff, offset):number {
         this.value = buff.readInt8(offset);

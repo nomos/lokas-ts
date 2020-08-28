@@ -1,6 +1,6 @@
 import {Long} from "../utils/long";
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 let _longBound = {
     min: Long.fromString("-9223372036854775808"),
@@ -10,7 +10,7 @@ let _longBound = {
 export class TAGLong extends BinaryBase{
     constructor(){
         super();
-        this.type =  Type.TAG_Long;
+        this.type =  Tag.Long;
     }
     _readBodyFromBuffer(buff, offset) {
         let sliced = buff.slice(offset, offset + 8);

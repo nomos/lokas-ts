@@ -1,7 +1,7 @@
 import {Long} from "../utils/long";
 import {util} from "../utils/util";
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 
 const _longBound = {
@@ -12,7 +12,7 @@ const _longBound = {
 export class TAGLongArray extends BinaryBase{
     constructor(){
         super();
-        this.type =  Type.TAG_Long_Array;
+        this.type =  Tag.Long_Array;
         this.value     = [];
     }
     _readBodyFromBuffer(buff, offset) {

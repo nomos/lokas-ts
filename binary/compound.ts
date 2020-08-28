@@ -1,13 +1,13 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 import {getTagType} from "./bt";
 
 export class TAGCompound extends BinaryBase{
     constructor(){
         super();
         this.value={};
-        this.type =  Type.TAG_Compound;
+        this.type =  Tag.Compound;
     }
     _getNextTag(buff, offset) {
         let tagId = buff.readUInt8(offset);

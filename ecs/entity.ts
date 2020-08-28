@@ -5,7 +5,7 @@ import {Runtime} from "./runtime";
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
-import {defineName,IComponent} from "./default_component";
+import {IComponent} from "./default_component";
 import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
 import {TAGList} from "../binary/list";
@@ -67,6 +67,7 @@ export class Entity extends EventEmitter{
             let compObj = {}
             let comName = comp.defineName;
             //TODO:这里要更新
+            // @ts-ignore
             let nbtFormat = comp.defineData;
             if (!nbtFormat) {
                 return;

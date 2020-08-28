@@ -1,11 +1,11 @@
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 import {util} from "../utils/util";
 
 export class TAGShortArray extends BinaryBase{
     constructor(){
         super();
-        this.type =  Type.TAG_Short_Array;
+        this.type =  Tag.Short_Array;
         this.value     = [];
     }
     _readBodyFromBuffer(buff, offset) {

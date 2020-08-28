@@ -1,24 +1,24 @@
 
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
+import {comp, format, Tag} from "../type/types";
 
 
-
-@defineName('Vector')
+@comp('Vector')
 export class Vector extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
 
+    @format(Tag.Double)
     public x:number
+    @format(Tag.Double)
     public y:number
+    @format(Tag.Double)
     public z:number
     public _angle:number
     constructor(x=0, y=0, z=0) {
         super();
         this._angle = 0;
-        if (x.x) {
-            throw new Error(this.defineName+':param error');
-        }
         this.x = x;
         this.y = y;
         this.z = z;
@@ -34,10 +34,10 @@ export class Vector extends IComponent {
         this.z = 0;
     }
 
-    assgin(v) {
-        this.x = v.x===undefined?this.x:v.x;
-        this.y = v.y===undefined?this.y:v.y;
-        this.z = v.z===undefined?this.z:v.z;
+    assign(v:Vector) {
+        this.x = v.x
+        this.y = v.y
+        this.z = v.z
     }
 
     clone() {
@@ -187,26 +187,32 @@ export class Vector extends IComponent {
     }
 }
 
-
+@comp('Position')
 export class Position extends Vector {
-    static get defineName(){
-        return 'Position';
-    }
-
     static get defineDepends(){
         return [].concat(super.defineDepends);
     }
 
+    @format(Tag.Double)
+    public x:number
+    @format(Tag.Double)
+    public y:number
+    @format(Tag.Double)
+    public z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
 }
 
+@comp('Velocity')
 export class Velocity extends Vector {
-    static get defineName() {
-        return 'Velocity';
-    }
 
+    @format(Tag.Double)
+    public x:number
+    @format(Tag.Double)
+    public y:number
+    @format(Tag.Double)
+    public z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
@@ -220,32 +226,29 @@ export class Velocity extends Vector {
     }
 }
 
+@comp('Acceleration')
 export class Acceleration extends Vector {
-    static get defineName() {
-        return 'Acceleration';
-    }
 
+    @format(Tag.Double)
+    public x:number
+    @format(Tag.Double)
+    public y:number
+    @format(Tag.Double)
+    public z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
 }
 
+@comp('Angle')
 export class Angle extends IComponent {
-    static get defineName(){
-        return 'Angle';
-    }
 
     static get defineDepends(){
         return [].concat(super.defineDepends);
     }
 
-    static get defineData(){
-        return {
-            angle:'Float',
-        };
-    }
-
-    protected _angle:number
+    @format(Tag.Double)
+    public _angle:number
 
     constructor(angle=0){
         super();
@@ -272,6 +275,10 @@ export class Angle extends IComponent {
 
     get degree(){
         return this._angle*Math.PI/180;
+    }
+
+    set degree(degree:number) {
+        this.angle = degree*180/Math.PI
     }
 
     get sin_value(){
@@ -391,21 +398,17 @@ export class Angle extends IComponent {
     }
 }
 
+@comp('AngularMovement')
 export class AngularMovement extends IComponent {
-    static get defineName(){
-        return 'AngularMovement';
-    }
 
     static get defineDepends(){
         return ['Angle'].concat(super.defineDepends);
     }
 
-    static get defineData(){
-        return {
-            velocity:'Float',
-            acceleration:'acceleration'
-        }
-    }
+    @format(Tag.Double)
+    public velocity:number = 0
+    @format(Tag.Double)
+    public acceleration:number = 0
     constructor(velocity=0,acceleration=0){
         super();
         this.velocity = velocity;
@@ -418,20 +421,15 @@ export class AngularMovement extends IComponent {
     }
 }
 
+@comp('Size')
 export class Size extends IComponent {
-    static get defineName() {
-        return 'Size';
-    }
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-
-    static get defineData() {
-        return {
-            width: 'Float',
-            height: 'Float'
-        }
-    }
+    @format(Tag.Double)
+    public width:number = 0
+    @format(Tag.Double)
+    public height:number = 0
     constructor(w = 0, h = 0) {
         super();
         this.width = w;
@@ -452,24 +450,16 @@ export class Size extends IComponent {
     }
 }
 
+@comp('TimeStamp')
 export class TimeStamp extends IComponent {
-    static get defineName() {
-        return 'TimeStamp';
-    }
-
-    constructor(time) {
-        super();
-        this.time = time;
-    }
-
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-
-    static get defineData() {
-        return {
-            time: 'Float'
-        }
+    @format(Tag.Long)
+    public time:number = 0
+    constructor(time) {
+        super();
+        this.time = time;
     }
 }
 

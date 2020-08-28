@@ -1,6 +1,6 @@
 import {Singleton} from "../utils/singleton";
 
-export class TypeDecorator extends Singleton {
+export class TypeRegistry extends Singleton {
     constructor() {
         super();
     }

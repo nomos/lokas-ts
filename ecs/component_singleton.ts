@@ -4,7 +4,7 @@
  * @param ecs
  * @constructor
  */
-import {defineName,IComponent} from "./default_component";
+import {IComponent} from "./default_component";
 import {Runtime} from "./runtime";
 
 export class ComponentSingleton<T extends IComponent>{

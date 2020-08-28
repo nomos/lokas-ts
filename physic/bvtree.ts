@@ -1,12 +1,14 @@
 import {Rect} from "./rect"
 import {Collider} from "./collider"
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon"
 import {PhysicWorld} from "./physicworld";
+import {comp} from "../type/types";
 
 const branch_pool = [];
 
+@comp('BVBranch')
 export class BVBranch extends Rect{
     public parent:BVBranch
     public left:BVBranch
@@ -24,6 +26,7 @@ export class BVBranch extends Rect{
     }
 }
 
+@comp('BVTree')
 export class BVTree extends IComponent implements PhysicWorld{
     public colliders:Array<Collider>
     public root:BVTree

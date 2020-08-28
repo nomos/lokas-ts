@@ -1,15 +1,15 @@
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 import {util} from "../utils/util";
 import {getTagType} from "./bt"
 
 export class TAGList extends BinaryBase{
-    public childType: Type
+    public childType: Tag
     public value:Array<BinaryBase>
     constructor(){
         super();
-        this.type =  Type.TAG_List;
-        this.childType =  Type.TAG_End;
+        this.type =  Tag.List;
+        this.childType =  Tag.End;
         this.value     = [];
     }
     _readBodyFromBuffer(buff, offset) {

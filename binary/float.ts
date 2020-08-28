@@ -1,10 +1,10 @@
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 export class TAGFloat extends BinaryBase{
     constructor(){
         super();
-        this.type =  Type.TAG_Float;
+        this.type =  Tag.Float;
     }
     _readBodyFromBuffer(buff, offset) {
         this.value = buff.readFloatBE(offset);

@@ -24,7 +24,7 @@
 //         this.name = 'MoveSubSystem';
 //         this.components = [[Circle,Polygon,Position],Velocity];
 //         this.update = function (ent,dt) {
-//             let cVelocity = ent.get('Velocity');
+//             let cVelocity = ent.get(Velocity);
 //             let pos = ent.get(['Polygon','Circle','Position']);
 //             pos.x+=cVelocity.x*dt/1000;
 //             pos.y+=cVelocity.y*dt/1000;

@@ -1,13 +1,15 @@
 import {Contact} from "./contact";
 import {Rect} from "./rect";
 import {collision} from "./collision";
-import {PhysicWorld} from "./physicworld";
 import {QuadBranch, QuadTree} from "./quadtree";
 import {BVBranch, BVTree} from "./bvtree";
 import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon";
+import {Point} from "./point";
 import {Circle} from "./circle"
+import {comp} from "../type/types";
 
+@comp('Collider')
 export class Collider extends Rect{
     public padding:number
     public minX:number
@@ -125,8 +127,8 @@ export class Collider extends Rect{
         }
     }
     updateBorder(){
-        let cPolygon = <Polygon>(this.getSibling('Polygon')||this.getSibling('Point'));
-        let cCircle = <Circle>this.getSibling('Circle');
+        let cPolygon =this.getSibling(Polygon)||this.getSibling(Point);
+        let cCircle = this.getSibling(Circle);
         cPolygon&&cPolygon._calculateCoords();
         this.minX = cPolygon?cPolygon.minX:cCircle.x-cCircle.radius*cCircle.scale-this.padding;
         this.maxX = cPolygon?cPolygon.maxX:cCircle.x+cCircle.radius*cCircle.scale+this.padding;

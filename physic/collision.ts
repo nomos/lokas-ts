@@ -1,4 +1,8 @@
 import {Entity} from "../ecs/entity";
+import {comp} from "../type/types";
+import {Polygon} from "./polygon"
+import {Point} from "./point"
+import {Circle} from "./circle"
 
 /**
  * 圆形之间碰撞
@@ -9,10 +13,10 @@ import {Entity} from "../ecs/entity";
  */
 
 export function collision(a, b, contact = null, aabb = true) {
-    const a_polygon = a.getSibling('Polygon')||a.getSibling('Point');
-    const b_polygon = b.getSibling('Polygon')||b.getSibling('Point');
-    const a_circle = a.getSibling('Circle');
-    const b_circle = b.getSibling('Circle');
+    const a_polygon = a.getSibling(Polygon)||a.getSibling(Point);
+    const b_polygon = b.getSibling(Polygon)||b.getSibling(Point);
+    const a_circle = a.getSibling(Circle);
+    const b_circle = b.getSibling(Circle);
     let collision = false;
 
     if(contact) {
@@ -52,9 +56,9 @@ export function aabbAABB(a, b) {
     return a.minX < b.maxX && a.minY < b.maxY && a.maxX > b.minX && a.maxY > b.minY;
 }
 
-function _aabbAABB(a, b) {
-    const a_polygon = a.get('Polygon')||a.get('Point');
-    const a_circle = a.get('Circle');
+function _aabbAABB(a:Entity, b:Entity) {
+    const a_polygon = a.get(Polygon)||a.get(Point);
+    const a_circle = a.get(Circle);
     const a_x       = a_polygon ? 0 : a_circle.x;
     const a_y       = a_polygon ? 0 : a_circle.y;
     const a_radius  = a_polygon ? 0 : a_circle.radius * a_circle.scale;
@@ -63,8 +67,8 @@ function _aabbAABB(a, b) {
     const a_max_x   = a_polygon ? a_polygon.maxX : a_x + a_radius;
     const a_max_y   = a_polygon ? a_polygon.maxY : a_y + a_radius;
 
-    const b_polygon = b.get('Polygon')||b.get('Point');
-    const b_circle = b.get('Circle');
+    const b_polygon = b.get(Polygon)||b.get(Point);
+    const b_circle = b.get(Circle);
     const b_x       = b_polygon ? 0 : b_circle.x;
     const b_y       = b_polygon ? 0 : b_circle.y;
     const b_radius  = b_polygon ? 0 : b_circle.radius * b_circle.scale;

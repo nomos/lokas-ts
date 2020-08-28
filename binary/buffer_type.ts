@@ -1,11 +1,11 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
-import {Type} from "./tags"
+import {Tag} from "../type/types"
 
 export class TAGBuffer extends BinaryBase{
     constructor(){
         super();
-        this.type = Type.TAG_Buffer;
+        this.type = Tag.Buffer;
     }
     _readBodyFromBuffer(buff, offset):number {
         let len        = buff.readUInt32BE(offset);

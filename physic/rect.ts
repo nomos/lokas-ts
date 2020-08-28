@@ -1,29 +1,25 @@
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
+import {comp, format, Tag} from "../type/types";
 
+@comp('Rect')
 export class Rect extends IComponent {
-    static get defineName() {
-        return 'Rect';
+    static get defineDepends() {
+        return [].concat(super.defineDepends);
     }
-
+    @format(Tag.Float)
+    public minX:number
+    @format(Tag.Float)
+    public minY:number
+    @format(Tag.Float)
+    public maxX:number
+    @format(Tag.Float)
+    public maxY:number
     constructor(minX = 0, minY = 0, maxX = 0, maxY = 0) {
         super();
         this.minX = minX;
         this.minY = minY;
         this.maxX = maxX;
         this.maxY = maxY;
-    }
-
-    static get defineDepends() {
-        return [].concat(super.defineDepends);
-    }
-
-    static get defineData() {
-        return {
-            minX: 'Float',
-            minY: 'Float',
-            maxX: 'Float',
-            maxY: 'Float',
-        }
     }
 
     get x() {

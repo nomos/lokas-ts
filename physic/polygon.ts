@@ -1,18 +1,12 @@
 'use strict'
-import {defineName,IComponent} from "../ecs/default_component";
+import {IComponent} from "../ecs/default_component";
 import {Angle, Position} from "./base_components";
+import {comp} from "../type/types";
 
+@comp('Polygon')
 export class Polygon extends IComponent{
-    static get defineName(){
-        return 'Polygon';
-    }
-
     static get defineDepends(){
         return ['Position','Angle'].concat(super.defineDepends);
-    }
-
-    static get defineData(){
-        return {};
     }
 
     public scale_x:number
@@ -60,17 +54,17 @@ export class Polygon extends IComponent{
         this._angle = cAngle.degree;
     }
 
-    get angle(){return -this.getSibling('Angle').degree;}
+    get angle(){return -this.getSibling(Angle).degree;}
 
-    set angle(degree){this.getSibling('Angle').degree = -degree;}
+    set angle(degree){this.getSibling(Angle).degree = -degree;}
 
-    get x(){return this.getSibling('Position').x;}
+    get x(){return this.getSibling(Position).x;}
 
-    set x(x){this.getSibling('Position').x = x;}
+    set x(x){this.getSibling(Position).x = x;}
 
-    get y(){return this.getSibling('Position').y;}
+    get y(){return this.getSibling(Position).y;}
 
-    set y(y){this.getSibling('Position').y = y;}
+    set y(y){this.getSibling(Position).y = y;}
 
     setPoints(new_points) {
         const count = new_points.length;
@@ -101,10 +95,10 @@ export class Polygon extends IComponent{
         const coords  = this._coords;
         const count   = points.length;
 
-        let min_x;
-        let max_x;
-        let min_y;
-        let max_y;
+        let min_x=0;
+        let max_x=0;
+        let min_y=0;
+        let max_y=0;
 
         for(let ix = 0, iy = 1; ix < count; ix += 2, iy += 2) {
             let coord_x = points[ix] * scale_x;
