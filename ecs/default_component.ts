@@ -1,10 +1,12 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
-import {comp,Tag} from "../type/types";
+import {comp, Tag, TypeRegistry} from "../type/types";
 import {Logger,log} from "../utils/logger";
+import {Serializable} from "../net/protocol";
+import {Buffer} from "../thirdparty/buffer";
 
 @comp('Component')
-export class IComponent{
+export class IComponent implements Serializable{
     static __defineName = 'Component'
     static get defineName (){
         return this.__defineName
@@ -71,24 +73,13 @@ export class IComponent{
         return this.entity;
     }
 
-    getECS():Runtime {
+    getRuntime():Runtime {
         return this.runtime;
     }
 
     markDirty() {
         this.dirty = true;
-        this.onDirty && this.onDirty(this.entity, this.entity.getECS());
-        if (this.isClient()) {
-
-            if (this.updateView) {
-                this.getECS().addRenderQueue(this);
-            }
-            let renderer = this.getRenderer();
-            if (renderer) {
-                let renderComp = this.getSibling(renderer);
-                renderComp && renderComp.markDirty();
-            }
-        }
+        this.onDirty && this.onDirty(this.entity, this.entity.getRuntime());
         if (this.entity) {
             this.entity.markDirty(this);
         }
@@ -103,14 +94,6 @@ export class IComponent{
 
     clean() {
         this.dirty = false;
-    }
-
-    getRenderer() {
-        return this.getECS().getComponentRenderer(this);
-    }
-
-    isRenderer() {
-        return this.getECS().rendererArray.indexOf(this.getComponentName()) !== -1;
     }
 
     onAdd(ent:Entity, runtime:Runtime) {
@@ -135,5 +118,15 @@ export class IComponent{
 
     onRegister(runtime:Runtime) {
 
+    }
+
+
+    unmarshalFrom(buff:Buffer) {
+
+    }
+
+    marshalTo():Buffer {
+
+        return null
     }
 }

@@ -2,13 +2,11 @@
 import {IComponent} from "../ecs/default_component";
 import {comp, format, Tag} from "../type/types";
 
-
 @comp('Vector')
 export class Vector extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-
     @format(Tag.Double)
     public x:number
     @format(Tag.Double)
@@ -18,10 +16,10 @@ export class Vector extends IComponent {
     public _angle:number
     constructor(x=0, y=0, z=0) {
         super();
-        this._angle = 0;
         this.x = x;
         this.y = y;
         this.z = z;
+        this._angle = 0;
     }
 
     onRemove(ent,ecs){
@@ -343,18 +341,18 @@ export class Angle extends IComponent {
 
     getVectorX(length){
         length = Math.abs(length);
-        if (this.angle = 0) {
+        if (this.angle == 0) {
             return length;
         }
-        if (this.angle = 90) {
+        if (this.angle == 90) {
             return 0;
 
         }
-        if (this.angle = 180) {
+        if (this.angle == 180) {
             return -length;
 
         }
-        if (this.angle = 270) {
+        if (this.angle == 270) {
             return 0;
         }
         return this.cos_value*length;
@@ -362,36 +360,36 @@ export class Angle extends IComponent {
 
     getVectorY(length){
         length = Math.abs(length);
-        if (this.angle = 0) {
+        if (this.angle == 0) {
             return 0;
         }
-        if (this.angle = 90) {
+        if (this.angle == 90) {
             return length;
 
         }
-        if (this.angle = 180) {
+        if (this.angle == 180) {
             return 0;
 
         }
-        if (this.angle = 270) {
+        if (this.angle == 270) {
             return -length;
         }
         return this.sin_value*length;
     }
 
     getVector(){
-        if (this.angle = 0) {
+        if (this.angle == 0) {
             return new Vector(0,1);
         }
-        if (this.angle = 90) {
+        if (this.angle == 90) {
             return new Vector(1,0);
 
         }
-        if (this.angle = 180) {
+        if (this.angle == 180) {
             return new Vector(0,-1);
 
         }
-        if (this.angle = 270) {
+        if (this.angle == 270) {
             return new Vector(-1,0);
         }
         return new Vector(this.getVectorX(1),this.getVectorY(1));

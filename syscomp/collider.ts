@@ -2,7 +2,7 @@ import {Contact} from "./contact";
 import {Rect} from "./rect";
 import {collision} from "./collision";
 import {QuadBranch, QuadTree} from "./quadtree";
-import {BVBranch, BVTree} from "./bvtree";
+import {BVBranch, BVNode, BVTree} from "./bvtree";
 import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon";
 import {Point} from "./point";
@@ -10,23 +10,21 @@ import {Circle} from "./circle"
 import {comp} from "../type/types";
 
 @comp('Collider')
-export class Collider extends Rect{
+export class Collider extends Rect implements BVNode{
     public padding:number
     public minX:number
     public maxX:number
     public minY:number
     public maxY:number
     public tag:number
-    public branch:QuadBranch
-    public quadTree:QuadTree
+    public branch = false   //标识不是一个BVBranch节点
     public parent:BVBranch
     public world:BVTree
+    public quadBranch:QuadBranch
+    public quadTree:QuadTree
     public contacts:Array<Entity>
     public collideCount:number
     public isCollide:boolean
-    static get defineName(){
-        return 'Collider';
-    }
     constructor(minX=0,minY=0,maxX=0,maxY=0,padding=0){
         super(minX,minY,maxX,maxY);
         this.padding = padding;
@@ -35,7 +33,7 @@ export class Collider extends Rect{
         this.minY = 0;
         this.maxY = 0;
         this.tag = 0;
-        this.branch = null;   //所在的四叉树节点
+        this.quadBranch = null;   //所在的四叉树节点
         this.quadTree = null;  //所在的四叉树世界
         this.parent = null;     //层次包围盒父节点
         this.world = null;      //层次包围盒世界节点

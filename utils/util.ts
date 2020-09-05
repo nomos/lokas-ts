@@ -41,7 +41,7 @@ export namespace util {
         return format;
     }
 
-    export function remove(arr, func) {
+    export function remove<T>(arr:Array<T>, func) {
         for (let i = 0; i < arr.length; i++) {
             let value = arr[i];
             let isDel = func(value);
@@ -52,8 +52,8 @@ export namespace util {
         }
     }
 
-    export function exclude(arr_a, arr_b) {
-        let ret = [];
+    export function exclude<T>(arr_a:Array<T>, arr_b:Array<T>) {
+        let ret = new Array<T>();
         for (let item_a of arr_a) {
             let found = false;
             for (let item_b of arr_b) {
@@ -68,7 +68,7 @@ export namespace util {
     }
 
 
-    export function isEqual(arrA, arrB) {
+    export function isEqual<T>(arrA:Array<T>, arrB:Array<T>) {
         if (!arrA || !arrB) {
             return false;
         }
@@ -77,6 +77,7 @@ export namespace util {
         }
         for (let i = 0, l = arrA.length; i < l; i++) {
             if (Array.isArray(arrA[i]) && Array.isArray(arrB[i])) {
+                // @ts-ignore
                 if (!isEqual(arrA[i], arrB[i])) {
                     return false;
                 }
@@ -98,26 +99,18 @@ export namespace util {
         throw new Error("not a component")
     }
 
-    export function clone(comp) {
-        let ret = function () {
-            return comp.apply(ret, arguments);
-        }
-        return ret;
-    }
-
-
-    export function includes(collection, value) {
+    export function includes<T>(collection:Array<T>, value:Array<T>|T) {
         if (isArray(value)) {
-            for (let i = 0; i < value.length; i++) {
+            for (let i = 0; i < (<Array<T>>value).length; i++) {
                 if (collection.indexOf(value[i]) == -1) {
                     return false;
                 }
             }
         } else {
-            if (collection.indexOf(value) == -1) {
+            if (collection.indexOf(<T>value) == -1) {
                 return false;
             }
-            return collection.includes(value);
+            return collection.includes(<T>value);
         }
         return true;
     }

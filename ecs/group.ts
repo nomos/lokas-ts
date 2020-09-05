@@ -8,7 +8,8 @@ import {util} from "../utils/util";
  */
 
 export class Group {
-    private hash: Array<string>
+    public hash: Array<string>
+    public hashStr: string
     private componentTypes: Array<string>
     private entityIndexes: Array<number>
     private dirtyEntities: Array<Entity>
@@ -28,7 +29,13 @@ export class Group {
         this.componentTypes.sort();
         this.entityIndexes = [];
         this.dirtyEntities = [];
+    }
 
+    includes(compName:string|IComponent):boolean{
+        if (typeof compName !== "string") {
+            compName = <string>(compName.defineName)
+        }
+        return this.componentTypes.includes(compName)
     }
 
     addDirtyEntity(ent: Entity) {

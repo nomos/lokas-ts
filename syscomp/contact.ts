@@ -29,35 +29,20 @@ export class Contact extends IComponent{
     getCollider(ent:Entity):Entity {
         return this.a===ent?this.b:this.b===ent?this.a:null;
     }
+    //TODO:是否需要发布事件?
     dispatchEnterEvent() {
         let codA = this.a.get(Collider);
         let codB = this.b.get(Collider);
-        if (codA&&codA.onCollisionEnter) {
-            codA.onCollisionEnter(this.a,this.b)
-        }
-        if (codB&&codB.onCollisionEnter) {
-            codB.onCollisionEnter(this.b,this.a)
-        }
     }
+    //TODO:是否需要发布事件?
     dispatchStayEvent() {
         let codA = this.a.get(Collider);
         let codB = this.b.get(Collider);
-        if (codA&&codA.onCollisionStay) {
-            codA.onCollisionStay(this.a,this.b)
-        }
-        if (codB&&codB.onCollisionStay) {
-            codB.onCollisionStay(this.b,this.a)
-        }
     }
+    //TODO:是否需要发布事件?
     dispatchExitEvent() {
         let codA = this.a.get(Collider);
         let codB = this.b.get(Collider);
-        if (codA&&codA.onCollisionExit) {
-            codA.onCollisionExit(this.a,this.b)
-        }
-        if (codB&&codB.onCollisionExit) {
-            codB.onCollisionExit(this.b,this.a)
-        }
     }
 }
 

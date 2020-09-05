@@ -31,7 +31,7 @@ export class Context {
     }
 }
 
-export class Client extends EventEmitter {
+export class WsClient extends EventEmitter {
     public addr: string = "ws://127.0.0.1/ws";//内网测试
     private ws: any = null;
     private idGen: number = 0;

@@ -13,6 +13,7 @@ import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
 import {TAGLongArray} from "../binary/long_array";
 import {TAGList} from "../binary/list";
+import {Int} from "../binary/bt";
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册
@@ -27,8 +28,8 @@ import {TAGList} from "../binary/list";
 export class Runtime extends EventEmitter{
     private _entityPool: Map<number, Entity> = new Map<number, Entity>()
     private _componentPools: Map<string, IComponentPool> = new Map<string, IComponentPool>()
-    private _groups: Map<Array<string>, Group> = new Map<Array<string>, Group>() //单个组件<Component>为键值的集合<Group>缓存
-    private _cachedGroups: Map<string, Group> = new Map<string, Group>()
+    private _groups: Map<string, Group> = new Map<string, Group>() //单个组件<Component>为键值的集合<Group>缓存
+    private _cachedGroups: Map<string, Array<Group>> = new Map<string, Array<Group>>()
     private _systemIndexes: Map<string, number> = new Map<string, number>()           //系统的名字索引
     private _systems: Array<ISystem> = new Array<ISystem>()
     /**ID分配和生命周期变量*/
@@ -85,7 +86,7 @@ export class Runtime extends EventEmitter{
     private _uniqueSchedules = {}         //仅一次的任务标记
     private _spawners = {}
     private _objContainer = {}
-    private _stateMachine = 'null'
+    private _state = 'null'
     private destroyCb:()=>void
     private _cmdAddPriority:number = 0
 
@@ -284,13 +285,13 @@ export class Runtime extends EventEmitter{
     }
 
     isState(state) {
-        return this._stateMachine === state;
+        return this._state === state;
     }
 
     setState(state) {
-        if (this._stateMachine !== state) {
-            this.offStateSystems(this._stateMachine);
-            this._stateMachine = state;
+        if (this._state !== state) {
+            this.offStateSystems(this._state);
+            this._state = state;
             this.onStateSystems(state);
             this._dirty = true;
         }
@@ -299,8 +300,10 @@ export class Runtime extends EventEmitter{
     offStateSystems(state) {
         for (let i = 0; i < this._systems.length; i++) {
             let system = this._systems[i];
-            if (system.stateOnly && system.stateOnly === state && system.offState) {
-                system.doOffState(this._timer.runningTime, this);
+            if (system.stateOnly && system.stateOnly === state) {
+                this.once('_afterUpdate',function () {
+                    system.offState(Date.now(), this);
+                }.bind(this));
             }
         }
     }
@@ -308,14 +311,16 @@ export class Runtime extends EventEmitter{
     onStateSystems(state) {
         for (let i = 0; i < this._systems.length; i++) {
             let system = this._systems[i];
-            if (system.stateOnly && system.stateOnly === state && system.onState) {
-                system.doOnState(this._timer.runningTime, this);
+            if (system.stateOnly && system.stateOnly === state) {
+                this.once('_afterUpdate',function () {
+                    system.onState(Date.now(), this);
+                }.bind(this));
             }
         }
     }
 
-    getState() {
-        return this._stateMachine;
+    getState():string {
+        return this._state;
     }
 
     set(name, obj) {
@@ -364,7 +369,7 @@ export class Runtime extends EventEmitter{
         let entityIndexes = bt.LongArray();
         let entities = bt.List();
         ret.addValue(bt.Long(this._tick));
-        ret.addValue(bt.String(this._stateMachine));
+        ret.addValue(bt.String(this._state));
         for (let i in this._entityPool) {
             let ent = this._entityPool[i];
             let snapEnt = ent.snapshot();
@@ -399,7 +404,7 @@ export class Runtime extends EventEmitter{
         let ret = bt.Complex();
 
         ret.addValue(bt.Long(this._tick));
-        ret.addValue(bt.String(this._stateMachine));
+        ret.addValue(bt.String(this._state));
 
         let modEntArr = bt.List();
         let newEntArr = bt.List();
@@ -755,7 +760,7 @@ export class Runtime extends EventEmitter{
         conn.compHash = nbtdata.at(0).value;
         let curStep = nbtdata.at(1).value.toNumber();
         let entArr = <TAGLongArray>nbtdata.at(2);
-        let clientData = {}
+        let clientData = new Map<number,number>()
         for (let i = 0; i < entArr.getSize(); i += 2) {
             let index = entArr.at(i).toNumber();
             let step = entArr.at(i + 1).toNumber();
@@ -764,7 +769,7 @@ export class Runtime extends EventEmitter{
         return this.getRSyncData(curStep, clientData, conn);
     }
 
-    getRSyncData(curStep, clientData, connection) {
+    getRSyncData(curStep, clientData:Map<number,number>, connection) {
         if (curStep === this._step) {
             return;
         }
@@ -785,35 +790,34 @@ export class Runtime extends EventEmitter{
         //nbtcomplex-3
         ret.addValue(bt.Long(this._step));
         //nbtcomplex-4
-        ret.addValue(bt.String(this._stateMachine));
+        ret.addValue(bt.String(this._state));
 
         let modEntArr = bt.List();
         let newEntArr = bt.List();
         let remEntArr = bt.LongArray();
 
-        for (let index in clientData) {
-            let ent = this._entityPool[index];
+        clientData.forEach( (value,index,map)=> {
+            let ent = this._entityPool.get(index);
             //如果有且当前实体的step小于服务器step
             if (ent) {
-                if (clientData[index] < ent._step) {
+                if (value < ent.step) {
                     let entSnapCur = ent.snapshot(connection);
                     modEntArr.push(entSnapCur);
                 }
-                clientData[index] = ent._step;
+                map[index] = ent.step;
             } else {
                 //如果没有记录则直接销毁
                 remEntArr.push(index);
                 delete clientData[index];
             }
-        }
-        for (let i in this._entityPool) {
-            let ent = this._entityPool[i];
-            if (clientData[ent._id] === undefined) {
+        })
+        this._entityPool.forEach((ent,id,map)=>{
+            if (clientData[id] === undefined) {
                 let entSnap = ent.snapshot(connection);
                 newEntArr.push(entSnap);
-                clientData[ent._id] = ent._step;
+                clientData[id] = ent.step;
             }
-        }
+        })
         //连接管理更新状态
         connection && connection.sync(this._step, clientData);
         //nbtcomplex-5
@@ -1164,7 +1168,7 @@ export class Runtime extends EventEmitter{
      * @param comp
      * @returns {*}
      */
-    getComponentPool(comp) {
+    getComponentPool(comp:{new():IComponent}) {
         let name = util.getComponentType(comp);
         if (!name) {
             log.error(this.getRoleString() + ' 组件错误或未注册', comp);
@@ -1183,10 +1187,7 @@ export class Runtime extends EventEmitter{
      * @param comp
      * @returns {null}
      */
-    createComponent(comp) {
-        let args = [].slice.call(arguments);
-        comp = args[0];
-        args.splice(0, 1);
+    createComponent(comp:{new():IComponent},...args:any) {
         let pool = this.getComponentPool(comp);
         if (pool) {
             if (args.length > 0) {
@@ -1202,15 +1203,18 @@ export class Runtime extends EventEmitter{
      * 找出包含该组件<Component>的集合<Group>并缓存到this._cachedGroups中
      * @param comp <string>
      */
-    cacheGroups(comp) {
+    cacheGroups(comp:string|IComponent):Array<Group> {
         let ret = [];
-        for (let i in this._groups) {
-            if (util.includes(i, comp)) {
-                ret.push(this._groups[i]);
-            }
+        if (typeof comp !=="string") {
+            comp = <string>(comp.defineName)
         }
-        this._cachedGroups[comp] = ret;
-        return ret;
+        this._groups.forEach((v,k,map)=>{
+            if (v.includes(comp)) {
+                ret.push(v)
+            }
+        })
+        this._cachedGroups[comp] = ret
+        return ret
     }
 
     /**
@@ -1231,8 +1235,9 @@ export class Runtime extends EventEmitter{
      * @param comp
      * @param ent
      */
-    reassignEntity(comp, ent) {
-        let cachedGroups = this._cachedGroups[comp] ? this._cachedGroups[comp] : this.cacheGroups(comp);
+    reassignEntity(comp:{new():IComponent}, ent) {
+        let compName = util.getComponentType(comp)
+        let cachedGroups = this._cachedGroups[compName] ? this._cachedGroups[compName] : this.cacheGroups(compName);
         for (let i = 0; i < cachedGroups.length; i++) {
             cachedGroups[i].removeEntity(ent);
             cachedGroups[i].removeDirtyEntity(ent);
@@ -1262,44 +1267,14 @@ export class Runtime extends EventEmitter{
 
     /**
      * 获得几个集合<Group>的hash值
-     * @param compGroup
-     * @returns {[string]}
      */
-    hashGroups(compGroup):Array<Array<string>> {
-        if (!util.isArray(compGroup)) {
-            compGroup = [compGroup];
-        }
-        let retArr:Array<Array<string>> = [];
+    private hashGroup(compGroup:Array<{new():IComponent}>):Array<string> {
+        let retArr:Array<string> = [];
         for (let i = 0; i < compGroup.length; i++) {
-            let comp = compGroup[i];
-            if (util.isArray(comp)) {
-                let tempArr = [];
-                for (let j = 0; j < comp.length; j++) {
-                    for (let k = 0; k < retArr.length; k++) {
-                        let arr = retArr[k].slice();
-                        arr.push(util.getComponentType(comp[j]));
-                        tempArr.push(arr);
-                    }
-                }
-                retArr = [];
-                retArr = tempArr;
-            } else {
-                for (let j = 0; j < retArr.length; j++) {
-                    retArr[j].push(util.getComponentType(comp));
-                }
-            }
+            retArr.push(util.getComponentType(compGroup[i]));
         }
-        for (let i = 0; i < retArr.length; i++) {
-            retArr[i].sort();
-        }
-        return retArr;
-        // let arr = compGroup.slice();
-        // arr.sort();
-        // let ret = '';
-        // for (let i=0;i<arr.length;i++) {
-        //     ret+=arr[i];
-        // }
-        // return ret;
+        retArr.sort();
+        return retArr
     }
 
     /**
@@ -1307,116 +1282,80 @@ export class Runtime extends EventEmitter{
      * @param compGroups
      * @returns {*}
      */
-    registerGroups(compGroups) {
+    registerGroup(compGroups:Array<{new():IComponent}>):Group {
         if (!compGroups || compGroups.length === 0) {
-            return [];
+            return null;
         }
-        let hashes = this.hashGroups(compGroups);
-        //获取注册相关的集合<Group>,如果有就作为updater方法的参数,没有就创建一个
-        let groups = [];
-        for (let i = 0; i < hashes.length; i++) {
-            let hash = hashes[i];
-            let hash_str = hash.join("_")
-            let group = this._groups[hash_str];
-            if (!group) {
-                group = new Group(hash, this);
-                group._hash = hash;
-                this._groups[hash_str] = group;
-                for (let i in this._cachedGroups) {
-                    if (util.includes(hash, i)) {
-                        if (this._cachedGroups[i].indexOf(group) === -1) {
-                            this._cachedGroups[i].push(group);
-                        }
+        let hash = this.hashGroup(compGroups);
+        let hash_str = hash.join("_")
+        let group = this._groups[hash_str];
+        if (!group) {
+            group = new Group(compGroups, this);
+            group.hashStr = hash;
+            this._groups[hash_str] = group;
+            this._cachedGroups.forEach((v,k,m)=>{
+                if (util.includes(hash, k)) {
+                    if (v.indexOf(group) === -1) {
+                        v.push(group);
                     }
                 }
-                for (let i in this._entityPool) {
-                    // if (!this._entityPool.hasOwnProperty(i)) {
-                    //     continue;
-                    // }
-                    let ent = this._entityPool[i];
-                    group.addEntity(ent);
-                }
-                for (let i in this._newEntities) {
-                    // if (!this._entityPool.hasOwnProperty(i)) {
-                    //     continue;
-                    // }
-                    let ent = this._newEntities[i];
-                    group.addDirtyEntity(ent)
-                }
-                for (let i in this._dirtyEntities) {
-                    // if (!this._entityPool.hasOwnProperty(i)) {
-                    //     continue;
-                    // }
-                    let ent = this._dirtyEntities[i];
-                    group.addDirtyEntity(ent)
-                }
-            }
-            // if (this._index>0) {
-            //
-            // }
-            groups.push(group);
+            })
+            this._entityPool.forEach((ent,id,map)=>{
+                group.addEntity(ent);
+            })
+            this._newEntities.forEach((ent,id,arr)=>{
+                group.addDirtyEntity(ent)
+            })
+            this._dirtyEntities.forEach((ent,id,arr)=>{
+                group.addDirtyEntity(ent)
+            })
         }
-        return groups;
+        return group
     }
 
-    getGroup(name) {
-        if (!util.isArray(name)) {
-            name = [].concat(name);
-        }
-        return this.registerGroups(name);
+    getGroup(comps:Array<{new():IComponent}>):Group {
+        return this.registerGroup(comps);
     }
 
-    getEntities(name) {
-        let groups = this.getGroup.apply(this, arguments);
-        let ret = [];
-        for (let j = 0; j < groups.length; j++) {
-            let group = groups[j];
-            for (let i = 0; i < group._entityIndexes.length; i++) {
-                let id = group._entityIndexes[i];
-                let ent = this._entityPool[id];
-                if (!ent || ent._onDestroy) {
-                    continue;
-                }
-                ret.push(ent);
-            }
+    getEntities(comps:Array<{new():IComponent}>,optComps?:Array<{new():IComponent}>,excludes?:Array<{new():IComponent}>):Array<Entity> {
+        let entities = new Array<Entity>()
+        if (optComps) {
+            let compGroupsArr:Array<Array<{new():IComponent}>> = new Array<Array<{new(): IComponent}>>()
+            optComps.forEach((v,i,arr)=>{
+                let newArr = comps.slice()
+                newArr.push(v)
+                compGroupsArr.push(newArr)
+            })
+            compGroupsArr.forEach((v,i,arr)=>{
+                entities.concat(this.getGroup(v).getEntities())
+            })
+        } else {
+            entities.concat(this.getGroup(comps).getEntities())
         }
-        return ret;
+        if (excludes) {
+            excludes.forEach((v,i,k)=>{
+                entities = util.exclude(entities,this.getGroup([v]).getEntities())
+            })
+        }
+        return entities
     }
 
     /**
      * 注册系统到<ECS>
-     * @param system
      */
     registerSystem(system:ISystem) {
-        //如果是数组则分别添加其中的子系统
-        let sys = system
-
-        sys.onRegister && sys.onRegister(this);
-        if (sys.enabled) {
-            sys.onEnable && sys.onEnable(this);
+        system.onRegister(this)
+        if (system.enabled) {
+            system.onEnable(this)
         }
-
         this._addSystemCount++;
-        sys.addOrder = this._addSystemCount;
-        this._systemIndexes[sys.name] = this._systems.length;
-        this._systems.push(sys);
-        let desc = sys.desc && util.isString(sys.desc) ? "\n" + "说明: " + sys.desc : '';
-        // if (!sys.components||sys.components.length===0) {
-        //     log.warn(this.getRoleString()+' 系统:'+sys.name+'不存在监听组件');
-        //     sys.components=[];
-        // }
-        // let hashs=this.hashGroups(sys.components);
-        // let compstr='监听组件:';
-        // for (let i=0; i<hashs.length; i++) {
-        //     compstr+='{';
-        //     for (let j=0;j<hashs[i].length;j++) {
-        //         compstr+='[';
-        //         compstr+=hashs[i][j];
-        //         compstr+=']';
-        //     }
-        //     compstr+='}';
-        // }
-        log.info(this.getRoleString() + "\n添加系统: " + sys.name + " 优先级: " + (sys.priority ? sys.priority : 0) + " 添加次序: " + sys.addOrder + desc);
+
+        system.addOrder = this._addSystemCount
+
+        this._systemIndexes[system.name] = this._systems.length;
+        this._systems.push(system);
+        let desc = system.desc && util.isString(system.desc) ? "\n" + "description: " + system.desc : '';
+        log.info(this.getRoleString() + "\nAdd System: " + system.name + " 优先级: " + (system.priority) + " 添加次序: " + system.addOrder + desc);
         this.sortSystems();
     }
 
@@ -1580,8 +1519,8 @@ export class Runtime extends EventEmitter{
         this._commands = {}                //注册的命令组件
         this._commandQueueMaps = [];        //以命令名为键的队列
         this._componentPools = new Map<string, IComponentPool>()        //各种组件池<ComponentPool>容器
-        this._groups = new Map<Array<string>, Group>()                //各种集合<Group>容器,组件<Component>数组为键值
-        this._cachedGroups = new Map<string, Group>()          //单个组件<Component>为键值的集合<Group>缓存
+        this._groups = new Map<string, Group>()                //各种集合<Group>容器,组件<Component>数组为键值
+        this._cachedGroups = new Map<string, Array<Group>>()          //单个组件<Component>为键值的集合<Group>缓存
         this._systems = [];               //各个系统和监听集合
         this._toDestroyEntities = [];    //在这轮遍历中要删除的entity队列
         this._index = 0;                  //实体<Entity>ID分配变量
@@ -1652,7 +1591,7 @@ export class Runtime extends EventEmitter{
         let sys = this.getSystem(name);
         if (sys && sys.enabled) {
             sys.enabled = false;
-            sys.onDisable && sys.onDisable(this);
+            sys.onDisable(this);
         }
     }
 
@@ -1660,7 +1599,7 @@ export class Runtime extends EventEmitter{
         let sys = this.getSystem(name);
         if (sys && !sys.enabled) {
             sys.enabled = true;
-            sys.onDisable && sys.onDisable(this);
+            sys.onDisable(this);
         }
     }
 

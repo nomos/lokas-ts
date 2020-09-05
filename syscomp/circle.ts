@@ -1,5 +1,6 @@
 import {IComponent} from "../ecs/default_component";
 import {comp, format,Tag} from "../type/types";
+import {Position} from "./base_components";
 
 @comp('Circle')
 export class Circle extends IComponent {
@@ -17,13 +18,13 @@ export class Circle extends IComponent {
         this.scale = scale;
     }
 
-    get x(){return this.getSibling('Position').x;}
+    get x(){return this.getSibling(Position).x;}
 
-    set x(x){this.getSibling('Position').x = x;}
+    set x(x){this.getSibling(Position).x = x;}
 
-    get y(){return this.getSibling('Position').y;}
+    get y(){return this.getSibling(Position).y;}
 
-    set y(y){this.getSibling('Position').y = y;}
+    set y(y){this.getSibling(Position).y = y;}
 
     draw(context,scale){
         scale = scale||1;

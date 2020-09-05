@@ -1,101 +1,74 @@
 import {Runtime} from "./runtime";
 
+export interface ISystem {
+    name:string
+    desc:string
+    enabled:boolean
+    stateOnly:any
+    priority:number
+    addOrder:number
+    setRuntime(runtime:Runtime)
+    getRuntime():Runtime
+    onRegister(runtime:Runtime)
+    onEnable(runtime:Runtime)
+    onDisable(runtime:Runtime)
+    calUpdate(sysUpdateTime,now)
+    offState(time:number, runtime:Runtime)
+    onState(time:number, runtime:Runtime)
+}
 
-
-export class ISystem {
+export class System implements ISystem{
     public runtime:Runtime
     public enabled:boolean
     public stateOnly:string
     public name:string
     public desc:string
-    public updateTime:number
-    public lastUpdateTime:number
     public priority:number
     public addOrder:number
-    public lateUpdate:(interval,now,runtime)=>void
+    public updateTime:number
+    public lastUpdateTime:number
 
-    constructor(ecs,opt){
-        this.runtime = ecs;
+    constructor(runtime:Runtime){
+        this.runtime = runtime;
         this.enabled = true;
         this.lastUpdateTime = 0;
         this.priority = 0;
-        if (opt) {
-            this.onEnable = opt.onEnable;
-            this.onDisable = opt.onDisable;
-            this.desc = opt.desc||'';
-            this.name = opt.name||this.name;
-            this.updateTime = opt.updateTime||opt.interval;
-            this.priority = opt.priority||0;
-            this.update = opt.update||this.update;
-            this.lateUpdate = opt.lateUpdate||this.lateUpdate;
-            this.onRegister = opt.onRegister||this.onRegister;
-            this.stateOnly = opt.stateOnly||'';
-            this.onState = opt.onState||this.onState;
-            this.offState = opt.offState||this.offState;
-        }
     }
 
-    getECS(){
+    getRuntime():Runtime{
         return this.runtime;
     }
 
-    isClient(){
-        return this.runtime.isClient();
+    setRuntime(runtime:Runtime){
+        this.runtime = runtime
     }
 
-    isServer(){
-        return !this.isClient();
-    }
-
-    onEnable(ecs){
+    onEnable(runtime:Runtime){
 
     }
 
-    onDisable(ecs){
+    onDisable(runtime:Runtime){
 
     }
 
-    onRegister(ecs){
+    onRegister(runtime:Runtime){
 
     }
 
-    onState(now,ecs) {
+    onState(now,runtime:Runtime) {
 
     }
 
-    offState(now,ecs) {
+    offState(now,runtime:Runtime) {
 
     }
 
-    update(dt,now,ecs) {
+    update(dt,now,runtime:Runtime) {
 
     }
 
-    getEntities(name){
-        let groups = this.getECS().getGroup.apply(this.getECS(),arguments);
-        let ret = [];
-        for (let j=0;j<groups.length;j++) {
-            let group = groups[j];
-            for (let i = 0; i < group._entityIndexes.length; i++) {
-                let id = group._entityIndexes[i];
-                let ent = this.runtime.getEntity(id);
-                if (!ent || ent.isOnDestroy()) {
-                    continue;
-                }
-                ret.push(ent);
-            }
-        }
-        return ret;
-    }
+    lateUpdate(dt,now,runtime:Runtime) {
 
-    getDirtyEntities(name){
-        let groups = this.getECS().getGroup.apply(this.getECS(),arguments);
-        let ret = [];
-        for (let j=0;j<groups.length;j++) {
-            let group = groups[j];
-            ret = ret.concat(group._dirtyEntities);
-        }
-        return ret;
     }
 
     calUpdate(sysUpdateTime,now) {
@@ -114,14 +87,6 @@ export class ISystem {
         return ret;
     }
 
-    doOnState(now,ecs) {
-        if (this.enabled) {
-            let self = this;
-            this.runtime.once('_afterUpdate',function () {
-                self.onState(now, ecs);
-            });
-        }
-    }
 
     doOffState(now,ecs) {
         if (this.enabled) {

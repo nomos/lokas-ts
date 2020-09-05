@@ -93,7 +93,7 @@ export class QuadTree extends Rect {
     }
 }
 
-@comp('QuadQuadBranchTree')
+@comp('QuadBranch')
 export class QuadBranch extends Rect{
     public level:number
     public parent:QuadBranch
@@ -117,31 +117,22 @@ export class QuadBranch extends Rect{
         let tree = collider.quadTree;
         let index = tree.objects.indexOf(collider);
         tree.objects.splice(index,1);
-        collider.quadTree = null;
+        collider.quadBranch = null;
         tree.tryCollapse(max_object);
     }
 
 
     /**
      * 创建一个子四叉树
-     * @param {Number} minX
-     * @param {Number} minY
-     * @param {Number} maxX
-     * @param {Number} maxY
-     * @param {Number} level
-     * @returns {QuadTree}
      */
-    createChild(minX,minY,maxX,maxY,level){
+    private createChild(minX:number,minY:number,maxX:number,maxY:number,level:number):QuadBranch{
         let ret = new QuadBranch(minX,minY,maxX,maxY,level);
         ret.parent = this;
         return ret;
     }
 
     static remove(collider:Collider){
-        if (collider instanceof Entity) {
-            collider = collider.get(Collider);
-        }
-        let tree = collider.branch;
+        let tree = collider.quadBranch;
         let index = tree.objects.indexOf(collider);
         tree.objects.splice(index,1);
         collider.quadTree = null;
@@ -165,7 +156,7 @@ export class QuadBranch extends Rect{
         return parent;
     }
 
-    tryCollapse(max_object?){
+    private tryCollapse(max_object?:number){
         if (!this.parent||this.nodes.length) {
             return;
         }
@@ -179,7 +170,7 @@ export class QuadBranch extends Rect{
             let objects = this.nodes[i].objects;
 
             for (let j=0;j<objects.length;j++) {
-                objects[j].branch = this;
+                objects[j].quadBranch = this;
             }
             this.objects.concat(objects);
             this.nodes[i].clear();
@@ -191,9 +182,6 @@ export class QuadBranch extends Rect{
 
     /**
      * 插入碰撞体
-     * @param {Entity} collider
-     * @param {Number} max_object
-     * @param {Number} max_level
      */
     insert(collider:Collider,max_object,max_level){
         let i=0;
@@ -207,7 +195,7 @@ export class QuadBranch extends Rect{
         }
 
         this.objects.push(collider);
-        collider.branch = this;
+        collider.quadBranch = this;
         if (!max_object) {
             return;
         }
@@ -228,8 +216,6 @@ export class QuadBranch extends Rect{
 
     /**
      * 对碰撞体获取潜在碰撞对象
-     * @param {Entity} collider
-     * @returns {Array}
      */
     potentials(collider:Collider) {
         let index = this.getIndex(collider);
@@ -286,8 +272,6 @@ export class QuadBranch extends Rect{
 
     /**
      * 判断插入的碰撞体在当前树的象限
-     * @param {Collider} collider
-     * @returns {number}
      */
     private getIndex(collider:Collider){
         let index = -1;
