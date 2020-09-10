@@ -7,7 +7,7 @@ import {TAGFloat} from "./float";
 import {TAGDouble} from "./double";
 import {TAGString} from "./string";
 import {TAGList} from "./list";
-import {TAGCompound} from "./compound";
+import {TAGMap} from "./map";
 import {TAGBoolArray} from "./bool_array";
 import {TAGByteArray} from "./byte_array";
 import {TAGShortArray} from "./short_array";
@@ -18,13 +18,13 @@ import {TAGDoubleArray} from "./double_array";
 import {TAGComplex} from './complex';
 import {TAGBuffer} from "./buffer_type";
 import {Buffer} from "../thirdparty/buffer";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 import {util} from "../utils/util";
 import {BinaryBase} from "./binary_base";
 
 // let zlib = require('zlib');
 
-export {Tag} from "../type/types"
+export {Tag} from "./types"
 
 
 export function getTag(tagId: Tag) {
@@ -61,8 +61,8 @@ export function getTag(tagId: Tag) {
             return new TAGDoubleArray()
         case Tag.List:
             return new TAGList()
-        case Tag.Compound:
-            return new TAGCompound()
+        case Tag.Map:
+            return new TAGMap()
         case Tag.Complex:
             return new TAGComplex()
         case Tag.Buffer:
@@ -73,43 +73,43 @@ export function getTag(tagId: Tag) {
 export function getTagFuncByString(t:string):(value?)=>BinaryBase {
     switch (t) {
         case "Bool":
-            return Bool
+            return CreateBool
         case "Byte":
-            return Byte
+            return CreateByte
         case "Short":
-            return Short
+            return CreateShort
         case "Int":
-            return Int
+            return CreateInt
         case "Long":
-            return Long
+            return CreateLong
         case "Float":
-            return Float
+            return CreateFloat
         case "Double":
-            return Double
+            return CreateDouble
         case "String":
-            return String
+            return CreateString
         case "BoolArray":
-            return BoolArray
+            return CreateBoolArray
         case "ByteArray":
-            return ByteArray
+            return CreateByteArray
         case "ShortArray":
-            return ShortArray
+            return CreateShortArray
         case "IntArray":
-            return IntArray
+            return CreateIntArray
         case "LongArray":
-            return LongArray
+            return CreateLongArray
         case "FloatArray":
-            return FloatArray
+            return CreateFloatArray
         case "DoubleArray":
-            return DoubleArray
+            return CreateDoubleArray
         case "List":
-            return List
-        case "Compound":
-            return Compound
+            return CreateList
+        case "Map":
+            return CreateMap
         case "Complex":
-            return Complex
+            return CreateComplex
         case "Buff":
-            return Buff
+            return CreateBuff
     }
 }
 
@@ -147,8 +147,8 @@ export function getTagType(tagId: Tag) {
             return TAGDoubleArray
         case Tag.List:
             return TAGList
-        case Tag.Compound:
-            return TAGCompound
+        case Tag.Map:
+            return TAGMap
         case Tag.Complex:
             return TAGComplex
         case Tag.Buffer:
@@ -167,7 +167,7 @@ export function checkArrayType(arr): Tag {
     for (let i = 0; i < arr.length; i++) {
         let item = arr[i];
         if (util.isObject(item)) {
-            type = Tag.Compound;
+            type = Tag.Map;
             break;
         }
         if (util.isArray(item)) {
@@ -241,7 +241,7 @@ export function createFromJSObject(obj, opt?) {
         return;
     }
     if (util.isBoolean(obj)) {
-        return Bool(obj);
+        return CreateBool(obj);
     }
 
     let numbertemp;
@@ -250,34 +250,34 @@ export function createFromJSObject(obj, opt?) {
     }
 
     if (util.isByte(obj)) {
-        return Byte(obj);
+        return CreateByte(obj);
     } else if (stringnumber && util.isByte(numbertemp)) {
-        return Byte(numbertemp);
+        return CreateByte(numbertemp);
     }
     if (util.isShort(obj)) {
-        return Short(obj);
+        return CreateShort(obj);
     } else if (stringnumber && util.isShort(numbertemp)) {
-        return Short(numbertemp);
+        return CreateShort(numbertemp);
     }
     if (util.isInt(obj)) {
-        return Int(obj);
+        return CreateInt(obj);
     } else if (stringnumber && util.isInt(numbertemp)) {
-        return Int(numbertemp);
+        return CreateInt(numbertemp);
     }
     if (util.isLong(obj)) {
-        return Long(obj);
+        return CreateLong(obj);
     }
     if (util.isLongString(obj) && stringnumber) {
-        return Long(obj);
+        return CreateLong(obj);
     }
     if (util.isFloat(obj)) {
-        return Float(obj);
+        return CreateFloat(obj);
     }
     if (util.isDouble(obj)) {
-        return Double(obj);
+        return CreateDouble(obj);
     }
     if (util.isString(obj)) {
-        return String(obj);
+        return CreateString(obj);
     }
     if (util.isBuffer(obj)) {
         return new Buffer(obj);
@@ -303,11 +303,11 @@ export function createFromJSObject(obj, opt?) {
         if (type === Tag.String) {
             ret = new TAGList();
             for (let i = 0; i < obj.length; i++) {
-                ret.push(String(obj[i]));
+                ret.push(CreateString(obj[i]));
             }
         }
 
-        if (type === Tag.Compound || type === Tag.List) {
+        if (type === Tag.Map || type === Tag.List) {
             ret = new TAGList();
             for (let i = 0; i < obj.length; i++) {
                 let nbtobj = createFromJSObject(obj[i]);
@@ -318,7 +318,7 @@ export function createFromJSObject(obj, opt?) {
         }
 
     } else if (util.isObject(obj)) {
-        ret = new TAGCompound();
+        ret = new TAGMap();
         for (let i in obj) {
             if (!obj.hasOwnProperty(i))
                 continue;
@@ -331,11 +331,21 @@ export function createFromJSObject(obj, opt?) {
     return ret;
 }
 
+export function readTag(buff,offset):[number,number] {
+    let high = buff.readUInt8(offset);
+    if (high<128) {
+        return [high,offset+1]
+    } else {
+        let low = buff.readUInt8(offset);
+        return [high<<8+low,offset+2]
+    }
+}
+
 export function readFromBuffer(buff, offset?) {
     offset = offset || 0;
-    let type = buff.readUInt8(offset);
+    let [type,offset1] = readTag(buff,offset)
     let ret = getTag(type);
-    ret.readFromBuffer(buff, offset);
+    ret.readFromBuffer(buff, offset1);
     return ret;
 }
 
@@ -359,7 +369,7 @@ export function readFromBuffer(buff, offset?) {
 //     return readFromBuffer(buff, offset);
 // }
 
-export function Byte(value?) {
+export function CreateByte(value?) {
     let ret = new TAGByte();
     if (value !== undefined) {
         ret.setValue(value);
@@ -367,7 +377,7 @@ export function Byte(value?) {
     return ret;
 }
 
-export function Short(value?) {
+export function CreateShort(value?) {
     let ret = new TAGShort();
     if (value !== undefined) {
         ret.setValue(value);
@@ -375,7 +385,7 @@ export function Short(value?) {
     return ret;
 }
 
-export function Int(value?) {
+export function CreateInt(value?) {
     let ret = new TAGInt();
     if (value !== undefined) {
         ret.setValue(value);
@@ -383,7 +393,7 @@ export function Int(value?) {
     return ret;
 }
 
-export function Long(value?) {
+export function CreateLong(value?) {
     let ret = new TAGLong();
     if (value !== undefined) {
         ret.setValue(value);
@@ -391,7 +401,7 @@ export function Long(value?) {
     return ret;
 }
 
-export function Float(value?) {
+export function CreateFloat(value?) {
     let ret = new TAGFloat();
     if (value !== undefined) {
         ret.setValue(value);
@@ -399,7 +409,7 @@ export function Float(value?) {
     return ret;
 }
 
-export function Double(value?) {
+export function CreateDouble(value?) {
     let ret = new TAGDouble();
     if (value !== undefined) {
         ret.setValue(value);
@@ -407,7 +417,7 @@ export function Double(value?) {
     return ret;
 }
 
-export function ByteArray(value?) {
+export function CreateByteArray(value?) {
     let ret = new TAGByteArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -415,7 +425,7 @@ export function ByteArray(value?) {
     return ret;
 }
 
-export function Int8Array(value?) {
+export function CreateInt8Array(value?) {
     let ret = new TAGByteArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -423,7 +433,7 @@ export function Int8Array(value?) {
     return ret;
 }
 
-export function UInt8Array(value?) {
+export function CreateUInt8Array(value?) {
     let ret = new TAGByteArray();
     ret.unsigned = true;
     if (value !== undefined) {
@@ -432,7 +442,7 @@ export function UInt8Array(value?) {
     return ret;
 }
 
-export function String(value?) {
+export function CreateString(value?) {
     let ret = new TAGString();
     if (value !== undefined) {
         ret.setValue(value);
@@ -440,7 +450,7 @@ export function String(value?) {
     return ret;
 }
 
-export function List(value?) {
+export function CreateList(value?) {
     let ret = new TAGList();
     if (value !== undefined) {
         ret.setValue(value);
@@ -448,15 +458,15 @@ export function List(value?) {
     return ret;
 }
 
-export function Compound(value?) {
-    let ret = new TAGCompound();
+export function CreateMap(value?) {
+    let ret = new TAGMap();
     if (value !== undefined) {
         ret.setValue(value);
     }
     return ret;
 }
 
-export function Complex(value?) {
+export function CreateComplex(value?) {
     let ret = new TAGComplex();
     if (value !== undefined) {
         ret.setValue(value);
@@ -464,7 +474,7 @@ export function Complex(value?) {
     return ret;
 }
 
-export function Buff(value?) {
+export function CreateBuff(value?) {
     let ret = new TAGBuffer();
     if (value !== undefined) {
         ret.setValue(value);
@@ -472,7 +482,7 @@ export function Buff(value?) {
     return ret;
 }
 
-export function IntArray(value?) {
+export function CreateIntArray(value?) {
     let ret = new TAGIntArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -480,7 +490,7 @@ export function IntArray(value?) {
     return ret;
 }
 
-export function Bool(value?) {
+export function CreateBool(value?) {
     let ret = new TAGBool();
     if (value !== undefined) {
         ret.setValue(value);
@@ -488,7 +498,7 @@ export function Bool(value?) {
     return ret;
 }
 
-export function ShortArray(value?) {
+export function CreateShortArray(value?) {
     let ret = new TAGShortArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -496,7 +506,7 @@ export function ShortArray(value?) {
     return ret;
 }
 
-export function BoolArray(value?) {
+export function CreateBoolArray(value?) {
     let ret = new TAGBoolArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -504,7 +514,7 @@ export function BoolArray(value?) {
     return ret;
 }
 
-export function FloatArray(value?) {
+export function CreateFloatArray(value?) {
     let ret = new TAGFloatArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -512,7 +522,7 @@ export function FloatArray(value?) {
     return ret;
 }
 
-export function DoubleArray(value?) {
+export function CreateDoubleArray(value?) {
     let ret = new TAGDoubleArray();
     if (value !== undefined) {
         ret.setValue(value);
@@ -520,7 +530,7 @@ export function DoubleArray(value?) {
     return ret;
 }
 
-export function LongArray(value?) {
+export function CreateLongArray(value?) {
     let ret = new TAGLongArray();
     if (value !== undefined) {
         ret.setValue(value);

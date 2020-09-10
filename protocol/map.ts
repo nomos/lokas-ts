@@ -1,16 +1,16 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
-import {getTagType} from "./bt";
+import {Tag} from "./types"
+import {getTagType, readTag} from "./bt";
 
-export class TAGCompound extends BinaryBase{
+export class TAGMap extends BinaryBase{
     constructor(){
         super();
         this.value={};
-        this.type =  Tag.Compound;
+        this.type =  Tag.Map;
     }
     _getNextTag(buff, offset) {
-        let tagId = buff.readUInt8(offset);
+        let [tagId,offset1] = readTag(buff,offset);
         if(tagId < 0) {
             throw new Error("Unknown tag type - " + tagId + ".");
         }
@@ -25,7 +25,7 @@ export class TAGCompound extends BinaryBase{
         }
 
         let tag = new Tag();
-        let len = tag.readFromBuffer(buff, offset);
+        let len = tag.readFromBuffer(buff, offset1);
         this.value[tag.id] = tag;
         return len;
     }

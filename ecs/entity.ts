@@ -10,7 +10,7 @@ import * as bt from "../binary/bt"
 import {TAGComplex} from "../binary/complex";
 import {TAGList} from "../binary/list";
 import {getTagFuncByString} from "../binary/bt";
-import {Serializable} from "../net/protocol";
+import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
 
 /**

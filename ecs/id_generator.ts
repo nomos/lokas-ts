@@ -1,34 +1,24 @@
 import {Singleton} from "../utils/singleton";
-import * as snowflakey from "snowflakey"
+import {SnowFlake} from "../utils/snowflake";
 
 class IdGenerator extends Singleton {
-    private worker:snowflakey.Worker
+    private worker:SnowFlake
     constructor(isServer?:boolean) {
         super();
         if (isServer) {
-            this.worker = new snowflakey.Worker({
-                name: 'server',
-                epoch: 1420070400000,
-                workerId: process.env.CLUSTER_ID || 31,
-                processId: process.pid || undefined,
-                workerBits: 8,
-                processBits: 0,
-                incrementBits: 14
+            this.worker = new SnowFlake({
+                nodeId:<number>(process.env.CLUSTER_ID || 31),
+                timeOffset: 1420070400000,
             })
         } else {
-            this.worker = new snowflakey.Worker({
-                name: 'client',
-                epoch: 1420070400000,
-                workerId: 0,
-                processId: undefined,
-                workerBits: 8,
-                processBits: 0,
-                incrementBits: 14
+            this.worker = new SnowFlake({
+                nodeId:<number>(process.env.CLUSTER_ID || 31),
+                timeOffset: 1420070400000,
             })
         }
     }
 
     generate():number {
-        return this.worker.generate()
+        return this.worker.generateRaw().toNumber()
     }
 }

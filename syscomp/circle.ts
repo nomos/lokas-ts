@@ -1,5 +1,5 @@
 import {IComponent} from "../ecs/default_component";
-import {comp, format,Tag} from "../type/types";
+import {comp, format,Tag} from "../protocol/types";
 import {Position} from "./base_components";
 
 @comp('Circle')

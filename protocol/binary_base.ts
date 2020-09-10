@@ -5,7 +5,7 @@ import {Long} from "../utils/long";
 let TAG_TYPE_OFFSET = 1;
 import {Buffer} from "../thirdparty/buffer";
 import {util} from "../utils/util";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 export class BinaryBase{
     public type: Tag
@@ -76,7 +76,7 @@ export class BinaryBase{
             }
             return _val;
         }
-        if(this.type ===  Tag.Compound) {
+        if(this.type ===  Tag.Map) {
             let _val = {};
             for(let key in val) {
                 if(!val.hasOwnProperty(key)) continue;
@@ -153,13 +153,20 @@ export class BinaryBase{
     calcBufferLength() {
         return 0;
     }
-    writeToBuffer() {
+    writeToBuffer():Buffer {
         let nameBuff = Buffer.from(this.id||'', "utf8");
         let buff = Buffer.from(new Uint8Array(this.calcBufferLength()+1 + 2 + nameBuff.length),'utf8');
-        buff.writeUInt8(this.getTypeId(), 0);
-        buff.writeUInt16BE(nameBuff.length, 1);
-        nameBuff.copy(buff, 1 + 2);
-        this.writeBuffer(buff,3+nameBuff.length);
+        let tagId = this.getTypeId()
+        let offset = 1
+        if (tagId<128) {
+            buff.writeUInt8(tagId, 0);
+        } else {
+            buff.writeUInt16BE(tagId, 0);
+            offset = 2
+        }
+        buff.writeUInt16BE(nameBuff.length, offset);
+        nameBuff.copy(buff, offset + 2);
+        this.writeBuffer(buff,offset+2+nameBuff.length);
         return buff;
     }
     // writeToCompressedBuffer() {

@@ -69,11 +69,11 @@ export class Long {
     static MAX_VALUE = Long.fromBits(0xFFFFFFFF|0, 0x7FFFFFFF|0, false)
     static MAX_UNSIGNED_VALUE = Long.fromBits(0xFFFFFFFF|0, 0xFFFFFFFF|0, true)
     static MIN_VALUE = Long.fromBits(0, 0x80000000|0, false)
-    private low:number
-    private high:number
-    private unsigned:boolean
+    public low:number
+    public high:number
+    public unsigned:boolean
 
-    constructor(low, high, unsigned) {
+    constructor(low, high, unsigned?) {
 
         /**
          * The low 32 bits as a signed value.

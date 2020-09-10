@@ -1,6 +1,6 @@
 
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 export class TAGByte extends BinaryBase{
     public value:number

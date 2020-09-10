@@ -2,7 +2,7 @@ import {Rect} from "./rect"
 import {Collider} from "./collider"
 import {IComponent} from "../ecs/default_component";
 import {Polygon} from "./polygon"
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 import {Point} from "./point";
 import {Circle} from "./circle";
 

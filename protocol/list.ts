@@ -1,7 +1,7 @@
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 import {util} from "../utils/util";
-import {getTagType} from "./bt"
+import {getTagType, readTag} from "./bt"
 
 export class TAGList extends BinaryBase{
     public childType: Tag
@@ -13,8 +13,8 @@ export class TAGList extends BinaryBase{
         this.value     = [];
     }
     _readBodyFromBuffer(buff, offset) {
-        let typeId = buff.readUInt8(offset);
-        let len = buff.readUInt32BE(offset + 1);
+        let [typeId,offset1] = readTag(buff,offset);
+        let len = buff.readUInt32BE(offset1);
 
         let Tag = getTagType(typeId);
         if((null === Tag || undefined === Tag) && 0 !== typeId) {
@@ -26,7 +26,7 @@ export class TAGList extends BinaryBase{
         }
 
         this.value = [];
-        let nextOffset = offset + 1 + 4;
+        let nextOffset = offset1 + 4;
         for(let i = 0; i < len; i++) {
             let element =(typeId === 0) ? undefined : new Tag();
             let elementLength =(typeId === 0) ? 0 : element._readBodyFromBuffer(buff, nextOffset);
@@ -164,7 +164,6 @@ export class TAGList extends BinaryBase{
         for(let i = 0; i < this.value.length; i++) {
             len += this.value[i].writeBuffer(buff, baseOffset + len);
         }
-
         return len + 1 + 4;
     }
 

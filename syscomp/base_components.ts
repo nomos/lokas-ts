@@ -1,6 +1,6 @@
 
 import {IComponent} from "../ecs/default_component";
-import {comp, format, Tag} from "../type/types";
+import {comp, format, Tag} from "../protocol/types";
 
 @comp('Vector')
 export class Vector extends IComponent {
@@ -409,8 +409,8 @@ export class AngularMovement extends IComponent {
     public acceleration:number = 0
     constructor(velocity=0,acceleration=0){
         super();
-        this.velocity = velocity;
-        this.acceleration = acceleration;
+        this.velocity = velocity||this.velocity;
+        this.acceleration = acceleration||this.acceleration;
     }
 
     onRemove(ent,ecs){
@@ -430,8 +430,8 @@ export class Size extends IComponent {
     public height:number = 0
     constructor(w = 0, h = 0) {
         super();
-        this.width = w;
-        this.height = h;
+        this.width = w||this.width;
+        this.height = h||this.height;
     }
 
     onRemove(ent,ecs){
@@ -455,9 +455,9 @@ export class TimeStamp extends IComponent {
     }
     @format(Tag.Long)
     public time:number = 0
-    constructor(time) {
+    constructor(time=0) {
         super();
-        this.time = time;
+        this.time = time||this.time;
     }
 }
 

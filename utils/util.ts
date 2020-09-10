@@ -135,6 +135,10 @@ export namespace util {
         return typeof arg === 'number';
     }
 
+    export function isValidNumber(arg) {
+        return isNumber(arg)&&!isNaN(arg)
+    }
+
     export function isString(arg) {
         return typeof arg === 'string';
     }

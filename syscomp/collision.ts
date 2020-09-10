@@ -1,5 +1,5 @@
 import {Entity} from "../ecs/entity";
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 import {Polygon} from "./polygon"
 import {Point} from "./point"
 import {Circle} from "./circle"

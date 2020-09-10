@@ -2,7 +2,7 @@
 import {Rect} from "./rect"
 import {Entity} from "../ecs/entity";
 import {Collider} from "./collider";
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 
 @comp('QuadTree')
 export class QuadTree extends Rect {

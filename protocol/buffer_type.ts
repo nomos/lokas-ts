@@ -1,6 +1,6 @@
 import {Buffer} from "../thirdparty/buffer";
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 export class TAGBuffer extends BinaryBase{
     constructor(){

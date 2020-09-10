@@ -1,6 +1,6 @@
 import {Long} from "../utils/long";
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 let _longBound = {
     min: Long.fromString("-9223372036854775808"),

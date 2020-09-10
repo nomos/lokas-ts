@@ -7,7 +7,7 @@ import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon";
 import {Point} from "./point";
 import {Circle} from "./circle"
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 
 @comp('Collider')
 export class Collider extends Rect implements BVNode{

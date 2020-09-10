@@ -1,5 +1,5 @@
 import {Polygon} from "./polygon"
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 
 @comp('Point')
 export class Point extends Polygon{

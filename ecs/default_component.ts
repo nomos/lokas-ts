@@ -1,16 +1,12 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
-import {comp, Tag, TypeRegistry} from "../type/types";
+import {comp, TypeRegistry} from "../protocol/types";
 import {Logger,log} from "../utils/logger";
-import {Serializable} from "../net/protocol";
+import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
 
 @comp('Component')
 export class IComponent implements Serializable{
-    static __defineName = 'Component'
-    static get defineName (){
-        return this.__defineName
-    }
 
     protected dirty: boolean = true
     protected entity: Entity = null
@@ -36,7 +32,9 @@ export class IComponent implements Serializable{
     }
 
     get defineName(): string {
-        return Object.getPrototypeOf(this).constructor.defineName();
+        let ret = TypeRegistry.getInstance().getProtoName(Object.getPrototypeOf(this))
+        log.warn("ret",ret)
+        return ret
     }
 
     constructor() {

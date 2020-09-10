@@ -1,7 +1,7 @@
 import {Long} from "../utils/long";
 import {util} from "../utils/util";
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 
 const _longBound = {

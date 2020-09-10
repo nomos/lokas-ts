@@ -1,7 +1,7 @@
 'use strict'
 import {IComponent} from "../ecs/default_component";
 import {Angle, Position} from "./base_components";
-import {comp} from "../type/types";
+import {comp} from "../protocol/types";
 
 @comp('Polygon')
 export class Polygon extends IComponent{

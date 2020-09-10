@@ -1,6 +1,6 @@
 import {BinaryBase} from "./binary_base";
 import {util} from "../utils/util";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 export class TAGBoolArray extends BinaryBase {
     public value:Array<boolean> = []

@@ -25,6 +25,11 @@ export class Logger extends Singleton{
             title: '错误!!!',
             color: 'color:' + '#FF0000' + ';',
             color1: 'color:' + '#5599FF' + ';',
+        },
+        panic: {
+            title: '崩溃!!!',
+            color: 'color:' + '#FF0000' + ';',
+            color1: 'color:' + '#5599FF' + ';',
         }
     }
     public OPENLOGFLAG = {
@@ -66,6 +71,14 @@ export class Logger extends Singleton{
             return;
         }
         this._log(this.STATE.error, args)
+    }
+    panic(...args:any) {
+        if (!this.OPENLOGFLAGALL || !this.OPENLOGFLAG.log) {
+            return;
+        }
+        this._log(this.STATE.panic, args)
+        throw new Error("")
+
     }
     private _log(state, args){
         let stack = this._stack();

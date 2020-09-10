@@ -1,5 +1,5 @@
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types"
 
 export class TAGFloat extends BinaryBase{
     constructor(){

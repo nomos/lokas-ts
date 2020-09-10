@@ -1,40 +1,42 @@
+
 import {BinaryBase} from "./binary_base";
-import {Tag} from "../type/types"
+import {Tag} from "./types";
 import {util} from "../utils/util";
 
-export class TAGFloatArray extends BinaryBase {
+
+export class TAGDoubleArray extends BinaryBase{
     public value:Array<number> = []
-    constructor() {
+    constructor(){
         super();
-        this.type =  Tag.Float_Array;
+        this.type =  Tag.Double_Array;
     }
     _readBodyFromBuffer(buff, offset) {
         let len        = buff.readUInt32BE(offset);
         let nextOffset = offset + 4;
-        let endOffset  = nextOffset + len * 4;
+        let endOffset  = nextOffset + len * 8;
         this.value     = [];
 
-        for(let i = nextOffset; i < endOffset; i += 4) {
-            this.value.push(buff.readFloatBE(i));
+        for(let i = nextOffset; i < endOffset; i += 8) {
+            this.value.push(buff.readDoubleBE(i));
         }
 
-        return 4 + len * 4;
+        return 4 + len * 8;
     }
+
     calcBufferLength() {
-        return 4 + this.value.length * 4;
+        return 4 + this.value.length * 8;
     }
 
     setValue(array) {
         if(!util.isArray(array)) {
-            throw new Error("Value of TAG_Float_Array should be an array.");
+            throw new Error("Value of TAG_Double_Array should be an array.");
         }
 
         let newArray = [];
         for(let i = 0; i < array.length; i++) {
             newArray.push(parseFloat(array[i]));
-            if(newArray[i] < -3.4e+38 || newArray[i] > 3.4e+38 || isNaN(newArray[i])) {
-                throw new Error("Each element in TAG_Float_Array should between " +
-                    "-3.4e+38 and 3.4e+38.");
+            if(isNaN(newArray[i])) {
+                throw new Error("Each value for TAG_Double_Array must be Number.");
             }
         }
 
@@ -47,18 +49,16 @@ export class TAGFloatArray extends BinaryBase {
 
     unshift(value) {
         value = parseFloat(value);
-        if(value < -3.4e+38 || value > 3.4e+38 || isNaN(value)) {
-            throw new Error("Each element in TAG_Float_Array should between " +
-                "-3.4e+38 and 3.4e+38.");
+        if(isNaN(value)) {
+            throw new Error("Bad value for TAG_Double_Array.");
         }
         return this.value.unshift(value);
     }
 
     push(value) {
         value = parseFloat(value);
-        if(value < -3.4e+38 || value > 3.4e+38 || isNaN(value)) {
-            throw new Error("Each element in TAG_Float_Array should between " +
-                "-3.4e+38 and 3.4e+38.");
+        if(isNaN(value)) {
+            throw new Error("Bad value for TAG_Double_Array.");
         }
         return this.value.push(value);
     }
@@ -69,13 +69,11 @@ export class TAGFloatArray extends BinaryBase {
 
     insert(value, pos) {
         value = parseFloat(value);
-        if(value < -3.4e+38 || value > 3.4e+38 || isNaN(value)) {
-            throw new Error("Each element in TAG_Float_Array should between " +
-                "-3.4e+38 and 3.4e+38.");
+        if(isNaN(value)) {
+            throw new Error("Bad value for TAG_Double_Array.");
         }
         if(pos < 0) pos = 0;
         if(pos > this.value.length) pos = this.value.length;
-        this.value.push([]);
         for(let i = this.value.length - 1; i >= pos; i--) {
             this.value[i + 1] = this.value[i];
         }
@@ -86,10 +84,10 @@ export class TAGFloatArray extends BinaryBase {
         buff.writeUInt32BE(this.value.length, offset);
 
         for(let i = 0; i < this.value.length; i++) {
-            buff.writeFloatBE(this.value[i], offset + 4 + i * 4);
+            buff.writeDoubleBE(this.value[i], offset + 4 + i * 8);
         }
 
-        return 4 + this.value.length * 4;
+        return 4 + this.value.length * 8;
     }
 
     at(index) {
