@@ -32,7 +32,6 @@ export function unmarshalBody(buff: Buffer, tag: number, offset: number): [any, 
 
 export function unmarshal(buff: Buffer):any {
     let [tag,offset] = readTag(buff,0)
-    log.warn(tag,offset,buff)
     let [ret,offset1] = readComplex(buff,tag,offset)
     return ret
 }
@@ -49,6 +48,8 @@ export function readValue(buff: Buffer, tag: number, tag1: number, tag2: number,
         return readBaseArray(buff, tag, offset)
     } else if (tag == Tag.String) {
         return readString(buff, offset)
+    } else if (tag == Tag.Time) {
+        return readTime(buff, offset)
     } else if (tag == Tag.List) {
         return readList(buff, tag1, offset)
     } else if (tag == Tag.Complex) {
@@ -84,13 +85,10 @@ export function readMap(buff: Buffer, tag: number, tag1: number, tag2: number, o
             log.panic("unsupported key tag", tag)
     }
     [valueTag, offset] = readTag(buff, offset);
-    log.warn("keyTag",keyTag)
-    log.warn("valueTag",valueTag)
     if (valueTag != tag2) {
         log.panic("value tag is not match")
     }
     [length, offset] = readLength(buff, offset);
-    log.warn("decodemap",length,offset)
     let ret = new Map()
     for (let i = 0; i < length; i++) {
         if (keyTag == Tag.String) {
@@ -98,7 +96,6 @@ export function readMap(buff: Buffer, tag: number, tag1: number, tag2: number, o
             let obj: any
             [key, offset] = readString(buff, offset);
             [obj, offset] = readValue(buff, valueTag, null, null, offset);
-            log.warn("decodemap",key,obj)
             ret.set(key, obj)
         }
     }
@@ -108,7 +105,6 @@ export function readMap(buff: Buffer, tag: number, tag1: number, tag2: number, o
 
 export function readComplex(buff: Buffer, tag: number, offset: number): [any, number] {
     let ret = TypeRegistry.getInstance().getInstanceByTag(tag)
-    log.warn("ret1",ret)
     let classDef = TypeRegistry.getInstance().getClassDefByTag(tag)
     if (!classDef) {
         log.panic("tag is not registered", tag);
@@ -265,8 +261,7 @@ export function readBaseValue(buff: Buffer, tag: number, offset: number): [any, 
         case Tag.Int:
             return [buff.readInt32BE(offset), 4 + offset]
         case Tag.Long:
-            let sliced = buff.slice(offset, offset + 8);
-            return [Long.fromBytesBE(sliced, true).toString(), 8 + offset];
+            return readLong(buff,offset)
         case Tag.Float:
             return [buff.readFloatBE(offset), 4 + offset]
         case Tag.Double:
@@ -274,6 +269,19 @@ export function readBaseValue(buff: Buffer, tag: number, offset: number): [any, 
         default:
             log.panic("unsupported base value type", tag)
     }
+}
+
+function readLong(buff:Buffer,offset:number):[Long,number] {
+    let sliced = buff.slice(offset, offset + 8);
+    return [Long.fromBytesBE(sliced, true).toString(), 8 + offset];
+}
+
+function readTime(buff:Buffer,offset:number):[Date,number] {
+    let long:Long
+    let sliced = buff.slice(offset, offset + 8);
+    long = Long.fromBytesBE(sliced, true)
+    let ret = new Date(long.toNumber())
+    return [ret,8+offset]
 }
 
 function readString(buff: Buffer, offset: number): [string, number] {

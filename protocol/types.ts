@@ -26,6 +26,7 @@ export enum Tag {
     Map,
     Buffer,
     Complex,
+    Time,
     Null,
     //-------ECS Struct-------
     Entity = 31,
@@ -162,7 +163,7 @@ export class TypeRegistry extends Singleton {
 
     registerCustomTag(typeName: string, tagId: number) {
         if (tagId <= 32768) {
-            throw new Error("not a custom tag:" + tagId + " " + typeName)
+            throw new Error("not a custom tag:" + tagId + " " + typeName+ " must be >32767")
         }
         this.registerTag(typeName, tagId)
     }
