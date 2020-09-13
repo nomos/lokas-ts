@@ -1,5 +1,8 @@
 import {Logger,log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
+import {Serializable} from "child_process";
+import {marshalToBytes} from "../protocol/encode";
+import {Vector} from "../syscomp/base_components";
 
 const DEFAULT_TIMEOUT = 15000
 
@@ -216,50 +219,52 @@ export class WsClient extends EventEmitter {
     // }
 
 
-    // async send(data): Promise<Context> {
-    //     let className = data['$type'].name;
-    //     let id = pb.nameMap[className];
-    //     let msg = data['encode']();
-    //     let buf = new dcodeIO.ByteBuffer();
-    //     let len = msg.limit + 8;
-    //     if (len >= 65536) {
-    //         return null;
-    //     }
-    //     buf.writeUint16(id)
-    //     let transId = this.genId()
-    //     buf.writeUint32(transId)
-    //     buf.writeUint16(len)
-    //     // 这个需要和服务器对清楚，有时候服务器并不作数据的旋转
-    //     buf.append(msg)
-    //     buf.flip();
-    //     let buffData = buf.toArrayBuffer();
-    //     let resolveFunc = (resolve) => {
-    //         return (data: pb.ProtoBufModel) => {
-    //             resolve(data)
-    //         }
-    //     }
-    //     this.reqContexts[transId] =
-    //         this.ws.send(buffData);
-    //     console.log(`Client 发送${className}成功`);
-    //
-    //
-    //     return new Promise<Context>((resolve, reject) => {
-    //         let timeout = setTimeout(() => {
-    //             reject("connect timeout")
-    //         }, DEFAULT_TIMEOUT)
-    //         let context = new Context()
-    //         context.transId = transId
-    //         context.resolveFunc = () => {
-    //             clearTimeout(timeout)
-    //             resolve(context)
-    //         }
-    //         context.rejectFunc = (err: string) => {
-    //             clearTimeout(timeout)
-    //             reject(err)
-    //         }
-    //         this.reqContexts[transId] = context
-    //     })
-    // }
+    async send(transId:number,data:Serializable): Promise<any> {
+        let buff = marshalToBytes(transId,data)
+        this.ws.send(buff)
+        // let className = data['$type'].name;
+        // let id = pb.nameMap[className];
+        // let msg = data['encode']();
+        // let buf = new dcodeIO.ByteBuffer();
+        // let len = msg.limit + 8;
+        // if (len >= 65536) {
+        //     return null;
+        // }
+        // buf.writeUint16(id)
+        // let transId = this.genId()
+        // buf.writeUint32(transId)
+        // buf.writeUint16(len)
+        // // 这个需要和服务器对清楚，有时候服务器并不作数据的旋转
+        // buf.append(msg)
+        // buf.flip();
+        // let buffData = buf.toArrayBuffer();
+        // let resolveFunc = (resolve) => {
+        //     return (data: pb.ProtoBufModel) => {
+        //         resolve(data)
+        //     }
+        // }
+        // this.reqContexts[transId] =
+        //     this.ws.send(buffData);
+        // console.log(`Client 发送${className}成功`);
+        //
+        //
+        // return new Promise<Context>((resolve, reject) => {
+        //     let timeout = setTimeout(() => {
+        //         reject("connect timeout")
+        //     }, DEFAULT_TIMEOUT)
+        //     let context = new Context()
+        //     context.transId = transId
+        //     context.resolveFunc = () => {
+        //         clearTimeout(timeout)
+        //         resolve(context)
+        //     }
+        //     context.rejectFunc = (err: string) => {
+        //         clearTimeout(timeout)
+        //         reject(err)
+        //     }
+        //     this.reqContexts[transId] = context
+        // })
+    }
 
     // onErrorAck(data: pb.ErrorAck, transId: number) {
     //     let context = this.getContext(transId)

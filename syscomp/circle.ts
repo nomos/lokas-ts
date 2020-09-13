@@ -1,8 +1,8 @@
 import {IComponent} from "../ecs/default_component";
-import {comp, format,Tag} from "../protocol/types";
+import {define, format,Tag} from "../protocol/types";
 import {Position} from "./base_components";
 
-@comp('Circle')
+@define('Circle')
 export class Circle extends IComponent {
 
     static get defineDepends(): Array<string> {

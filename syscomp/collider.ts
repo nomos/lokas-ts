@@ -7,9 +7,9 @@ import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon";
 import {Point} from "./point";
 import {Circle} from "./circle"
-import {comp} from "../protocol/types";
+import {define} from "../protocol/types";
 
-@comp('Collider')
+@define('Collider')
 export class Collider extends Rect implements BVNode{
     public padding:number
     public minX:number

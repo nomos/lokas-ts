@@ -1,12 +1,11 @@
 import {Entity} from "./entity";
 import {Runtime} from "./runtime";
-import {comp, TypeRegistry} from "../protocol/types";
+import {define, TypeRegistry} from "../protocol/types";
 import {Logger,log} from "../utils/logger";
 import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
 
-@comp('Component')
-export class IComponent implements Serializable{
+export class IComponent extends Serializable{
 
     protected dirty: boolean = true
     protected entity: Entity = null
@@ -31,14 +30,8 @@ export class IComponent implements Serializable{
         return Object.getPrototypeOf(this).constructor.defineDepends;
     }
 
-    get defineName(): string {
-        let ret = TypeRegistry.getInstance().getProtoName(Object.getPrototypeOf(this))
-        log.warn("ret",ret)
-        return ret
-    }
-
     constructor() {
-
+        super()
     }
 
     reset(){

@@ -8,7 +8,7 @@ export class TAGComplex extends BinaryBase{
     public value:Array<BinaryBase> = new Array<BinaryBase>()
     constructor(){
         super();
-        this.type =  Tag.Complex;
+        this.type =  Tag.Proto;
     }
     _getNextTag(buff:Buffer, offset):number {
         let [tagId,offset1] = readTag(buff,offset);

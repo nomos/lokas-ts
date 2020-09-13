@@ -6,10 +6,10 @@ import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
 import {IComponent} from "./default_component";
-import * as bt from "../binary/bt"
-import {TAGComplex} from "../binary/complex";
-import {TAGList} from "../binary/list";
-import {getTagFuncByString} from "../binary/bt";
+import * as bt from "../protocol/bt"
+import {TAGComplex} from "../protocol/complex";
+import {TAGList} from "../protocol/list";
+import {getTagFuncByString} from "../protocol/bt";
 import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
 

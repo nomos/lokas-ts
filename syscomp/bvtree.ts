@@ -2,7 +2,7 @@ import {Rect} from "./rect"
 import {Collider} from "./collider"
 import {IComponent} from "../ecs/default_component";
 import {Polygon} from "./polygon"
-import {comp} from "../protocol/types";
+import {define} from "../protocol/types";
 import {Point} from "./point";
 import {Circle} from "./circle";
 
@@ -14,7 +14,7 @@ export interface BVNode extends Rect {
     branch: boolean      //是否BVBranch
 }
 
-@comp('BVBranch')
+@define('BVBranch')
 export class BVBranch extends Rect implements BVNode {
     public parent: BVBranch
     public left: BVNode
@@ -32,7 +32,7 @@ export class BVBranch extends Rect implements BVNode {
     }
 }
 
-@comp('BVTree')
+@define('BVTree')
 export class BVTree extends IComponent {
     public branches: Array<BVNode>
     public root: BVNode

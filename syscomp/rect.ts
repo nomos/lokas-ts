@@ -1,7 +1,7 @@
 import {IComponent} from "../ecs/default_component";
-import {comp, format, Tag} from "../protocol/types";
+import {define, format, Tag} from "../protocol/types";
 
-@comp('Rect')
+@define('Rect')
 export class Rect extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);

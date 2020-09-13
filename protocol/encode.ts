@@ -20,6 +20,7 @@ const UINT32_MIN = 0
 const UINT32_MAX = 4294967295
 const NUMBER_MAX = Number.MAX_SAFE_INTEGER
 const NUMBER_MIN = Number.MIN_SAFE_INTEGER
+const HEADER_SIZE = 4+2
 
 export function marshalToBytes(transId: number, msg: any): Buffer {
     let classDef = TypeRegistry.getInstance().getClassDef(msg.defineName)
@@ -40,10 +41,13 @@ export function marshalToBytes(transId: number, msg: any): Buffer {
         log.panic("package too big")
     }
     let buff = Buffer.from(new Uint8Array(totalLength), 'utf8');
-    buff.writeUInt32BE(transId, tagLength)
-    buff.writeUInt16BE(totalLength, tagLength + transIdLength)
-    let offset = transIdLength + lenLength
-    offset = writeComplex(buff,classDef.tag,msg,offset)
+    let offset = 0
+    buff.writeUInt32BE(transId, transIdLength)
+    offset+=4
+    buff.writeUInt16BE(totalLength, offset)
+    offset+=2
+    offset = writeTag(buff,classDef.tag,offset)
+    writeComplex(buff,classDef.tag,msg,offset)
     return buff
 }
 
@@ -66,7 +70,7 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
     let tagCustom
     if (tag > Tag.Null) {
         tagCustom = tag
-        tag = Tag.Complex
+        tag = Tag.Proto
     }
     switch (tag) {
         case Tag.Bool:
@@ -150,7 +154,7 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
                     log.panic("unsupported map key type", tag1)
             }
             break
-        case Tag.Complex:
+        case Tag.Proto:
             let tagDef = TypeRegistry.getInstance().getClassDefByTag(tagCustom)
             if (tagDef == undefined) {
                 log.panic("class is not registered", tag, value)
@@ -219,7 +223,7 @@ function writeValue(buff: Buffer, tag: number, tag1: number, tag2: number, v: an
     let tagCustom = 0
     if (tag > Tag.Null) {
         tagCustom = tag
-        tag = Tag.Complex
+        tag = Tag.Proto
     }
     if (isBaseValue(tag)) {
         offset = writeBaseValue(buff, tag, v, offset)
@@ -233,7 +237,7 @@ function writeValue(buff: Buffer, tag: number, tag1: number, tag2: number, v: an
         offset = writeList(buff, tag, tag1, v, offset)
     } else if (tag == Tag.Map) {
         offset = writeMap(buff, tag1, tag2, v, offset)
-    } else if (tag == Tag.Complex) {
+    } else if (tag == Tag.Proto) {
         offset = writeComplex(buff, tagCustom, v, offset)
     } else {
         log.panic("unsupported tag type", tag)

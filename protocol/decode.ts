@@ -40,7 +40,7 @@ export function readValue(buff: Buffer, tag: number, tag1: number, tag2: number,
     let customTag: number
     if (tag > Tag.Null) {
         customTag = tag
-        tag = Tag.Complex
+        tag = Tag.Proto
     }
     if (isBaseValue(tag)) {
         return readBaseValue(buff, tag, offset)
@@ -52,7 +52,7 @@ export function readValue(buff: Buffer, tag: number, tag1: number, tag2: number,
         return readTime(buff, offset)
     } else if (tag == Tag.List) {
         return readList(buff, tag1, offset)
-    } else if (tag == Tag.Complex) {
+    } else if (tag == Tag.Proto) {
         return readComplex(buff, customTag, offset)
     } else if (tag == Tag.Map) {
         return readMap(buff, tag, tag1, tag2, offset)

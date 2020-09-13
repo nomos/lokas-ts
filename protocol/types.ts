@@ -1,7 +1,6 @@
 'use strict'
 import {Singleton} from "../utils/singleton";
 import {log} from "../utils/logger";
-import {readTag} from "./bt";
 import {Serializable} from "./protocol";
 
 export enum Tag {
@@ -25,8 +24,8 @@ export enum Tag {
     List,
     Map,
     Buffer,
-    Complex,
     Time,
+    Proto,
     Null,
     //-------ECS Struct-------
     Entity = 31,
@@ -187,7 +186,6 @@ export class TypeRegistry extends Singleton {
     }
 
     getClassDef(name: string): ClassDef {
-        log.warn(this.classDefs,name,this.classDefs.get(name))
         return this.classDefs.get(name)
     }
 
@@ -212,14 +210,14 @@ export class TypeRegistry extends Singleton {
     }
 }
 
-export function format(typeName: Tag, nestingType1?: Tag, nestingType2?: Tag) {
+export function format(tag: Tag, tag1?: Tag, tag2?: Tag) {
     return function (target: Serializable, propertyKey: string) {
-        TypeRegistry.getInstance().registerMemberDef(target, propertyKey, typeName, nestingType1,nestingType2)
+        TypeRegistry.getInstance().registerMemberDef(target, propertyKey, tag, tag1,tag2)
     }
 }
 
-export function comp(compName: string) {
+export function define(typename: string) {
     return function (target: {new():Serializable}) {
-        TypeRegistry.getInstance().registerClassDef(target.prototype, compName)
+        TypeRegistry.getInstance().registerClassDef(target.prototype, typename)
     }
 }

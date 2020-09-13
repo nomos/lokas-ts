@@ -1,48 +1,63 @@
 import {Buffer} from "../thirdparty/buffer";
-import {comp, format, Tag} from "./types";
+import {define, format, Tag, TypeRegistry} from "./types";
 import {marshalToBytes} from "./encode";
+import {log} from "../utils/logger";
 
-export interface Serializable {
-    defineName:string
-    unmarshalFrom(buff:Buffer)
-    marshalTo():Buffer
+export class Serializable {
+    unmarshalFrom(buff: Buffer) {
+
+    }
+
+    marshalTo(): Buffer {
+        return null
+    }
+
+    get defineName(): string {
+        let ret = TypeRegistry.getInstance().getProtoName(Object.getPrototypeOf(this))
+        return ret
+    }
 }
 
-@comp("ComposeData")
-export class ComposeData implements Serializable{
-    defineName:string = "ComposeData"
+@define("ComposeData")
+export class ComposeData extends Serializable {
     @format(Tag.Byte)
-    public id:number
+    public id: number
     @format(Tag.Buffer)
-    public data:Buffer
-    unmarshalFrom(buff:Buffer){
+    public data: Buffer
+
+    unmarshalFrom(buff: Buffer) {
 
     }
-    marshalTo():Buffer{
+
+    marshalTo(): Buffer {
         return null
     }
 }
 
-@comp("ErrMsg")
-export class ErrMsg implements Serializable{
-    defineName:string = "ErrMsg"
-    @format(Tag.Int)
-    public transId:number
+@define("ErrMsg")
+export class ErrMsg extends Serializable {
     @format(Tag.Short)
-    public code:number
+    public code: number
     @format(Tag.String)
-    public msg:string
-    unmarshalFrom(buff:Buffer){
+    public msg: string
+
+    constructor(code = 0, msg = "") {
+        super()
+        this.code = code
+        this.msg = msg
+    }
+
+    unmarshalFrom(buff: Buffer) {
 
     }
-    marshalTo():Buffer{
-        return null
 
+    marshalTo(): Buffer {
+        return null
     }
 }
 
 export class BinaryMessage implements Serializable {
-    defineName:string = "BinaryMessage"
+    defineName: string = "BinaryMessage"
     public transId: number
     public msgId: number
     public len: number
@@ -53,6 +68,6 @@ export class BinaryMessage implements Serializable {
     }
 
     marshalTo(): Buffer {
-        return marshalToBytes(this.transId,this.data)
+        return marshalToBytes(this.transId, this.data)
     }
 }

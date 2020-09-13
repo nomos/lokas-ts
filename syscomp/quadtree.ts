@@ -2,9 +2,9 @@
 import {Rect} from "./rect"
 import {Entity} from "../ecs/entity";
 import {Collider} from "./collider";
-import {comp} from "../protocol/types";
+import {define} from "../protocol/types";
 
-@comp('QuadTree')
+@define('QuadTree')
 export class QuadTree extends Rect {
     public root:QuadBranch
     public maxObject:number
@@ -93,7 +93,7 @@ export class QuadTree extends Rect {
     }
 }
 
-@comp('QuadBranch')
+@define('QuadBranch')
 export class QuadBranch extends Rect{
     public level:number
     public parent:QuadBranch

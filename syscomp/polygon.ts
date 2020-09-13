@@ -1,9 +1,9 @@
 'use strict'
 import {IComponent} from "../ecs/default_component";
 import {Angle, Position} from "./base_components";
-import {comp} from "../protocol/types";
+import {define} from "../protocol/types";
 
-@comp('Polygon')
+@define('Polygon')
 export class Polygon extends IComponent{
     static get defineDepends(){
         return ['Position','Angle'].concat(super.defineDepends);

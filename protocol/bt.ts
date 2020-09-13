@@ -63,7 +63,7 @@ export function getTag(tagId: Tag) {
             return new TAGList()
         case Tag.Map:
             return new TAGMap()
-        case Tag.Complex:
+        case Tag.Proto:
             return new TAGComplex()
         case Tag.Buffer:
             return new TAGBuffer()
@@ -149,7 +149,7 @@ export function getTagType(tagId: Tag) {
             return TAGList
         case Tag.Map:
             return TAGMap
-        case Tag.Complex:
+        case Tag.Proto:
             return TAGComplex
         case Tag.Buffer:
             return TAGBuffer

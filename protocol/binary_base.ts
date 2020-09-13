@@ -69,7 +69,7 @@ export class BinaryBase{
     }
     toJSObject() {
         let val = this.value;
-        if(this.type ===  Tag.Complex) {
+        if(this.type ===  Tag.Proto) {
             let _val = [];
             for(let key in val) {
                 _val[key] = val[key].toJSObject();
@@ -123,7 +123,7 @@ export class BinaryBase{
         ) {
             return val;
         }
-        if(this.type ===  Tag.Complex) {
+        if(this.type ===  Tag.Proto) {
             let _val = [];
             for(let i in val) {
                 _val.push(val[i].toJSON());

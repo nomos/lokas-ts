@@ -9,11 +9,11 @@ import {ComponentSingleton} from "./component_singleton";
 import {Timer} from "./ecs_timer";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
-import * as bt from "../binary/bt"
-import {TAGComplex} from "../binary/complex";
-import {TAGLongArray} from "../binary/long_array";
-import {TAGList} from "../binary/list";
-import {Int} from "../binary/bt";
+import * as bt from "../protocol/bt"
+import {TAGComplex} from "../protocol/complex";
+import {TAGLongArray} from "../protocol/long_array";
+import {TAGList} from "../protocol/list";
+import {Int} from "../protocol/bt";
 
 /**
  * 实体管理器<ECS>是一个ECS系统的实例,管理组件<Component>,系统<System>,集合<Group>,监听器<Observer>,处理器<Handler>的注册

@@ -1,8 +1,8 @@
 
 import {IComponent} from "../ecs/default_component";
-import {comp, format, Tag} from "../protocol/types";
+import {define, format, Tag} from "../protocol/types";
 
-@comp('Vector')
+@define('Vector')
 export class Vector extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
@@ -185,7 +185,7 @@ export class Vector extends IComponent {
     }
 }
 
-@comp('Position')
+@define('Position')
 export class Position extends Vector {
     static get defineDepends(){
         return [].concat(super.defineDepends);
@@ -202,7 +202,7 @@ export class Position extends Vector {
     }
 }
 
-@comp('Velocity')
+@define('Velocity')
 export class Velocity extends Vector {
 
     @format(Tag.Double)
@@ -224,7 +224,7 @@ export class Velocity extends Vector {
     }
 }
 
-@comp('Acceleration')
+@define('Acceleration')
 export class Acceleration extends Vector {
 
     @format(Tag.Double)
@@ -238,7 +238,7 @@ export class Acceleration extends Vector {
     }
 }
 
-@comp('Angle')
+@define('Angle')
 export class Angle extends IComponent {
 
     static get defineDepends(){
@@ -396,7 +396,7 @@ export class Angle extends IComponent {
     }
 }
 
-@comp('AngularMovement')
+@define('AngularMovement')
 export class AngularMovement extends IComponent {
 
     static get defineDepends(){
@@ -419,7 +419,7 @@ export class AngularMovement extends IComponent {
     }
 }
 
-@comp('Size')
+@define('Size')
 export class Size extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
@@ -448,7 +448,7 @@ export class Size extends IComponent {
     }
 }
 
-@comp('TimeStamp')
+@define('TimeStamp')
 export class TimeStamp extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);

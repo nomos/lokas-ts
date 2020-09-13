@@ -1,9 +1,9 @@
 import {IComponent} from "../ecs/default_component";
 import {Entity} from "../ecs/entity";
 import {Collider} from "./collider"
-import {comp} from "../protocol/types";
+import {define} from "../protocol/types";
 
-@comp('Contact')
+@define('Contact')
 export class Contact extends IComponent{
     public a:Entity
     public b:Entity
