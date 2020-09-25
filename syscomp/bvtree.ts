@@ -76,21 +76,21 @@ export class BVTree extends IComponent {
         const body_x = cPolygon ? cPolygon.x : cCircle.x;
         const body_y = cPolygon ? cPolygon.y : cCircle.y;
         if (cPolygon) {
-            if (collider.getEntity().isDirty()) {
+            if (collider.GetEntity().IsDirty()) {
                 cPolygon._calculateCoords();
 
             }
         }
         const padding = collider.getSibling(Collider).padding;
-        const radius = cPolygon ? 0 : cCircle.radius * cCircle.scale;
+        const radius = cPolygon ? 0 : cCircle.Radius * cCircle.Scale;
         const body_min_x = (cPolygon ? cPolygon.minX : body_x - radius) - padding;
         const body_max_x = (cPolygon ? cPolygon.maxX : body_x + radius) + padding;
         const body_min_y = (cPolygon ? cPolygon.minY : body_y - radius) - padding;
         const body_max_y = (cPolygon ? cPolygon.maxY : body_y + radius) + padding;
-        collider.minX = body_min_x;
-        collider.maxX = body_max_x;
-        collider.minY = body_min_y;
-        collider.maxY = body_max_y;
+        collider.MinX = body_min_x;
+        collider.MaxX = body_max_x;
+        collider.MinY = body_min_y;
+        collider.MaxY = body_max_y;
         let current = this.root;
         if (!current) {
             this.root = collider.parent;
@@ -99,10 +99,10 @@ export class BVTree extends IComponent {
         while (true) {
             if (current.branch) {
                 const left = (<BVBranch>current).left;
-                const left_min_x = left.minX;
-                const left_min_y = left.minY;
-                const left_max_x = left.maxX;
-                const left_max_y = left.maxY;
+                const left_min_x = left.MinX;
+                const left_min_y = left.MinY;
+                const left_max_x = left.MaxX;
+                const left_max_y = left.MaxY;
                 const left_new_min_x = body_min_x < left_min_x ? body_min_x : left_min_x;
                 const left_new_min_y = body_min_y < left_min_y ? body_min_y : left_min_y;
                 const left_new_max_x = body_max_x > left_max_x ? body_max_x : left_max_x;
@@ -112,10 +112,10 @@ export class BVTree extends IComponent {
                 const left_difference = left_new_volume - left_volume;
 
                 const right = (<BVBranch>current).right;
-                const right_min_x = right.minX;
-                const right_min_y = right.minY;
-                const right_max_x = right.maxX;
-                const right_max_y = right.maxY;
+                const right_min_x = right.MinX;
+                const right_min_y = right.MinY;
+                const right_max_x = right.MaxX;
+                const right_max_y = right.MaxY;
                 const right_new_min_x = body_min_x < right_min_x ? body_min_x : right_min_x;
                 const right_new_min_y = body_min_y < right_min_y ? body_min_y : right_min_y;
                 const right_new_max_x = body_max_x > right_max_x ? body_max_x : right_max_x;
@@ -124,17 +124,17 @@ export class BVTree extends IComponent {
                 const right_new_volume = (right_new_max_x - right_new_min_x) * (right_new_max_y - right_new_min_y);
                 const right_difference = right_new_volume - right_volume;
 
-                current.minX = left_new_min_x < right_new_min_x ? left_new_min_x : right_new_min_x;
-                current.minY = left_new_min_y < right_new_min_y ? left_new_min_y : right_new_min_y;
-                current.maxX = left_new_max_x > right_new_max_x ? left_new_max_x : right_new_max_x;
-                current.maxY = left_new_max_y > right_new_max_y ? left_new_max_y : right_new_max_y;
+                current.MinX = left_new_min_x < right_new_min_x ? left_new_min_x : right_new_min_x;
+                current.MinY = left_new_min_y < right_new_min_y ? left_new_min_y : right_new_min_y;
+                current.MaxX = left_new_max_x > right_new_max_x ? left_new_max_x : right_new_max_x;
+                current.MaxY = left_new_max_y > right_new_max_y ? left_new_max_y : right_new_max_y;
                 current = left_difference <= right_difference ? left : right;
             } else {
                 const grandparent = current.parent;
-                const parent_min_x = current.minX;
-                const parent_min_y = current.minY;
-                const parent_max_x = current.maxX;
-                const parent_max_y = current.maxY;
+                const parent_min_x = current.MinX;
+                const parent_min_y = current.MinY;
+                const parent_max_x = current.MaxX;
+                const parent_max_y = current.MaxY;
                 const new_parent = current.parent = collider.parent = this.createBVBranch();
                 new_parent.parent = grandparent;
                 new_parent.left = current;
@@ -183,21 +183,21 @@ export class BVTree extends IComponent {
             let branch = grandparent;
             while (branch) {
                 const left = branch.left;
-                const left_min_x = left.minX;
-                const left_min_y = left.minY;
-                const left_max_x = left.maxX;
-                const left_max_y = left.maxY;
+                const left_min_x = left.MinX;
+                const left_min_y = left.MinY;
+                const left_max_x = left.MaxX;
+                const left_max_y = left.MaxY;
 
                 const right = branch.right;
-                const right_min_x = right.minX;
-                const right_min_y = right.minY;
-                const right_max_x = right.maxX;
-                const right_max_y = right.maxY;
+                const right_min_x = right.MinX;
+                const right_min_y = right.MinY;
+                const right_max_x = right.MaxX;
+                const right_max_y = right.MaxY;
 
-                branch.minX = left_min_x < right_min_x ? left_min_x : right_min_x;
-                branch.minY = left_min_y < right_min_y ? left_min_y : right_min_y;
-                branch.maxX = left_max_x > right_max_x ? left_max_x : right_max_x;
-                branch.maxY = left_max_y > right_max_y ? left_max_y : right_max_y;
+                branch.MinX = left_min_x < right_min_x ? left_min_x : right_min_x;
+                branch.MinY = left_min_y < right_min_y ? left_min_y : right_min_y;
+                branch.MaxX = left_max_x > right_max_x ? left_max_x : right_max_x;
+                branch.MaxY = left_max_y > right_max_y ? left_max_y : right_max_y;
                 branch = branch.parent;
             }
         } else {
@@ -218,19 +218,19 @@ export class BVTree extends IComponent {
                 let cPolygon = node.getSibling(Polygon) || node.getSibling(Point);
                 let cCircle = node.getSibling(Circle);
 
-                if (cPolygon && node.getEntity().isDirty()) {
+                if (cPolygon && node.GetEntity().IsDirty()) {
                     cPolygon._calculateCoords();
                 }
 
                 const x = cPolygon ? cPolygon.x : cCircle.x;
                 const y = cPolygon ? cPolygon.y : cCircle.y;
-                const radius = cPolygon ? 0 : cCircle.radius * cCircle.scale;
+                const radius = cPolygon ? 0 : cCircle.Radius * cCircle.Scale;
                 const min_x = cPolygon ? cPolygon.minX : x - radius;
                 const min_y = cPolygon ? cPolygon.minY : y - radius;
                 const max_x = cPolygon ? cPolygon.maxX : x + radius;
                 const max_y = cPolygon ? cPolygon.maxY : y + radius;
 
-                update = min_x < node.minX || min_y < node.minY || max_x > node.maxX || max_y > node.maxY;
+                update = min_x < node.MinX || min_y < node.MinY || max_x > node.MaxX || max_y > node.MaxY;
             }
 
             if (update) {
@@ -245,10 +245,10 @@ export class BVTree extends IComponent {
 
     potentials(collider: Collider) {
         const results = [];
-        const min_x = collider.minX;
-        const min_y = collider.minY;
-        const max_x = collider.maxX;
-        const max_y = collider.maxY;
+        const min_x = collider.MinX;
+        const min_y = collider.MinY;
+        const max_x = collider.MaxX;
+        const max_y = collider.MaxY;
         let current = this.root;
         let traverse_left = true;
         if (!current || !current.branch) {
@@ -262,10 +262,10 @@ export class BVTree extends IComponent {
 
                 while (
                     left &&
-                    left.maxX >= min_x &&
-                    left.maxY >= min_y &&
-                    left.minX <= max_x &&
-                    left.minY <= max_y
+                    left.MaxX >= min_x &&
+                    left.MaxY >= min_y &&
+                    left.MinX <= max_x &&
+                    left.MinY <= max_y
                     ) {
                     current = left;
                     left = current.branch ? (<BVBranch>current).left : null;
@@ -277,10 +277,10 @@ export class BVTree extends IComponent {
 
             if (
                 right &&
-                right.maxX > min_x &&
-                right.maxY > min_y &&
-                right.minX < max_x &&
-                right.minY < max_y
+                right.MaxX > min_x &&
+                right.MaxY > min_y &&
+                right.MinX < max_x &&
+                right.MinY < max_y
             ) {
                 current = right;
                 traverse_left = true;

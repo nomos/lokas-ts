@@ -207,4 +207,4 @@ export class Logger extends Singleton{
         return timeStr;
     }
 }
-export const log = <Logger>Logger.getInstance()
+export const log = <Logger>Logger.GetInstance()

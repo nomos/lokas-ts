@@ -1,6 +1,6 @@
 export class Singleton {
     static __instance
-    static getInstance() {
+    static GetInstance() {
         if (!this.__instance) {
             let args = [].slice.call(arguments);
             this.__instance = Object.create(this.prototype);
@@ -8,7 +8,7 @@ export class Singleton {
         }
         return this.__instance;
     }
-    isSingleton(){
+    IsSingleton(){
         return this === Object.getPrototypeOf(this).constructor.getInstance();
     }
 }

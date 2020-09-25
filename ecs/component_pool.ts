@@ -6,63 +6,65 @@
  * @constructor
  */
 import {IComponent} from "./default_component";
-import {Runtime} from "./runtime";
+import {IRuntime} from "./runtime";
+import {TypeRegistry} from "../protocol/types";
 
 export interface IComponentPool {
-    create():IComponent
-    popAndDestroy()
-    recycle(comp:IComponent)
-    get():IComponent
-    destroy()
-    update()
+    Size:number
+    Create():IComponent
+    GetProto():{new():IComponent}
+    PopAndDestroy()
+    Recycle(comp:IComponent)
+    Get():IComponent
+    Destroy()
+    Update(dt?:number)
 }
 
 export class ComponentPool<T extends IComponent> implements IComponentPool{
-    public name:string
-    public size:number
-    public maxSize:number
-    public minSize:number
-    public runtime:Runtime
+    public Name:string
+    public Size:number
+    public MaxSize:number
+    public MinSize:number
 
-
+    private readonly runtime:IRuntime
     private readonly component:{new():T}
     private pool:Array<T> = []
 
-    constructor(ComponentType:{new():T}, maxSize, minSize, ecs) {
+    constructor(ComponentType:{new():T}, maxSize, minSize, ecs:IRuntime) {
         this.component = ComponentType;            //给对象赋值
-        this.name = Object.getPrototypeOf(ComponentType).defineName;  //名称为对象定义的原型名
-        this.size = 0;
-        this.maxSize = maxSize;
-        this.minSize = minSize;
+        this.Name = TypeRegistry.GetInstance().GetAnyName(ComponentType);  //名称为对象定义的原型名
+        this.Size = 0;
+        this.MaxSize = maxSize;
+        this.MinSize = minSize;
         this.runtime = ecs;
     }
 
     /**
      * 创建一个组件<Component>并尝试调用它的onCreate方法
-     * @returns Component
      */
-    create() {
-        let args = [].slice.call(arguments);
-        let ret = new this.component();
-        ret.setRuntime(this.runtime);
-        this.component.prototype.constructor.apply(ret, args);
-        if (ret.onCreate) {
-            ret.onCreate(this.runtime);
+    Create(...args):T {
+        let ret = Object.create(Object.getPrototypeOf(this.component));
+        this.component.apply(ret, args);
+        ret.SetRuntime(this.runtime);
+        if (ret.OnCreate) {
+            ret.OnCreate(this.runtime);
         }
-        ret.markDirty();
-        this.size++;
+        ret.MarkDirty();
+        this.Size++;
         return ret;
     }
-
+    GetProto():{new():T} {
+        return this.component
+    }
     /**
      * 删除对象池中最后一个组件<Component>并调用它的onDestroy方法
      */
-    popAndDestroy() {
+    PopAndDestroy() {
         let comp = this.pool.pop();
-        if (comp.onDestroy) {
-            comp.onDestroy(this.runtime);
+        if (comp.OnDestroy) {
+            comp.OnDestroy(this.runtime);
         }
-        this.size--;
+        this.Size--;
         comp = null;
     }
 
@@ -70,25 +72,24 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
      * 回收一个组件<Component>到对象池
      * @param comp
      */
-    recycle(comp) {
-        comp.reset()
+    Recycle(comp:T) {
+        comp.Reset()
         this.pool.push(comp);
     }
 
-    get():T {
-        let args = [].slice.call(arguments);
+    Get(...args):T {
         if (this.pool.length === 0) {
             if (args.length > 0) {
-                return this.create.apply(this, args);
+                return this.Create.apply(this, args);
             } else {
-                return this.create();
+                return this.Create();
             }
         } else {
             let ret = this.pool.pop();
             if (args.length > 0) {
                 this.component.apply(ret,args)
             }
-            ret.markDirty();
+            ret.MarkDirty();
             return ret;
         }
     }
@@ -96,26 +97,26 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
     /**
      * 销毁组件池
      */
-    destroy() {
+    Destroy() {
         while (this.pool.length > 0) {
-            this.popAndDestroy();
+            this.PopAndDestroy();
         }
     }
 
     /**
      * update函数,动态规划组件<Component>池的大小
      */
-    update() {
+    Update() {
         let poolLength = this.pool.length;
-        if (this.maxSize > 0 && this.size > this.maxSize) {
-            let minSize = this.minSize > 0 ? this.minSize : 10;
+        if (this.MaxSize > 0 && this.Size > this.MaxSize) {
+            let minSize = this.MinSize > 0 ? this.MinSize : 10;
             if (poolLength > minSize) {
-                this.popAndDestroy();
+                this.PopAndDestroy();
             }
         }
-        if (this.minSize > 0) {
-            if (poolLength < this.minSize) {
-                let obj = this.create();
+        if (this.MinSize > 0) {
+            if (poolLength < this.MinSize) {
+                let obj = this.Create();
                 this.pool.push(obj);
             }
         }

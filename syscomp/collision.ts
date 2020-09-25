@@ -57,21 +57,21 @@ export function aabbAABB(a, b) {
 }
 
 function _aabbAABB(a:Entity, b:Entity) {
-    const a_polygon = a.get(Polygon)||a.get(Point);
-    const a_circle = a.get(Circle);
+    const a_polygon = a.Get(Polygon)||a.Get(Point);
+    const a_circle = a.Get(Circle);
     const a_x       = a_polygon ? 0 : a_circle.x;
     const a_y       = a_polygon ? 0 : a_circle.y;
-    const a_radius  = a_polygon ? 0 : a_circle.radius * a_circle.scale;
+    const a_radius  = a_polygon ? 0 : a_circle.Radius * a_circle.Scale;
     const a_min_x   = a_polygon ? a_polygon.minX : a_x - a_radius;
     const a_min_y   = a_polygon ? a_polygon.minY : a_y - a_radius;
     const a_max_x   = a_polygon ? a_polygon.maxX : a_x + a_radius;
     const a_max_y   = a_polygon ? a_polygon.maxY : a_y + a_radius;
 
-    const b_polygon = b.get(Polygon)||b.get(Point);
-    const b_circle = b.get(Circle);
+    const b_polygon = b.Get(Polygon)||b.Get(Point);
+    const b_circle = b.Get(Circle);
     const b_x       = b_polygon ? 0 : b_circle.x;
     const b_y       = b_polygon ? 0 : b_circle.y;
-    const b_radius  = b_polygon ? 0 : b_circle.radius * b_circle.scale;
+    const b_radius  = b_polygon ? 0 : b_circle.Radius * b_circle.Scale;
     const b_min_x   = b_polygon ? b_polygon.minX : b_x - b_radius;
     const b_min_y   = b_polygon ? b_polygon.minY : b_y - b_radius;
     const b_max_x   = b_polygon ? b_polygon.maxX : b_x + b_radius;

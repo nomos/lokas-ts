@@ -1,7 +1,7 @@
 import {Singleton} from "../utils/singleton";
 import {SnowFlake} from "../utils/snowflake";
 
-class IdGenerator extends Singleton {
+export class IdGenerator extends Singleton {
     private worker:SnowFlake
     constructor(isServer?:boolean) {
         super();
@@ -18,7 +18,7 @@ class IdGenerator extends Singleton {
         }
     }
 
-    generate():number {
-        return this.worker.generateRaw().toNumber()
+    Generate():string {
+        return this.worker.generateRaw().toString()
     }
 }

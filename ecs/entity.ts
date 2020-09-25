@@ -1,17 +1,16 @@
 "use strict";
 
-import {Runtime} from "./runtime";
+import {IRuntime} from "./runtime";
 
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
 import {IComponent} from "./default_component";
-import * as bt from "../protocol/bt"
-import {TAGComplex} from "../protocol/complex";
-import {TAGList} from "../protocol/list";
-import {getTagFuncByString} from "../protocol/bt";
 import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
+import {define, formats, Tag, TypeRegistry} from "../protocol/types";
+import {marshal} from "../protocol/encode";
+import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
 
 /**
  * 实体<Entity>是组件<Component>的容器,负责组件<Component>生命周期的管理
@@ -24,90 +23,100 @@ import {Buffer} from "../thirdparty/buffer";
  *  客户端的Entity用于本地逻辑处理,不同步到服务器
  */
 
-export class Entity extends EventEmitter implements Serializable {
-    private readonly _runtime: Runtime
-    private readonly _id: number
-    public step: number = 0
+
+@define("EntityData")
+@formats([
+    ["Id",Tag.Long],
+    ["SyncAll",Tag.Bool],
+    ["Step",Tag.Long,Tag.Int],
+    ["AddComps",Tag.List,Tag.Buffer],
+    ["ModComps",Tag.List,Tag.Buffer],
+    ["RemComps",Tag.List,Tag.Short],
+])
+export class EntityData extends Serializable {
+    public Id:string
+    public SyncAll:boolean
+    public Step:number
+    public AddComps:Buffer[] = []
+    public ModComps:Buffer[] = []
+    public RemComps:number[] = []
+}
+
+@define("EntityRef")
+@formats([
+    ["Id",Tag.Long],
+])
+export class EntityRef extends Serializable{
+    Id:string
+
+    private runtime:IRuntime
+}
+
+export class Entity extends EventEmitter {
+    get defineName(): string {
+        return "Entity";
+    }
+
+    private readonly runtime: IRuntime
+    private readonly id: string
+    public Step: number = 0
     private _lastStep: number = 0
     private _dirty: boolean = true
     private _onDestroy: boolean = false
     private _components: Map<string, IComponent> = new Map<string, IComponent>()
-    private _tags: Array<string> = new Array<string>()
-    private _eventListener: EventEmitter = new EventEmitter();
-    private __unserializeEntityCount: number = 0
-    private _groupHashes: Array<Array<string>> = new Array<Array<string>>()
+    private _groupHashes: Array<string> = Array<string>()
     private _removeMarks: Array<string> = new Array<string>()
     private _addMarks: Array<string> = new Array<string>()
     private _modifyMarks: Array<string> = new Array<string>()
-    private _lastSnapshot: TAGComplex
-    private _snapshot: TAGComplex
+    private _lastSnapshot: EntityData
+    private _snapshot: EntityData
 
-    constructor(ea, id) {
+    constructor(ea:IRuntime, id:string) {
         super()
-        this._runtime = ea;                 //实体管理器<ECS>对象引用
-        this._id = id;                  //实体<Entity>ID对象的标记
+        this.runtime = ea;                 //实体管理器<ECS>对象引用
+        this.id = id;                  //实体<Entity>ID对象的标记
         this._lastSnapshot = null;      //上一步的快照
         this._snapshot = null;          //当前步的快照
     }
+    IsDirty() {
+        return this._dirty;
+    }
 
-    getGroupHashes(): Array<Array<string>> {
+    get Id() {
+        return this.id
+    }
+
+    GetGroupHashes(): Array<string> {
         return this._groupHashes
     }
 
-    getRuntime() {
-        return this._runtime;
+    GetRuntime() {
+        return this.runtime;
     }
 
-    debug() {
+    Debug() {
         let ret = {}
-        ret["id"] = this.id;
+        ret["id"] = this.Id;
         ret["dirty"] = this._dirty;
-        ret["step"] = this.step;
+        ret["step"] = this.Step;
         ret["components"] = {}
         this._components.forEach(function (value, key, map) {
             let comp = value;
-            let compObj = {}
-            let comName = comp.defineName;
-            //TODO:这里要更新
-            // @ts-ignore
-            let nbtFormat = comp.defineData;
-            if (!nbtFormat) {
-                return;
-            }
-            for (let j in nbtFormat) {
-                let type = nbtFormat[j];
-                if (type !== 'Entity' || type !== 'EntityMap' || type !== 'EntityArray') {
-                    compObj[j] = comp[j];
-                }
-                if (type !== 'Entity' && comp[j]) {
-                    compObj[j] = comp[j].id;
-                }
-                if (type !== 'EntityMap' && comp[j]) {
-                    compObj[j] = {}
-                    for (let k in comp[j]) {
-                        compObj[j][k] = comp[j][k] ? comp[j][k].id : 'null';
-                    }
-                }
-                if (type !== 'Entity' && comp[j]) {
-                    compObj[j] = [];
-                    for (let k in comp[j]) {
-                        compObj[j].push(comp[j][k] ? comp[j][k].id : 'null');
-                    }
-                }
-            }
-            ret["components"][comName] = compObj;
+            let comName = comp.DefineName;
+            let classDef = TypeRegistry.GetInstance().GetClassDef(comName)
+            ret["components"][comName] = classDef.Members;
         })
         return ret;
     }
 
-    addGroup(hash) {
+    AddGroup(hash:string) {
         let index = this._groupHashes.indexOf(hash);
         if (index === -1) {
             this._groupHashes.push(hash);
         }
     }
 
-    removeGroup(hash) {
+    RemoveGroup(hash) {
         let index = this._groupHashes.indexOf(hash);
         if (index !== -1) {
             this._groupHashes.splice(index, 1);
@@ -115,7 +124,7 @@ export class Entity extends EventEmitter implements Serializable {
     }
 
 
-    clean() {
+    Clean() {
         this._dirty = false;
         this._removeMarks = [];
         this._addMarks = [];
@@ -123,35 +132,35 @@ export class Entity extends EventEmitter implements Serializable {
     }
 
 //脏标记实体,并记录更新当前步数
-    dirty() {
+    MarkDirty() {
         if (this._dirty) {
             return;
         }
-        this._runtime.markDirtyEntity(this);
+        this.runtime.MarkDirtyEntity(this);
         this._dirty = true;
-        if (this._runtime.isServer()) {
-            this._lastStep = this.step;
-            this.step = this._runtime.getTick();
+        if (this.runtime.IsServer()) {
+            this._lastStep = this.Step;
+            this.Step = this.runtime.Tick;
         }
     }
 
-    markDirty(comp: IComponent) {
-        this.dirty();
-        if (comp.nosync) {
+    ModifyMark(comp: IComponent) {
+        this.MarkDirty();
+        if (comp.SyncAble) {
             return;
         }
-        let name = comp.defineName;
+        let name = comp.DefineName;
         if (this._modifyMarks.indexOf(name) === -1 && this._addMarks.indexOf(name) === -1) {
             this._modifyMarks.push(name);
         }
     }
 
-    addMark(comp: IComponent) {
-        this.dirty();
-        if (comp.nosync) {
+    AddMark(comp: IComponent) {
+        this.MarkDirty();
+        if (comp.SyncAble) {
             return;
         }
-        let name = comp.defineName;
+        let name = comp.DefineName;
         if (this._addMarks.indexOf(name) === -1) {
             let modIndex = this._modifyMarks.indexOf(name);
             if (modIndex !== -1) {
@@ -161,374 +170,134 @@ export class Entity extends EventEmitter implements Serializable {
         }
     }
 
-    removeMark(comp: IComponent) {
-        this.dirty();
-        if (comp.nosync) {
+    RemoveMark(comp: IComponent) {
+        this.MarkDirty();
+        if (comp.SyncAble) {
             return;
         }
-        let name = comp.defineName;
+        let name = comp.DefineName;
         if (this._removeMarks.indexOf(name) === -1) {
             this._removeMarks.push(name);
         }
     }
 
-//获取当前步与上一步差异值
-    snapCurrent() {
-        let ret = bt.Complex();
-        ret.addValue(bt.Long(this._id));
-        ret.addValue(bt.Long(this.step));
-        let modComps = bt.List();
-        let addComps = bt.List();
-        let remComps = bt.List();
-        for (let i = 0; i < this._modifyMarks.length; i++) {
-            let comp = this._components[this._modifyMarks[i]];
-            modComps.push(this.comp2NBT(comp));
-        }
-        for (let i = 0; i < this._addMarks.length; i++) {
-            let comp = this._components[this._addMarks[i]];
-            addComps.push(this.comp2NBT(comp));
-        }
-        for (let i = 0; i < this._removeMarks.length; i++) {
-            // let id = this._runtime.getComponentID(this._addMarks[i]);
-            let id = this._modifyMarks[i];
-            remComps.push(bt.String(id));
-        }
-        ret.addValue(modComps);
-        ret.addValue(addComps);
-        ret.addValue(remComps);
-        return ret;
-    }
 
-//获取上一步与当前步差值
-    snapPrevious() {
-        if (!this._lastSnapshot) {
-            return;
-        }
-        let ret = bt.Complex();
-        ret.addValue(this._lastSnapshot.at(0));
-        ret.addValue(this._lastSnapshot.at(1));
-        let modComps = bt.List();
-        let addComps = bt.List();
-        let remComps = bt.List();
-        let compList = <TAGList>this._lastSnapshot.at(2);
-        for (let i = 0; i < this._modifyMarks.length; i++) {
-            // let id = this._runtime.getComponentID(this._modifyMarks[i]);
-            let id = this._modifyMarks[i];
-            for (let j = 0; j < compList.getSize(); j++) {
-                if (id === (<TAGComplex>compList.at(j)).at(0).value) {
-                    modComps.push(compList.at(j));
-                    break;
-                }
-            }
-        }
-        for (let i = 0; i < this._addMarks.length; i++) {
-            let id = this._removeMarks[i];
-            // let id = this._runtime.getComponentID(this._removeMarks[i]);
-            for (let j = 0; j < compList.getSize(); j++) {
-                if (id === (<TAGComplex>compList.at(j)).at(0).value) {
-                    addComps.push(compList.at(j));
-                    break;
-                }
-            }
-        }
-        for (let i = 0; i < this._removeMarks.length; i++) {
-            let id = this._addMarks[i];
-            // let id = this._runtime.getComponentID(this._addMarks[i]);
-            remComps.push(bt.String(id));
-        }
-        ret.addValue(modComps);
-        ret.addValue(addComps);
-        ret.addValue(remComps);
-        return ret;
-    }
-
-
-    comp2NBT(comp, connData?) {
-        if (comp.nosync) {
-            return;
-        }
-        if (comp.onSync && connData) {
-            comp = comp.onSync(this, this._runtime, connData);
-        }
-        let compComplex = bt.Complex();
-        // compComplex.addValue(bt.Int(this._runtime.getComponentID(comp)));
-        let ecs = this._runtime;
-        compComplex.addValue(ecs.getComponentDefineToNbt(comp));
-        if (Object.keys(comp).length === 0) {
-            compComplex.addValue(bt.Complex());
-            return compComplex;
-        }
-        if (comp.toNBT) {
-            compComplex.addValue(comp.toNBT());
-            return compComplex;
-        }
-
-        let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
-        if (!nbtFormat) {
-            throw new Error(comp.getComponentName ? comp.getComponentName() : comp.__proto__.__classname + ' dont have nbtFormat');
-        }
-        if (Object.keys(nbtFormat).length === 0) {
-            compComplex.addValue(bt.Complex());
-            return compComplex;
-        }
-        let dataComplex = bt.Complex();
-        for (let i in nbtFormat) {
-            if (!nbtFormat.hasOwnProperty(i)) {
-                return;
-            }
-            let type = nbtFormat[i];
-            if (type === 'EntityArray') {
-                let arr = comp[i];
-                let entArr = [];
-                for (let j = 0; j < arr.length; j++) {
-                    let id = arr[j] ? arr[j].id : 0;
-                    entArr.push(id);
-                }
-                dataComplex.addValue(bt.LongArray(entArr));
-            } else if (type === 'EntityMap') {
-                let obj = comp[i];
-                let nbtObj = bt.Compound();
-                for (let j in obj) {
-                    if (!obj.hasOwnProperty(j)) {
-                        continue;
-                    }
-                    let id = obj[j] ? obj[j].id : 0;
-                    nbtObj.addValue(j, bt.Long(id));
-                }
-                dataComplex.addValue(nbtObj);
-            } else if (type === 'Entity') {
-                let eid = comp[i] ? comp[i].id : 0;
-                dataComplex.addValue(bt.Long(eid))
-            } else if (type === 'JSObject' || type === 'Object') {
-                dataComplex.addValue(bt.createFromJSObject(comp[i]))
-            } else {
-                dataComplex.addValue(getTagFuncByString(type)(comp[i]));
-            }
-        }
-        compComplex.addValue(dataComplex);
-        if (comp.onSyncFinish) {
-            comp.onSyncFinish(this, this._runtime, connData);
-        }
-        return compComplex;
-    }
-
-    compFormatFromNBT(step, comp, btObj) {
-        let self = this;
-        if (btObj.length === 0) {
-            return;
-        }
-        if (comp.fromNBT) {
-            comp.fromNBT(btObj);
-            comp.dirty();
-            return;
-        }
-        let nbtFormat = comp.defineData ? comp.defineData : comp.nbtFormat;
-        if (!nbtFormat) {
-            throw new Error('comp dont have nbtFormat');
-        }
-        let count = 0;
-        for (let i in nbtFormat) {
-            if (!nbtFormat.hasOwnProperty(i)) {
-                continue;
-            }
-            let type = nbtFormat[i];
-            if (type === 'EntityArray') {
-                let entarr = btObj.at(count);
-                comp[i] = [];
-                for (let j = 0; j < entarr.getSize(); j++) {
-                    let id = entarr.at(j).toNumber();
-                    let ent = this._runtime.getEntity(id);
-                    if (id === 0) {
-                        comp[i].push(null);
-                    } else if (ent) {
-                        comp[i].push(ent);
-                    } else {
-                        comp[i].push(new Entity(null, id));
-                        self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity' + step + id, function (idx, ent) {
-                            self.__unserializeEntityCount--;
-                            if (idx === id) {
-                                comp[i][j] = ent;
-                            }
-                            if (self.__unserializeEntityCount === 0) {
-                                comp.dirty();
-                            }
-                        });
-                    }
-                }
-
-            } else if (type === 'EntityMap') {
-                let entmap = btObj.at(count);
-                comp[i] = {}
-                let names = entmap.getNames();
-                for (let j = 0; j < names.length; j++) {
-                    let id = entmap.fetchValue(names[j]).value.toNumber();
-                    let ent = this._runtime.getEntity(id);
-                    if (id === 0) {
-                        comp[i][names[j]] = null;
-                    } else if (ent) {
-                        comp[i][names[j]] = ent;
-                    } else {
-                        self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity' + step + id, function (idx, ent) {
-                            self.__unserializeEntityCount--;
-                            if (idx === id) {
-                                comp[i][names[j]] = ent;
-                            }
-                            if (self.__unserializeEntityCount === 0) {
-                                comp.dirty();
-                            }
-                        });
-                    }
-                }
-            } else if (type === 'Entity') {
-                let eid = btObj.at(count).value.toNumber();
-                if (eid === 0) {
-                    comp[i] = null;
-                } else {
-                    let ent = this._runtime.getEntity(eid);
-                    if (ent) {
-                        comp[i] = ent;
-                    } else {
-
-                        self.__unserializeEntityCount++;
-                        this._runtime.once('__unserializeEntity' + step + eid, function (idx, ent) {
-                            self.__unserializeEntityCount--;
-                            if (idx === eid) {
-                                comp[i] = ent;
-                            }
-                            if (self.__unserializeEntityCount === 0) {
-                                comp.dirty();
-                            }
-                        });
-                    }
-                }
-
-            } else if (type === 'JSObject' || 'Object') {
-                comp[i] = btObj.at(count).toJSObject();
-            } else {
-                comp[i] = btObj.at(count).value;
-            }
-            count++;
-        }
-        comp.dirty();
-    }
-
-    nbt2Command(btObj) {
-        let count = 0;
-        let nbtFormat = btObj.defineData ? btObj.defineData : btObj.nbtFormat;
-        for (let i in nbtFormat) {
-            if (!nbtFormat.hasOwnProperty(i)) {
-                continue;
-            }
-
-        }
-    }
-
-    command2Nbt(command) {
-
-    }
-
-    fromNBT(step, btObj) {
-        if (btObj.getSize() === 3) {
-            this.step = btObj.at(1).value.toNumber();
-            let comps = btObj.at(2);
-            let syncCompArr = [];
-            for (let i = 0; i < comps.getSize(); i++) {
-                let compNbt = comps.at(i);
-                let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
-                syncCompArr.push(compName);
-                let comp = this.get(compName) || this.add(compName);
-                this.compFormatFromNBT(step, comp, compNbt.at(1));
-                comp.markDirty();
-            }
-            for (let i in this._components) {
-                if (syncCompArr.indexOf(i) === -1) {
-                    let comp = this._components[i];
-                    if (this._runtime.getComponentDefine(comp) !== undefined) {
-                        this.remove(comp);
-                    }
-                }
-            }
-        }
-        if (btObj.getSize() === 5) {
-            this.step = btObj.at(1).value.toNumber();
-            let modComps = btObj.at(2);
-            for (let i = 0; i < modComps.getSize(); i++) {
-                let compNbt = modComps.at(i);
-                let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
-                let comp = this.get(compName) || this.add(compName);
-                let compParams = compNbt.at(1);
-                this.compFormatFromNBT(step, comp, compParams);
-                comp.markDirty();
-            }
-            let addComps = btObj.at(3);
-            for (let i = 0; i < addComps.getSize(); i++) {
-                let compNbt = addComps.at(i);
-                let compName = this._runtime.getComponentNameFromDefine(compNbt.at(0).value);
-                let comp = this.add(compName);
-                let compParams = compNbt.at(1);
-                this.compFormatFromNBT(step, comp, compParams);
-                comp.markDirty();
-            }
-            let removeComps = btObj.at(4);
-            for (let i = 0; i < removeComps.getSize(); i++) {
-                let compName = this._runtime.getComponentNameFromDefine(removeComps.at(i).value);
-                this.remove(compName);
-            }
-        }
-    }
-
-    snapshot(connData?): TAGComplex {
-        let ret = bt.Complex();
-        ret.addValue(bt.Long(this._id));
-        ret.addValue(bt.Long(this.step));
-        let components = bt.List();
+    SnapShot(connData?): EntityData {
+        let ret = new EntityData()
+        ret.Id = this.id
+        ret.SyncAll = true
+        ret.Step = this.Step
         let toSyncComponents = [];
-        for (let i in this._components) {
-            if (!this._components.hasOwnProperty(i)) {
-                continue;
-            }
-            let comp = this._components[i];
-            if (comp.nosync) {
-                continue;
-            }
-            toSyncComponents.push(comp);
-        }
-        components.sort(this.engine._sortDepends);
+        this._components.forEach((v)=>{
+            toSyncComponents.push(v);
+        })
+        toSyncComponents.sort(this.runtime.SortDepends);
         for (let comp of toSyncComponents) {
-            components.push(this.comp2NBT(comp, connData));
+            ret.AddComps.push(comp.MarshalTo())
         }
-        ret.addValue(components);
         this._lastSnapshot = this._snapshot;
         this._snapshot = ret;
         return ret;
     }
-
-    isDirty() {
-        return this._dirty;
+//获取当前步与上一步差异值
+    SnapCurrent():EntityData {
+        let ret = new EntityData();
+        ret.Id = this.Id
+        ret.SyncAll = false
+        ret.Step = this.Step
+        for (let i = 0; i < this._modifyMarks.length; i++) {
+            let comp = this._components.get(this._modifyMarks[i]);
+            ret.ModComps.push(marshal(comp))
+        }
+        for (let i = 0; i < this._addMarks.length; i++) {
+            let comp = this._components.get(this._addMarks[i]);
+            ret.AddComps.push(marshal(comp))
+        }
+        for (let i = 0; i < this._removeMarks.length; i++) {
+            // let id = this._runtime.getComponentID(this._addMarks[i]);
+            let id = this._modifyMarks[i];
+            ret.RemComps.push(TypeRegistry.GetInstance().GetTagByName(id))
+        }
+        return ret;
     }
 
-    get id() {
-        return this._id
+    UnmarshalCompFromBuffer(step:number, comp:IComponent, buff:Buffer) {
+        unmarshal(buff,comp)
+        comp.MarkDirty()
     }
 
-    get engine() {
-        return this._runtime
+    FromEntityData(entData:EntityData) {
+        if (this.Id != entData.Id) {
+            log.panic("")
+        }
+        this.Step = entData.Step
+        if (entData.SyncAll) {
+            entData.AddComps.forEach((buff)=>{
+                let header = unmarshalMessageHeader(buff)
+                let compDefine = TypeRegistry.GetInstance().GetProtoByTag(header[0]).constructor
+                let comp = this.Get(compDefine) || this.add(compDefine);
+                unmarshal(buff,comp)
+                comp.MarkDirty()
+            })
+        } else {
+            entData.ModComps.forEach((buff)=>{
+                let header = unmarshalMessageHeader(buff)
+                let compDefine = TypeRegistry.GetInstance().GetProtoByTag(header[0]).constructor
+                let comp = this.Get(compDefine) || this.add(compDefine);
+                unmarshal(buff,comp)
+                comp.MarkDirty()
+            })
+            entData.AddComps.forEach((buff)=>{
+                let header = unmarshalMessageHeader(buff)
+                let compDefine = TypeRegistry.GetInstance().GetProtoByTag(header[0]).constructor
+                let comp = this.add(compDefine);
+                unmarshal(buff,comp)
+                comp.MarkDirty()
+            })
+            entData.RemComps.forEach((tag)=>{
+                let compDefine = TypeRegistry.GetInstance().GetProtoByTag(tag)
+                this.remove(compDefine)
+            })
+        }
+
     }
+
+    FromBuffer(buff:Buffer) {
+        let entData = new EntityData()
+        unmarshal(buff,entData)
+        this.FromEntityData(entData)
+    }
+
+    SnapStep():EntityData {
+        let ret = new EntityData()
+        ret.Id = this.Id
+        ret.SyncAll = false
+        ret.Step = this.Step
+        this._modifyMarks.forEach((name)=>{
+            ret.AddComps.push(marshal(this._components[name]))
+        })
+        this._addMarks.forEach((name)=>{
+            ret.AddComps.push(marshal(this._components[name]))
+        })
+        this._removeMarks.forEach((name)=>{
+            ret.AddComps.push(marshal(this._components[name]))
+        })
+        return ret
+    }
+
 
     /**
      * 获取一个组件<Component>
      * @param comp 可以是一个string或者Component实例
      * @returns {Component}
      */
-    get<T extends IComponent>(comp: { new(): T }): T {
-        return <T>this._components[Object.getPrototypeOf(comp).defineName];
+    Get<T extends IComponent>(comp: { new(): T }): T {
+        return <T>this._components.get(TypeRegistry.GetInstance().GetAnyName(comp))
     }
 
     getOneOf(comps: Array<{ new(): any }>): any {
         comps.forEach((comp) => {
-            let t = this._components[Object.getPrototypeOf(comp).defineName]
+            let t = this._components.get(TypeRegistry.GetInstance().GetAnyName(comp))
             if (t) {
                 return t
             }
@@ -537,18 +306,18 @@ export class Entity extends EventEmitter implements Serializable {
     }
 
     forceAdd(comp, ...args) {
-        let type = util.getComponentType(comp);
+        let type = TypeRegistry.GetInstance().GetAnyName(comp);
         comp._entity = this;
         if (args.length > 0) {
             Object.getPrototypeOf(comp).constructor.apply(comp, args);
         }
-        this._components[type] = comp;
-        this.addMark(comp);
-        this._runtime.assignEntity(type, this);
+        this._components.set(type,comp)
+        this.AddMark(comp);
+        this.runtime.AssignEntity(type, this);
         comp.dirty();
-        this._runtime.markDirtyEntity(this);
-        this.getRuntime().emit('add component', comp, this, this._runtime);
-        this.emit('add component', comp, this, this._runtime);
+        this.runtime.MarkDirtyEntity(this);
+        this.GetRuntime().emit('add component', comp, this, this.runtime);
+        this.emit('add component', comp, this, this.runtime);
         return comp;
 
     }
@@ -556,17 +325,17 @@ export class Entity extends EventEmitter implements Serializable {
     /**
      * 为Entity添加一个组件<Component>并初始化属性
      */
-    add<T extends IComponent>(iComp: { new(): T }, ...args) {
-        let type = util.getComponentType(iComp)
-        if (this._runtime.needCheckDepends) {
-            let depends = this._runtime.getDepends(iComp);
+    add<T extends IComponent>(iComp: { new(): T }, ...args):T {
+        let type = TypeRegistry.GetInstance().GetAnyName(iComp)
+        if (this.runtime.Strict) {
+            let depends = this.runtime.GetDepends(iComp);
             for (let dependComp of depends) {
-                if (!this.get(dependComp)) {
+                if (!this.Get(dependComp)) {
                     throw new Error('component type <' + type + ' > depends <' + dependComp + '> not found');
                 }
             }
         }
-        let comp = this.get(iComp);
+        let comp = this.Get(iComp);
 
         let isApply = false;
         let isExist = false;
@@ -575,36 +344,36 @@ export class Entity extends EventEmitter implements Serializable {
             log.error('已经存在Component:' + type);
         } else {
             if (args.length > 0) {
-                args = [type].concat(args);
+                args = [iComp].concat(args);
                 isApply = true;
-                comp = Reflect.apply(this._runtime.createComponent, this._runtime, args);
+                comp = this.runtime.CreateComponent.apply(this.runtime, args);
             } else {
 
-                comp = this._runtime.createComponent(iComp);
+                comp = <T>this.runtime.CreateComponent(iComp);
             }
 
         }
         if (!comp) {
             throw new Error('Component参数错误,可能未注册');
         }
-        if (comp.getEntity() && comp.getEntity() !== this) {
-            log.error('组件已经绑定有实体', comp, comp.getEntity);
+        if (comp.GetEntity() && comp.GetEntity() !== this) {
+            log.error('组件已经绑定有实体', comp, comp.GetEntity);
         }
-        comp.setEntity(this);
+        comp.SetEntity(this);
         if (args.length > 0 && !isApply) {
             iComp.apply(comp, args)
         }
         if (!isExist) {
-            comp.onAdd(this, this._runtime);
-            comp.markDirty();
+            comp.OnAdd(this, this.runtime);
+            comp.MarkDirty();
         }
-        this._components[comp.defineName] = comp;
-        this.addMark(comp);
-        this._runtime.assignEntity(comp.defineName, this);
-        this._runtime.markDirtyEntity(this);
-        this.getRuntime().emit('add component', comp, this, this._runtime);
-        this.emit('add component', comp, this, this._runtime);
-        return comp;
+        this._components.set(comp.DefineName,comp)
+        this.AddMark(comp);
+        this.runtime.AssignEntity(comp.DefineName, this);
+        this.runtime.MarkDirtyEntity(this);
+        this.GetRuntime().emit('add component', comp, this, this.runtime);
+        this.emit('add component', comp, this, this.runtime);
+        return <T>comp;
     }
 
     isComponentDirty(compName) {
@@ -615,28 +384,28 @@ export class Entity extends EventEmitter implements Serializable {
      * 移除实体的一个组件
      */
     remove(_comp: ({ new(): IComponent })) {
-        let comp = this.get(_comp);
+        let comp = this.Get(_comp);
         if (comp) {
-            if (this._runtime.needCheckDepends) {
-                let depends = this._runtime.getDependsBy(comp);
+            if (this.runtime.Strict) {
+                let depends = this.runtime.GetDependsBy(_comp);
                 if (depends)
                     for (let dependComp of depends) {
-                        if (!this.get(dependComp)) {
+                        if (!this.Get(dependComp)) {
                             throw new Error('component type <' + dependComp + ' > depends <' + comp + '> cannot remove now');
                         }
                     }
             }
 
-            this.getRuntime().emit('remove component', comp, this, this._runtime);
-            this.emit('remove component', comp, this, this._runtime);
-            if (comp.onRemove) {
-                comp.onRemove(this, this._runtime);
+            this.GetRuntime().emit('remove component', comp, this, this.runtime);
+            this.emit('remove component', comp, this, this.runtime);
+            if (comp.OnRemove) {
+                comp.OnRemove(this, this.runtime);
             }
-            comp.setEntity(null);
-            this.removeMark(comp);
-            this._runtime.recycleComponent(comp);
-            this._runtime.reassignEntity(_comp, this);
-            delete this._components[comp.defineName];
+            comp.SetEntity(null);
+            this.RemoveMark(comp);
+            this.runtime.RecycleComponent(comp);
+            this.runtime.AssignEntity(comp.DefineName, this);
+            this._components.delete(comp.DefineName)
             return;
         }
         log.error('组件不存在');
@@ -647,12 +416,12 @@ export class Entity extends EventEmitter implements Serializable {
      */
     destroy() {
         this._onDestroy = true;
-        this._runtime.removeEntity(this);
+        this.runtime.RemoveEntity(this.Id);
     }
 
     destroyInstant() {
         this._onDestroy = true;
-        this._runtime.removeEntityInstant(this);
+        this.runtime.RemoveEntityInstant(this.Id);
     }
 
     isOnDestroy() {
@@ -665,14 +434,12 @@ export class Entity extends EventEmitter implements Serializable {
     onDestroy() {
         let keys = Object.keys(this._components);
 
-        keys.sort(this._runtime._sortDependsInverse.bind(this._runtime));
+        keys.sort(this.runtime.SortDependsInverse.bind(this.runtime));
         for (let i = keys.length - 1; i >= 0; i--) {
-            let comp = this._components[keys[i]];
-            if (comp.onRemove) {
-                comp.onRemove(this, this._runtime);
-            }
-            comp._entity = null;
-            this._runtime.recycleComponent(comp);
+            let comp = this._components.get(keys[i]);
+            comp.OnRemove(this, this.runtime);
+            comp.SetEntity(null);
+            this.runtime.RecycleComponent(comp);
         }
         this._groupHashes = [];
         this._components = new Map<string, IComponent>()
@@ -680,10 +447,10 @@ export class Entity extends EventEmitter implements Serializable {
 
     getComponentTypes() {
         let ret = [];
-        for (let i in this._components) {
-            let comp = this._components[i];
+        this._components.forEach((comp)=>{
             ret.push(comp.getComponentName());
-        }
+
+        })
         return ret;
     }
 

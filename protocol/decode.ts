@@ -1,11 +1,11 @@
 import {Buffer} from "../thirdparty/buffer";
-import {BinaryMessage} from "./protocol";
 import {Tag, TypeRegistry} from "./types";
 import {log} from "../utils/logger";
-import {isBaseArray, isBaseValue} from "./encode";
+import {HEADER_SIZE, isBaseArray, isBaseValue} from "./encode";
 import {Long} from "../utils/long";
+import {Serializable} from "./protocol";
 
-export function unmarshalHeader(buff: Buffer): [number, number, number, number] {
+export function unmarshalMessageHeader(buff: Buffer): [number, number, number] {
     let offset = 0
     let transId = buff.readUInt32BE(offset)
     offset += 4
@@ -13,7 +13,7 @@ export function unmarshalHeader(buff: Buffer): [number, number, number, number] 
     offset += 2
     let tag:number
     [tag,offset] = readTag(buff,offset)
-    return [tag, transId, len, offset]
+    return [tag, transId, len]
 }
 
 function readTag(buff: Buffer, offset: number): [number, number] {
@@ -26,14 +26,19 @@ function readTag(buff: Buffer, offset: number): [number, number] {
     }
 }
 
-export function unmarshalBody(buff: Buffer, tag: number, offset: number): [any, number] {
-    return readComplex(buff, tag, offset)
+export function unmarshalMessageBody(buff: Buffer, tag: number): [Serializable, number] {
+    return readComplex(buff, tag, HEADER_SIZE)
 }
 
-export function unmarshal(buff: Buffer):any {
+export function unmarshal(buff: Buffer,value?:Serializable):Serializable {
     let [tag,offset] = readTag(buff,0)
-    let [ret,offset1] = readComplex(buff,tag,offset)
-    return ret
+    if (value) {
+        let [value1,offset1] = readValueFromComplex(buff,value,tag,offset)
+        return value
+    } else {
+        let [ret,offset1] = readComplex(buff,tag,offset)
+        return ret
+    }
 }
 
 export function readValue(buff: Buffer, tag: number, tag1: number, tag2: number, offset: number): [any, number] {
@@ -43,9 +48,9 @@ export function readValue(buff: Buffer, tag: number, tag1: number, tag2: number,
         tag = Tag.Proto
     }
     if (isBaseValue(tag)) {
-        return readBaseValue(buff, tag, offset)
+        return readBaseValue(buff, tag,tag1, offset)
     } else if (isBaseArray(tag)) {
-        return readBaseArray(buff, tag, offset)
+        return readBaseArray(buff, tag,tag1, offset)
     } else if (tag == Tag.String) {
         return readString(buff, offset)
     } else if (tag == Tag.Time) {
@@ -103,19 +108,44 @@ export function readMap(buff: Buffer, tag: number, tag1: number, tag2: number, o
     return [ret, offset]
 }
 
-export function readComplex(buff: Buffer, tag: number, offset: number): [any, number] {
-    let ret = TypeRegistry.getInstance().getInstanceByTag(tag)
-    let classDef = TypeRegistry.getInstance().getClassDefByTag(tag)
+export function readValueFromComplex(buff: Buffer,value:any, tag: number, offset: number): [any, number] {
+    let proto = TypeRegistry.GetInstance().GetProtoByTag(tag).constructor
+    if (!(value instanceof proto)) {
+        log.panic("value is not matched")
+    }
+    let classDef = TypeRegistry.GetInstance().GetClassDefByTag(tag)
     if (!classDef) {
         log.panic("tag is not registered", tag);
     }
     let length = buff.readUInt8(offset)
     offset+=1
-    classDef.members.forEach(function (v, i, arr) {
+    classDef.Members.forEach(function (v, i, arr) {
         [tag, offset] = readTag(buff, offset);
         if (tag == Tag.Long) {
         }
-        [ret[v.key], offset] = readValue(buff, v.tag, v.tag1, v.tag2, offset);
+        [value[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2, offset);
+    })
+    let tagEnd: number
+    [tagEnd, offset] = readTag(buff, offset)
+    if (tagEnd !== Tag.End) {
+        log.panic("end tag error", tagEnd)
+    }
+    return [value, offset]
+}
+
+export function readComplex(buff: Buffer, tag: number, offset: number): [any, number] {
+    let ret = TypeRegistry.GetInstance().GetInstanceByTag(tag)
+    let classDef = TypeRegistry.GetInstance().GetClassDefByTag(tag)
+    if (!classDef) {
+        log.panic("tag is not registered", tag);
+    }
+    let length = buff.readUInt8(offset)
+    offset+=1
+    classDef.Members.forEach(function (v, i, arr) {
+        [tag, offset] = readTag(buff, offset);
+        if (tag == Tag.Long) {
+        }
+        [ret[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2, offset);
     })
     let tagEnd: number
     [tagEnd, offset] = readTag(buff, offset)
@@ -142,7 +172,7 @@ export function readList(buff: Buffer, tag: number, offset: number): [any[], num
     return [ret, offset]
 }
 
-export function readBaseArray(buff: Buffer, tag: number, offset: number): [any[], number] {
+export function readBaseArray(buff: Buffer, tag: number,tag1:number, offset: number): [any[], number] {
     switch (tag) {
         case Tag.Bool_Array:
             {
@@ -215,11 +245,21 @@ export function readBaseArray(buff: Buffer, tag: number, offset: number): [any[]
                 let len = buff.readUInt32BE(offset);
                 let nextOffset = offset + 4;
                 let endOffset = nextOffset + len * 8;
-                let ret = new Array<string>();
-                for (let i = 0; i < endOffset - nextOffset; i += 8) {
-                    let high = buff.readInt32BE(nextOffset + i);
-                    let low = buff.readInt32BE(nextOffset + i + 4);
-                    ret.push((new Long(low, high)).toString());
+                let ret
+                if (tag1==Tag.Int) {
+                    ret = new Array<number>();
+                    for (let i = 0; i < endOffset - nextOffset; i += 8) {
+                        let high = buff.readInt32BE(nextOffset + i);
+                        let low = buff.readInt32BE(nextOffset + i + 4);
+                        ret.push((new Long(low, high)).toNumber());
+                    }
+                } else {
+                    ret = new Array<string>();
+                    for (let i = 0; i < endOffset - nextOffset; i += 8) {
+                        let high = buff.readInt32BE(nextOffset + i);
+                        let low = buff.readInt32BE(nextOffset + i + 4);
+                        ret.push((new Long(low, high)).toString());
+                    }
                 }
                 return [ret, 4 + len * 8 + offset];
             }
@@ -250,7 +290,7 @@ export function readBaseArray(buff: Buffer, tag: number, offset: number): [any[]
     }
 }
 
-export function readBaseValue(buff: Buffer, tag: number, offset: number): [any, number] {
+export function readBaseValue(buff: Buffer, tag: number,tag1:number, offset: number): [any, number] {
     switch (tag) {
         case Tag.Bool:
             return [!!(buff.readInt8(offset)), 1 + offset];
@@ -261,7 +301,11 @@ export function readBaseValue(buff: Buffer, tag: number, offset: number): [any, 
         case Tag.Int:
             return [buff.readInt32BE(offset), 4 + offset]
         case Tag.Long:
-            return readLong(buff,offset)
+            if (tag1==Tag.Int) {
+                return readLongToNumber(buff,offset)
+            } else {
+                return readLongToString(buff,offset)
+            }
         case Tag.Float:
             return [buff.readFloatBE(offset), 4 + offset]
         case Tag.Double:
@@ -271,9 +315,15 @@ export function readBaseValue(buff: Buffer, tag: number, offset: number): [any, 
     }
 }
 
-function readLong(buff:Buffer,offset:number):[Long,number] {
+function readLongToString(buff:Buffer,offset:number):[string,number] {
     let sliced = buff.slice(offset, offset + 8);
     return [Long.fromBytesBE(sliced, true).toString(), 8 + offset];
+}
+
+
+function readLongToNumber(buff:Buffer,offset:number):[number,number] {
+    let sliced = buff.slice(offset, offset + 8);
+    return [Long.fromBytesBE(sliced, true).toNumber(), 8 + offset];
 }
 
 function readTime(buff:Buffer,offset:number):[Date,number] {

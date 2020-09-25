@@ -2,6 +2,7 @@
 import {Singleton} from "../utils/singleton";
 import {log} from "../utils/logger";
 import {Serializable} from "./protocol";
+import {util} from "../utils/util";
 
 export enum Tag {
     //-------Base Tag-------
@@ -28,9 +29,13 @@ export enum Tag {
     Proto,
     Null,
     //-------ECS Struct-------
-    Entity = 31,
-    EntityArray,
-    EntityMap,
+    EntityRef = 31,
+    EntityData,
+    Connection,
+    SyncCmd,
+    SyncReq,
+    SyncFrame,
+    SyncStream,
     //-------System Struct-------
     ErrMsg = 41,
     ComposeData,
@@ -54,120 +59,144 @@ export enum Tag {
 }
 
 export class MemberDef {
-    public key: string
-    public tag: number
-    public tag1: number
-    public tag2: number
-
-    constructor(key, tag: number, tag1: number, tag2: number) {
-        this.key = key
-        this.tag = tag
-        this.tag1 = tag1
-        this.tag2 = tag2
+    public Key: string
+    public Tag: number
+    public Tag1: number
+    public Tag2: number
+    public Tag3: number
+    constructor(key, tag: number, tag1: number, tag2: number, tag3: number) {
+        this.Key = key
+        this.Tag = tag
+        this.Tag1 = tag1
+        this.Tag2 = tag2
+        this.Tag3 = tag3
     }
 }
 
-let __tempMemberMap = new Array<{ctor:any,member:MemberDef}>()
+let __tempMemberMap = new Array<{ ctor: any, member: MemberDef }>()
 
 export class ClassDef {
-    public name: string
-    public ctor: { new(): any }
-    public membersMap: Map<string, MemberDef> = new Map<string, MemberDef>()
-    public members: Array<MemberDef> = new Array<MemberDef>()
+    public Name: string
+    public Ctor: { new(): any }
+    public MembersMap: Map<string, MemberDef> = new Map<string, MemberDef>()
+    public Members: Array<MemberDef> = new Array<MemberDef>()
 
     constructor(name: string, ctor: { new(): any }) {
-        this.name = name
-        this.ctor = ctor
+        this.Name = name
+        this.Ctor = ctor
     }
-    get tag():number {
-        return TypeRegistry.getInstance().getTagByName(this.name)
+
+    get Tag(): number {
+        return TypeRegistry.GetInstance().GetTagByName(this.Name)
     }
-    registerMember(key: string, tag: number, tag1?: number, tag2?: number) {
-        log.warn("register member def",this.name,key,tag)
-        if (this.membersMap.get(key)) {
+
+    RegisterMember(key: string, tag: number, tag1?: number, tag2?: number, tag3?: number) {
+        log.warn("register member def", this.Name, key, tag)
+        if (this.MembersMap.get(key)) {
             throw new Error("duplicated member key:" + key)
         }
-        this.membersMap.set(key,new MemberDef(key, tag, tag1, tag2))
-        this.members.push(this.membersMap.get(key))
+        this.MembersMap.set(key, new MemberDef(key, tag, tag1, tag2, tag3))
+        this.Members.push(this.MembersMap.get(key))
     }
 }
 
 export class TypeRegistry extends Singleton {
     private classDefs: Map<string, ClassDef> = new Map<string, ClassDef>()
     private classDefsInverse: Map<any, string> = new Map<any, string>()
-    private classProto:Map<string,any> = new Map<string, any>()
+    private classProto: Map<string, any> = new Map<string, any>()
     private tagMap: Map<string, number> = new Map<string, number>()
     private typeMap: Map<number, string> = new Map<number, string>()
 
-    static getInstance(): TypeRegistry {
-        return <TypeRegistry>super.getInstance()
+    static GetInstance(): TypeRegistry {
+        return <TypeRegistry>super.GetInstance()
     }
 
     constructor() {
         super();
-        this.registerSystemTag("ErrMsg", Tag.ErrMsg)
-        this.registerSystemTag("ComposeData", Tag.ComposeData)
-        this.registerSystemTag("Vector", Tag.Vector)
-        this.registerSystemTag("Position", Tag.Position)
-        this.registerSystemTag("Velocity", Tag.Velocity)
-        this.registerSystemTag("Acceleration", Tag.Acceleration)
-        this.registerSystemTag("AngularMovement", Tag.AngularMovement)
-        this.registerSystemTag("Size", Tag.Size)
-        this.registerSystemTag("Polygon", Tag.Polygon)
-        this.registerSystemTag("Point", Tag.Point)
-        this.registerSystemTag("Rect", Tag.Rect)
-        this.registerSystemTag("Circle", Tag.Circle)
-        this.registerSystemTag("Collider", Tag.Collider)
-        this.registerSystemTag("Contact", Tag.Contact)
-        this.registerSystemTag("BVBranch", Tag.BVBranch)
-        this.registerSystemTag("BVTree", Tag.BVTree)
-        this.registerSystemTag("QuadBranch", Tag.QuadBranch)
-        this.registerSystemTag("QuadTree", Tag.QuadTree)
+        this.RegisterSystemTag("ErrMsg", Tag.ErrMsg)
+        this.RegisterSystemTag("ComposeData", Tag.ComposeData)
+        this.RegisterSystemTag("Vector", Tag.Vector)
+        this.RegisterSystemTag("Position", Tag.Position)
+        this.RegisterSystemTag("Velocity", Tag.Velocity)
+        this.RegisterSystemTag("Acceleration", Tag.Acceleration)
+        this.RegisterSystemTag("AngularMovement", Tag.AngularMovement)
+        this.RegisterSystemTag("Size", Tag.Size)
+        this.RegisterSystemTag("Polygon", Tag.Polygon)
+        this.RegisterSystemTag("Point", Tag.Point)
+        this.RegisterSystemTag("Rect", Tag.Rect)
+        this.RegisterSystemTag("Circle", Tag.Circle)
+        this.RegisterSystemTag("Collider", Tag.Collider)
+        this.RegisterSystemTag("Contact", Tag.Contact)
+        this.RegisterSystemTag("BVBranch", Tag.BVBranch)
+        this.RegisterSystemTag("BVTree", Tag.BVTree)
+        this.RegisterSystemTag("QuadBranch", Tag.QuadBranch)
+        this.RegisterSystemTag("QuadTree", Tag.QuadTree)
     }
 
-    registerMemberDef(c: any, name: string, type: Tag, type1?: Tag, type2?: Tag) {
+    RegisterMemberDef(c: any, name: string, type: Tag, type1?: Tag, type2?: Tag, type3?: Tag) {
         let classDef = this.classDefs.get(this.classDefsInverse.get(c))
         if (classDef) {
-            classDef.registerMember(name, type, type1, type2)
+            classDef.RegisterMember(name, type, type1, type2, type3)
         } else {
-            __tempMemberMap.push({ctor:c,member:new MemberDef(name, type, type1, type2)})
+            __tempMemberMap.push({ctor: c, member: new MemberDef(name, type, type1, type2, type3)})
         }
     }
 
-    getProtoName(c:any):string {
+    GetProtoTag(c: any): Tag {
         let ret = "error"
-        this.classDefsInverse.forEach(function (v,k,map) {
-            if (k==c) {
+        this.classDefsInverse.forEach( (v, k) =>{
+            if (k == c) {
                 ret = v
-                return
+                return this.GetTagByName(k)
+            }
+        })
+        return 0
+    }
+
+    GetAnyName(c:string|{new():Serializable}|Serializable):string {
+        if (util.isString(c)) {
+            return <string>c
+        }
+        if (c instanceof Serializable) {
+            return (<Serializable>c).DefineName
+        }
+        return this.GetProtoName(c)
+    }
+
+    GetProtoName(c: any): string {
+        let ret = "error"
+        this.classDefsInverse.forEach(function (v, k) {
+            if (k == c) {
+                ret = v
+                return ret
             }
         })
         return ret
     }
 
-    registerClassDef(c: any, name: string) {
+    RegisterClassDef(c: any, name: string) {
         log.warn("registerClassDef", name)
         if (this.classDefs.get(name)) {
             throw new Error("class def already exist:" + name)
         }
-        this.classDefs.set(name,new ClassDef(name, c))
-        this.classDefsInverse.set(c,name)
-        this.classProto.set(name,c)
+        this.classDefs.set(name, new ClassDef(name, c))
+        this.classDefsInverse.set(c, name)
+        this.classProto.set(name, c)
         let map1 = __tempMemberMap.slice()
         __tempMemberMap = []
-        map1.forEach((v,index,arr)=>{
-            this.registerMemberDef(v.ctor,v.member.key,v.member.tag,v.member.tag1,v.member.tag2)
+        map1.forEach((v) => {
+            this.RegisterMemberDef(v.ctor, v.member.Key, v.member.Tag, v.member.Tag1, v.member.Tag2)
         })
     }
 
-    registerCustomTag(typeName: string, tagId: number) {
+    RegisterCustomTag(typeName: string, tagId: number) {
         if (tagId <= 32768) {
-            throw new Error("not a custom tag:" + tagId + " " + typeName+ " must be >32767")
+            throw new Error("not a custom tag:" + tagId + " " + typeName + " must be >32767")
         }
         this.registerTag(typeName, tagId)
     }
 
-    registerSystemTag(typeName: string, tagId: number) {
+    RegisterSystemTag(typeName: string, tagId: number) {
         if (tagId > 127 || tagId <= Tag.Null) {
             throw new Error("not a system tag:" + tagId + " " + typeName)
         }
@@ -181,43 +210,64 @@ export class TypeRegistry extends Singleton {
         if (this.typeMap.get(tagId) != undefined) {
             throw new Error("tagId already exist:" + tagId + " " + typeName)
         }
-        this.tagMap.set(typeName,tagId)
-        this.typeMap.set(tagId,typeName)
+        this.tagMap.set(typeName, tagId)
+        this.typeMap.set(tagId, typeName)
     }
 
-    getClassDef(name: string): ClassDef {
+    GetClassDef(name: string): ClassDef {
         return this.classDefs.get(name)
     }
 
-    getClassDefByTag(tag: number): ClassDef {
+    GetClassDefByTag(tag: number): ClassDef {
         return this.classDefs.get(this.typeMap.get(tag))
     }
 
-    getProtoByTag(tag: number): ClassDef {
+    GetProtoByTag(tag: number): any {
         return this.classProto.get(this.typeMap.get(tag))
     }
 
-    getTagByName(name:string):number {
+    GetCtorByName(name: string): { new(): Serializable } {
+        return this.classProto.get(name).constructor
+    }
+
+    GetCtorByTag(tag: number): { new(): Serializable } {
+        return this.classProto.get(this.typeMap.get(tag)).constructor
+    }
+
+    GetTagByName(name: string): number {
         return this.tagMap.get(name)
     }
 
-    getInstanceByTag(tag: number): any {
+    GetInstanceByTag(tag: number): Serializable {
         let proto = this.classProto.get(this.typeMap.get(tag))
         if (!proto) {
             log.panic("tag is not registered")
         }
         return Object.create(proto)
     }
+
+    IsValid(data: any): boolean {
+        let proto = Object.getPrototypeOf(data)
+        return this.GetProtoName(proto) !== "error"
+    }
+}
+
+export function formats(tags: Array<[string, Tag, Tag?, Tag?, Tag?]>) {
+    return function (target: { new(): Serializable }) {
+        tags.forEach((v) => {
+            TypeRegistry.GetInstance().RegisterMemberDef(target.prototype, v[0], v[1], v[2], v[3], v[4])
+        })
+    }
 }
 
 export function format(tag: Tag, tag1?: Tag, tag2?: Tag) {
     return function (target: Serializable, propertyKey: string) {
-        TypeRegistry.getInstance().registerMemberDef(target, propertyKey, tag, tag1,tag2)
+        TypeRegistry.GetInstance().RegisterMemberDef(target, propertyKey, tag, tag1, tag2)
     }
 }
 
 export function define(typename: string) {
-    return function (target: {new():Serializable}) {
-        TypeRegistry.getInstance().registerClassDef(target.prototype, typename)
+    return function (target: { new(): Serializable }) {
+        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename)
     }
 }

@@ -1,33 +1,35 @@
 import {IComponent} from "../ecs/default_component";
-import {define, format,Tag} from "../protocol/types";
+import {define, formats,Tag} from "../protocol/types";
 import {Position} from "./base_components";
 
 @define('Circle')
+@formats([
+    ["Radius",Tag.Double],
+    ["Scale",Tag.Double],
+])
 export class Circle extends IComponent {
 
     static get defineDepends(): Array<string> {
         return ['Position'].concat(super.defineDepends);
     }
-    @format(Tag.Double)
-    public radius:number
-    @format(Tag.Double)
-    public scale:number
+    public Radius:number
+    public Scale:number
     constructor(radius=0,scale=1){
         super();
-        this.radius = radius;
-        this.scale = scale;
+        this.Radius = radius;
+        this.Scale = scale;
     }
 
-    get x(){return this.getSibling(Position).x;}
+    get x(){return this.getSibling(Position).X;}
 
-    set x(x){this.getSibling(Position).x = x;}
+    set x(x){this.getSibling(Position).X = x;}
 
-    get y(){return this.getSibling(Position).y;}
+    get y(){return this.getSibling(Position).Y;}
 
-    set y(y){this.getSibling(Position).y = y;}
+    set y(y){this.getSibling(Position).Y = y;}
 
     draw(context,scale){
         scale = scale||1;
-        context.circle(this.x*scale,this.y*scale,this.radius*this.scale*scale*scale);
+        context.circle(this.x*scale,this.y*scale,this.Radius*this.Scale*scale*scale);
     }
 }

@@ -1,29 +1,21 @@
 import {Entity} from "./entity";
-import {Runtime} from "./runtime";
-import {define, TypeRegistry} from "../protocol/types";
-import {Logger,log} from "../utils/logger";
+import {IRuntime} from "./runtime";
+import {TypeRegistry} from "../protocol/types";
 import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
 
 export class IComponent extends Serializable{
-
     protected dirty: boolean = true
     protected entity: Entity = null
-    protected runtime: Runtime = null
+    protected runtime: IRuntime = null
 
     static get defineDepends(): Array<string> {
         return []
     }
 
-    static get defineData(): Object {
-        return {}
-    }
 
-    static nosync:boolean = false
-
-
-    get nosync():boolean{
-        return Object.getPrototypeOf(this).constructor.nosync;
+    get SyncAble():boolean{
+        return TypeRegistry.GetInstance().IsValid(this)
     }
 
     get defineDepends(): Array<string> {
@@ -34,12 +26,16 @@ export class IComponent extends Serializable{
         super()
     }
 
-    reset(){
+    Reset(){
         this.dirty = true
     }
 
-    setRuntime(runtime:Runtime){
+    SetRuntime(runtime:IRuntime){
         this.runtime = runtime
+    }
+
+    GetRuntime():IRuntime {
+        return this.runtime;
     }
 
     getComponentName():string {
@@ -48,76 +44,68 @@ export class IComponent extends Serializable{
 
     getSibling<T extends IComponent>(comp:{new():T}):T {
         if (this.entity) {
-            return this.entity.get(comp);
+            return this.entity.Get(comp);
         }
     }
 
-    setEntity(ent:Entity) {
+    SetEntity(ent:Entity) {
         this.entity = ent;
     }
 
-    isClient():boolean {
-        return this.runtime.isClient();
+    IsClient():boolean {
+        return !this.runtime.IsServer();
     }
 
-    getEntity():Entity {
+    GetEntity():Entity {
         return this.entity;
     }
 
-    getRuntime():Runtime {
-        return this.runtime;
-    }
-
-    markDirty() {
+    MarkDirty() {
         this.dirty = true;
-        this.onDirty && this.onDirty(this.entity, this.entity.getRuntime());
+        this.OnDirty && this.OnDirty(this.entity, this.entity.GetRuntime());
         if (this.entity) {
-            this.entity.markDirty(this);
+            this.entity.ModifyMark(this);
         }
-        if (this.runtime && this.runtime.dirtyComponents.indexOf(this.entity) === -1) {
-            this.runtime.dirtyComponents.push(this.entity);
-        }
+        this.runtime.MarkDirtyEntity(this.entity)
     }
 
-    isDirty() {
+    IsDirty() {
         return this.dirty;
     }
 
-    clean() {
+    Clean() {
         this.dirty = false;
     }
 
-    onAdd(ent:Entity, runtime:Runtime) {
+    OnAdd(ent:Entity, runtime:IRuntime) {
 
     }
 
-    onRemove(ent:Entity, runtime:Runtime) {
+    OnRemove(ent:Entity, runtime:IRuntime) {
 
     }
 
-    onCreate(runtime:Runtime) {
+    OnCreate(runtime:IRuntime) {
 
     }
 
-    onDestroy(runtime:Runtime) {
+    OnDestroy(runtime:IRuntime) {
 
     }
 
-    onDirty(ent:Entity, runtime:Runtime) {
+    OnDirty(ent:Entity, runtime:IRuntime) {
 
     }
 
-    onRegister(runtime:Runtime) {
+    OnRegister(runtime:IRuntime) {
 
     }
 
-
-    unmarshalFrom(buff:Buffer) {
+    UnmarshalFrom(buff:Buffer) {
 
     }
 
-    marshalTo():Buffer {
-
+    MarshalTo():Buffer {
         return null
     }
 }

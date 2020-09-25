@@ -1,44 +1,19 @@
 import {Logger,log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
-import {Serializable} from "child_process";
-import {marshalToBytes} from "../protocol/encode";
-import {Vector} from "../syscomp/base_components";
+import {Serializable} from "../protocol/protocol";
+import {marshalMessage} from "../protocol/encode";
+import {IContext} from "../common/context";
+
 
 const DEFAULT_TIMEOUT = 15000
 
-export class Context {
-    public transId: number = -1;
-    public resolveFunc: () => void = null;
-    public rejectFunc: (srr: string) => void = null;
-    public data: any = null
-    private context: object = {}
 
-    getData(): any {
-        return this.data
-    }
-
-    setData(data: any) {
-        this.data = data;
-    }
-
-    getContext() {
-        return this.context
-    }
-
-    set<T>(name: string, value: T) {
-        this.context[name] = value
-    }
-
-    get<T>(name) {
-        return this.context[name]
-    }
-}
 
 export class WsClient extends EventEmitter {
     public addr: string = "ws://127.0.0.1/ws";//内网测试
     private ws: any = null;
     private idGen: number = 0;
-    private reqContexts: Map<number, Context> = new Map<number, Context>()
+    private reqContexts: Map<number, IContext> = new Map<number, IContext>()
     private _composeData: any;
 
     constructor(addr) {
@@ -49,16 +24,12 @@ export class WsClient extends EventEmitter {
         }
     }
 
-    getContext(transId: number) {
-        return this.reqContexts[transId]
-    }
-
-    genId(): number {
+    GenId(): number {
         this.idGen++
         return this.idGen
     }
 
-    connectServer(_addr ?: any) {
+    ConnectServer(_addr ?: any) {
         let addr = this.addr = _addr || this.addr;
         log.info("addr", addr)
         // 创建客户端
@@ -71,8 +42,8 @@ export class WsClient extends EventEmitter {
         this.ws = ws;
     }
 
-    async open(): Promise<any> {
-        this.connectServer()
+    async Open(): Promise<any> {
+        this.ConnectServer()
         return new Promise((resolve, reject) => {
             let timeout = setTimeout(() => {
                 log.error("connect timeout")
@@ -85,7 +56,7 @@ export class WsClient extends EventEmitter {
         })
     }
 
-    async close() {
+    async Close() {
         this.ws.close();
         return new Promise<void>((resolve, reject) => {
             let timeout = setTimeout(() => {
@@ -98,15 +69,15 @@ export class WsClient extends EventEmitter {
         })
     }
 
-    onerror(error: any) {
+    protected onerror(error: any) {
         log.error("Connection Error: ", error.toString());
     }
 
-    onclose() {
+    protected onclose() {
         this.emit("close", this);
     };
 
-    onmessage(e) {
+    protected onmessage(e) {
         log.warn("on message",e)
         // let buff = dcodeIO.ByteBuffer.wrap(e.data);
         // while (buff.offset < buff.limit) {
@@ -120,7 +91,7 @@ export class WsClient extends EventEmitter {
         // }
     }
 
-    onRecvMessage?(cmdId: number, data: any, transId: number): boolean {
+    protected onRecvMessage?(cmdId: number, data: any, transId: number): boolean {
         // console.log(' Received msg', cmdId, data, transId);
         // let className = pb.idMap[cmdId];
         // if (!className || !pb[className])
@@ -150,7 +121,7 @@ export class WsClient extends EventEmitter {
         return true
     }
 
-    appendComposeData(data: any) {
+    protected appendComposeData(data: any) {
         // this._composeData || (this._composeData = new dcodeIO.ByteBuffer());
         // this._composeData.append(data.data);
         // data.idx == 0 && this.touchComposeData();
@@ -175,7 +146,7 @@ export class WsClient extends EventEmitter {
         // }
     }
 
-    onopen(...args) {
+    protected onopen(...args) {
         log.info('Connection Opened', this.addr);
         this.emit("open", ...args);
     }
@@ -219,8 +190,8 @@ export class WsClient extends EventEmitter {
     // }
 
 
-    async send(transId:number,data:Serializable): Promise<any> {
-        let buff = marshalToBytes(transId,data)
+    async Send(transId:number, data:Serializable): Promise<any> {
+        let buff = marshalMessage(transId,data)
         this.ws.send(buff)
         // let className = data['$type'].name;
         // let id = pb.nameMap[className];

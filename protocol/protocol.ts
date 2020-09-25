@@ -1,20 +1,19 @@
 import {Buffer} from "../thirdparty/buffer";
 import {define, format, Tag, TypeRegistry} from "./types";
-import {marshalToBytes} from "./encode";
-import {log} from "../utils/logger";
+import {marshalMessage} from "./encode";
+import {unmarshalMessageBody, unmarshalMessageHeader} from "./decode";
 
 export class Serializable {
-    unmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: Buffer) {
 
     }
 
-    marshalTo(): Buffer {
+    MarshalTo(): Buffer {
         return null
     }
 
-    get defineName(): string {
-        let ret = TypeRegistry.getInstance().getProtoName(Object.getPrototypeOf(this))
-        return ret
+    get DefineName(): string {
+        return TypeRegistry.GetInstance().GetProtoName(Object.getPrototypeOf(this))
     }
 }
 
@@ -25,11 +24,11 @@ export class ComposeData extends Serializable {
     @format(Tag.Buffer)
     public data: Buffer
 
-    unmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: Buffer) {
 
     }
 
-    marshalTo(): Buffer {
+    MarshalTo(): Buffer {
         return null
     }
 }
@@ -47,27 +46,37 @@ export class ErrMsg extends Serializable {
         this.msg = msg
     }
 
-    unmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: Buffer) {
 
     }
 
-    marshalTo(): Buffer {
+    MarshalTo(): Buffer {
         return null
     }
 }
 
 export class BinaryMessage implements Serializable {
-    defineName: string = "BinaryMessage"
+    DefineName: string = "BinaryMessage"
     public transId: number
-    public msgId: number
     public len: number
+    public msgId: number
     public data: any
 
-    unmarshalFrom(buff: Buffer) {
-
+    constructor(buff?:Buffer) {
+        if (buff){
+            this.UnmarshalFrom(buff)
+        }
     }
 
-    marshalTo(): Buffer {
-        return marshalToBytes(this.transId, this.data)
+    UnmarshalFrom(buff: Buffer) {
+        let header = unmarshalMessageHeader(buff)
+        this.transId = header[0]
+        this.len = header[1]
+        this.msgId = header[2]
+        this.data = unmarshalMessageBody(buff,this.msgId)
+    }
+
+    MarshalTo(): Buffer {
+        return marshalMessage(this.transId, this.data)
     }
 }

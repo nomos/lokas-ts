@@ -12,10 +12,10 @@ import {define} from "../protocol/types";
 @define('Collider')
 export class Collider extends Rect implements BVNode{
     public padding:number
-    public minX:number
-    public maxX:number
-    public minY:number
-    public maxY:number
+    public MinX:number
+    public MaxX:number
+    public MinY:number
+    public MaxY:number
     public tag:number
     public branch = false   //标识不是一个BVBranch节点
     public parent:BVBranch
@@ -28,10 +28,10 @@ export class Collider extends Rect implements BVNode{
     constructor(minX=0,minY=0,maxX=0,maxY=0,padding=0){
         super(minX,minY,maxX,maxY);
         this.padding = padding;
-        this.minX = 0;
-        this.maxX = 0;
-        this.minY = 0;
-        this.maxY = 0;
+        this.MinX = 0;
+        this.MaxX = 0;
+        this.MinY = 0;
+        this.MaxY = 0;
         this.tag = 0;
         this.quadBranch = null;   //所在的四叉树节点
         this.quadTree = null;  //所在的四叉树世界
@@ -47,7 +47,7 @@ export class Collider extends Rect implements BVNode{
         }
         this.contacts[entity.id] = contact;
         let cod = entity.get(Collider);
-        cod.contacts[this.entity.id] = contact;
+        cod.contacts[this.entity.Id] = contact;
         cod.collideCount++;
         this.collideCount++;
     }
@@ -97,19 +97,19 @@ export class Collider extends Rect implements BVNode{
     getFirstColliderEntity():Entity {
         let ent =this.getFirstContactEntity();
         if (!ent) return;
-        let contact = ent.get(Contact);
+        let contact = ent.Get(Contact);
         if (!contact) return;
-        return contact.getCollider(this.getEntity());
+        return contact.getCollider(this.GetEntity());
     }
     removeContact(id){
         let contact = this.contacts[id];
         if (contact) {
             this.collideCount--;
             contact.destroy();
-            let ent = this.getEntity();
-            let cod = contact.get(Contact).getCollider(ent).get(Collider);
+            let ent = this.GetEntity();
+            let cod = contact.Get(Contact).getCollider(ent).Get(Collider);
             cod.collideCount--;
-            delete cod.contacts[ent.id];
+            delete cod.contacts[ent.Id];
             delete this.contacts[id];
         }
     }
@@ -119,7 +119,7 @@ export class Collider extends Rect implements BVNode{
     collide(collider,result=null,aabb = true) {
         return collision(this, collider, result, aabb);
     }
-    onRemove(ent,ecs){
+    OnRemove(ent, ecs){
         if (this.world) {
             this.world.remove(this);
         }
@@ -128,16 +128,16 @@ export class Collider extends Rect implements BVNode{
         let cPolygon =this.getSibling(Polygon)||this.getSibling(Point);
         let cCircle = this.getSibling(Circle);
         cPolygon&&cPolygon._calculateCoords();
-        this.minX = cPolygon?cPolygon.minX:cCircle.x-cCircle.radius*cCircle.scale-this.padding;
-        this.maxX = cPolygon?cPolygon.maxX:cCircle.x+cCircle.radius*cCircle.scale+this.padding;
-        this.minY = cPolygon?cPolygon.minY:cCircle.y-cCircle.radius*cCircle.scale-this.padding;
-        this.maxY = cPolygon?cPolygon.maxY:cCircle.y+cCircle.radius*cCircle.scale+this.padding;
+        this.MinX = cPolygon?cPolygon.minX:cCircle.x-cCircle.Radius*cCircle.Scale-this.padding;
+        this.MaxX = cPolygon?cPolygon.maxX:cCircle.x+cCircle.Radius*cCircle.Scale+this.padding;
+        this.MinY = cPolygon?cPolygon.minY:cCircle.y-cCircle.Radius*cCircle.Scale-this.padding;
+        this.MaxY = cPolygon?cPolygon.maxY:cCircle.y+cCircle.Radius*cCircle.Scale+this.padding;
     }
     draw(context) {
-        const min_x  = this.minX;
-        const min_y  = this.minY;
-        const max_x  = this.maxX;
-        const max_y  = this.maxY;
+        const min_x  = this.MinX;
+        const min_y  = this.MinY;
+        const max_x  = this.MaxX;
+        const max_y  = this.MaxY;
 
         context.moveTo(min_x, min_y);
         context.lineTo(max_x, min_y);

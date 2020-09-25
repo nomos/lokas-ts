@@ -1,45 +1,47 @@
 
 import {IComponent} from "../ecs/default_component";
-import {define, format, Tag} from "../protocol/types";
+import {define, formats, Tag} from "../protocol/types";
 
 @define('Vector')
+@formats([
+    ["X",Tag.Double],
+    ["Y",Tag.Double],
+    ["Z",Tag.Double],
+])
 export class Vector extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-    @format(Tag.Double)
-    public x:number
-    @format(Tag.Double)
-    public y:number
-    @format(Tag.Double)
-    public z:number
-    public _angle:number
+    public X:number
+    public Y:number
+    public Z:number
+    protected _angle:number
     constructor(x=0, y=0, z=0) {
         super();
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.X = x;
+        this.Y = y;
+        this.Z = z;
         this._angle = 0;
     }
 
-    onRemove(ent,ecs){
+    OnRemove(ent, ecs){
         this.reset();
     }
 
     reset(){
-        this.x = 0;
-        this.y = 0;
-        this.z = 0;
+        this.X = 0;
+        this.Y = 0;
+        this.Z = 0;
     }
 
     assign(v:Vector) {
-        this.x = v.x
-        this.y = v.y
-        this.z = v.z
+        this.X = v.X
+        this.Y = v.Y
+        this.Z = v.Z
     }
 
     clone() {
-        return Object.getPrototypeOf(this).constructor(this.x, this.y, this.z);
+        return Object.getPrototypeOf(this).constructor(this.X, this.Y, this.Z);
     }
 
     reverse(self) {
@@ -51,7 +53,7 @@ export class Vector extends IComponent {
     }
 
     equal(v) {
-        return this.x === v.x && this.y === v.y && this.z === v.z;
+        return this.X === v.x && this.Y === v.y && this.Z === v.z;
     }
 
     add(pos, self) {
@@ -113,38 +115,38 @@ export class Vector extends IComponent {
     }
 
     mag(){
-        return this.x*this.x+this.y*this.y+this.z*this.z;
+        return this.X*this.X+this.Y*this.Y+this.Z*this.Z;
     }
 
     set length(length) {
         let angle;
-        if (!this.x && !this.y) {
+        if (!this.X && !this.Y) {
             angle = this._angle || 0;
         } else {
             angle = this.angle;
         }
-        this.x = Math.cos(angle) * length;
-        this.y = Math.sin(angle) * length;
+        this.X = Math.cos(angle) * length;
+        this.Y = Math.sin(angle) * length;
     }
 
     get length() {
-        return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2));
+        return Math.sqrt(Math.pow(this.X, 2) + Math.pow(this.Y, 2) + Math.pow(this.Z, 2));
     }
 
     set angle(angle) {
         angle = angle * Math.PI / 180;
         this._angle = angle;
         const length = this.length;
-        this.x = Math.cos(angle) * length;
-        this.y = Math.sin(angle) * length;
+        this.X = Math.cos(angle) * length;
+        this.Y = Math.sin(angle) * length;
     }
 
     get angle() {
-        return this.getAngleByVector(this.x, this.y);
+        return this.getAngleByVector(this.X, this.Y);
     }
 
     getIndex(width){
-        return this.x+this.y*width;
+        return this.X+this.Y*width;
     }
 
     createFromIndex(index,width,self){
@@ -186,31 +188,35 @@ export class Vector extends IComponent {
 }
 
 @define('Position')
+@formats([
+    ["X",Tag.Double],
+    ["Y",Tag.Double],
+    ["Z",Tag.Double],
+])
 export class Position extends Vector {
     static get defineDepends(){
         return [].concat(super.defineDepends);
     }
 
-    @format(Tag.Double)
-    public x:number
-    @format(Tag.Double)
-    public y:number
-    @format(Tag.Double)
-    public z:number
+    public X:number
+    public Y:number
+    public Z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
 }
 
 @define('Velocity')
+@formats([
+    ["X",Tag.Double],
+    ["Y",Tag.Double],
+    ["Z",Tag.Double],
+])
 export class Velocity extends Vector {
 
-    @format(Tag.Double)
-    public x:number
-    @format(Tag.Double)
-    public y:number
-    @format(Tag.Double)
-    public z:number
+    public X:number
+    public Y:number
+    public Z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
@@ -225,58 +231,62 @@ export class Velocity extends Vector {
 }
 
 @define('Acceleration')
+@formats([
+    ["X",Tag.Double],
+    ["Y",Tag.Double],
+    ["Z",Tag.Double],
+])
 export class Acceleration extends Vector {
 
-    @format(Tag.Double)
-    public x:number
-    @format(Tag.Double)
-    public y:number
-    @format(Tag.Double)
-    public z:number
+    public X:number
+    public Y:number
+    public Z:number
     constructor(x=0, y=0, z=0) {
         super(x, y, z);
     }
 }
 
 @define('Angle')
+@formats([
+    ["Angle",Tag.Double],
+])
 export class Angle extends IComponent {
 
     static get defineDepends(){
         return [].concat(super.defineDepends);
     }
 
-    @format(Tag.Double)
-    public _angle:number
+    public _Angle:number
 
     constructor(angle=0){
         super();
-        this.angle = angle;
+        this.Angle = angle;
     }
 
-    onRemove(ent,ecs){
-        this.angle = 0;
+    OnRemove(ent, ecs){
+        this.Angle = 0;
     }
 
 
-    set angle(angle){
+    set Angle(angle){
         while (angle<0) {
             angle+=360;
         }
         if (angle>=360) {
             angle = angle%360;
         }
-        this._angle = angle;
+        this._Angle = angle;
     }
-    get angle():number{
-        return this._angle;
+    get Angle():number{
+        return this._Angle;
     }
 
     get degree(){
-        return this._angle*Math.PI/180;
+        return this._Angle*Math.PI/180;
     }
 
     set degree(degree:number) {
-        this.angle = degree*180/Math.PI
+        this.Angle = degree*180/Math.PI
     }
 
     get sin_value(){
@@ -289,7 +299,7 @@ export class Angle extends IComponent {
 
 
     clone() {
-        return Object.getPrototypeOf(this).constructor(this.angle);
+        return Object.getPrototypeOf(this).constructor(this.Angle);
     }
 
     reverse(self=false) {
@@ -327,32 +337,32 @@ export class Angle extends IComponent {
             }
         }
         let tan_yx =  Math.abs(v.y)/Math.abs(v.x);
-        this.angle = 0;
+        this.Angle = 0;
         if (v.y>0&&v.x<0) {
-            this.angle = 270+Math.atan(tan_yx)*180/Math.PI;
+            this.Angle = 270+Math.atan(tan_yx)*180/Math.PI;
         } else if (v.y>0&&v.x>0) {
-            this.angle = 90-Math.atan(tan_yx)*180/Math.PI;
+            this.Angle = 90-Math.atan(tan_yx)*180/Math.PI;
         } else if (v.y<0&&v.x<0) {
-            this.angle = 270-Math.atan(tan_yx)*180/Math.PI;
+            this.Angle = 270-Math.atan(tan_yx)*180/Math.PI;
         } else if (v.y<0&&v.x>0) {
-            this.angle = 90+Math.atan(tan_yx)*180/Math.PI;
+            this.Angle = 90+Math.atan(tan_yx)*180/Math.PI;
         }
     }
 
     getVectorX(length){
         length = Math.abs(length);
-        if (this.angle == 0) {
+        if (this.Angle == 0) {
             return length;
         }
-        if (this.angle == 90) {
+        if (this.Angle == 90) {
             return 0;
 
         }
-        if (this.angle == 180) {
+        if (this.Angle == 180) {
             return -length;
 
         }
-        if (this.angle == 270) {
+        if (this.Angle == 270) {
             return 0;
         }
         return this.cos_value*length;
@@ -360,36 +370,36 @@ export class Angle extends IComponent {
 
     getVectorY(length){
         length = Math.abs(length);
-        if (this.angle == 0) {
+        if (this.Angle == 0) {
             return 0;
         }
-        if (this.angle == 90) {
+        if (this.Angle == 90) {
             return length;
 
         }
-        if (this.angle == 180) {
+        if (this.Angle == 180) {
             return 0;
 
         }
-        if (this.angle == 270) {
+        if (this.Angle == 270) {
             return -length;
         }
         return this.sin_value*length;
     }
 
     getVector(){
-        if (this.angle == 0) {
+        if (this.Angle == 0) {
             return new Vector(0,1);
         }
-        if (this.angle == 90) {
+        if (this.Angle == 90) {
             return new Vector(1,0);
 
         }
-        if (this.angle == 180) {
+        if (this.Angle == 180) {
             return new Vector(0,-1);
 
         }
-        if (this.angle == 270) {
+        if (this.Angle == 270) {
             return new Vector(-1,0);
         }
         return new Vector(this.getVectorX(1),this.getVectorY(1));
@@ -397,68 +407,58 @@ export class Angle extends IComponent {
 }
 
 @define('AngularMovement')
+@formats([
+    ["Velocity",Tag.Double],
+    ["Acceleration",Tag.Double],
+])
 export class AngularMovement extends IComponent {
 
     static get defineDepends(){
         return ['Angle'].concat(super.defineDepends);
     }
 
-    @format(Tag.Double)
-    public velocity:number = 0
-    @format(Tag.Double)
-    public acceleration:number = 0
+    public Velocity:number = 0
+    public Acceleration:number = 0
     constructor(velocity=0,acceleration=0){
         super();
-        this.velocity = velocity||this.velocity;
-        this.acceleration = acceleration||this.acceleration;
+        this.Velocity = velocity||this.Velocity;
+        this.Acceleration = acceleration||this.Acceleration;
     }
 
-    onRemove(ent,ecs){
-        this.velocity = 0;
-        this.acceleration = 0;
+    OnRemove(ent, ecs){
+        this.Velocity = 0;
+        this.Acceleration = 0;
     }
 }
 
 @define('Size')
+@formats([
+    ["Width",Tag.Double],
+    ["Height",Tag.Double],
+])
 export class Size extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-    @format(Tag.Double)
-    public width:number = 0
-    @format(Tag.Double)
-    public height:number = 0
+    public Width:number = 0
+    public Height:number = 0
     constructor(w = 0, h = 0) {
         super();
-        this.width = w||this.width;
-        this.height = h||this.height;
+        this.Width = w||this.Width;
+        this.Height = h||this.Height;
     }
 
-    onRemove(ent,ecs){
-        this.width = 0;
-        this.height = 0;
+    OnRemove(ent, ecs){
+        this.Width = 0;
+        this.Height = 0;
     }
 
     get length(){
-        return this.height;
+        return this.Height;
     }
 
     set length(v){
-        this.height = v;
+        this.Height = v;
     }
 }
-
-@define('TimeStamp')
-export class TimeStamp extends IComponent {
-    static get defineDepends() {
-        return [].concat(super.defineDepends);
-    }
-    @format(Tag.Long)
-    public time:number = 0
-    constructor(time=0) {
-        super();
-        this.time = time||this.time;
-    }
-}
-
 

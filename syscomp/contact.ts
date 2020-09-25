@@ -31,18 +31,18 @@ export class Contact extends IComponent{
     }
     //TODO:是否需要发布事件?
     dispatchEnterEvent() {
-        let codA = this.a.get(Collider);
-        let codB = this.b.get(Collider);
+        let codA = this.a.Get(Collider);
+        let codB = this.b.Get(Collider);
     }
     //TODO:是否需要发布事件?
     dispatchStayEvent() {
-        let codA = this.a.get(Collider);
-        let codB = this.b.get(Collider);
+        let codA = this.a.Get(Collider);
+        let codB = this.b.Get(Collider);
     }
     //TODO:是否需要发布事件?
     dispatchExitEvent() {
-        let codA = this.a.get(Collider);
-        let codB = this.b.get(Collider);
+        let codA = this.a.Get(Collider);
+        let codB = this.b.Get(Collider);
     }
 }
 

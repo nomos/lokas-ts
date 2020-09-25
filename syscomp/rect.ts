@@ -1,62 +1,63 @@
 import {IComponent} from "../ecs/default_component";
-import {define, format, Tag} from "../protocol/types";
+import {define, formats, Tag} from "../protocol/types";
 
 @define('Rect')
+@formats([
+    ["MinX",Tag.Float],
+    ["MinY",Tag.Float],
+    ["MaxX",Tag.Float],
+    ["MaxY",Tag.Float],
+])
 export class Rect extends IComponent {
     static get defineDepends() {
         return [].concat(super.defineDepends);
     }
-    @format(Tag.Float)
-    public minX:number
-    @format(Tag.Float)
-    public minY:number
-    @format(Tag.Float)
-    public maxX:number
-    @format(Tag.Float)
-    public maxY:number
+    public MinX:number
+    public MinY:number
+    public MaxX:number
+    public MaxY:number
     constructor(minX = 0, minY = 0, maxX = 0, maxY = 0) {
         super();
-        this.minX = minX;
-        this.minY = minY;
-        this.maxX = maxX;
-        this.maxY = maxY;
+        this.MinX = minX;
+        this.MinY = minY;
+        this.MaxX = maxX;
+        this.MaxY = maxY;
     }
 
-    get x() {
-        return this.minX / 2 + this.maxX / 2;
+    get X() {
+        return this.MinX / 2 + this.MaxX / 2;
     }
 
-    get y() {
-        return this.minY / 2 + this.maxY / 2;
+    get Y() {
+        return this.MinY / 2 + this.MaxY / 2;
     }
 
-    set w(width) {
-        this.minX = this.x - width / 2;
-        this.maxX = this.x + width / 2;
+    set W(width) {
+        this.MinX = this.X - width / 2;
+        this.MaxX = this.X + width / 2;
     }
 
-    get w() {
-        return this.maxX - this.minX;
+    get W() {
+        return this.MaxX - this.MinX;
     }
 
-    set h(height) {
-        this.minY = this.y - height / 2;
-        this.maxY = this.y + height / 2;
+    set H(height) {
+        this.MinY = this.Y - height / 2;
+        this.MaxY = this.Y + height / 2;
     }
 
-    get h() {
-        return this.maxY - this.minY;
+    get H() {
+        return this.MaxY - this.MinY;
     }
 
-    intersectionWithRect (a) {
-        return !(this.minY > a.maxY || this.minX > a.maxX || this.maxY < a.minY || this.maxX < a.minX);
+    IntersectionWithRect (a) {
+        return !(this.MinY > a.maxY || this.MinX > a.maxX || this.MaxY < a.minY || this.MaxX < a.minX);
     }
 
-    draw(color, fill, graphic) {
-        graphic.rect(this.minX, this.minY, this.w, this.h);
+    Draw(color, fill, graphic) {
+        graphic.rect(this.MinX, this.MinY, this.W, this.H);
         graphic.strokeColor = cc.color(color);
         graphic.fillColor = cc.color(color);
         fill ? graphic.fill() : graphic.stroke();
     }
-
 }

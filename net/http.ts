@@ -1,7 +1,7 @@
 import {Logger,log} from "../utils/logger";
 
 export namespace Http {
-    export function request(option,cb) {
+    export function Request(option, cb) {
         if (String(option)!=='[object Object]') return undefined;
         option.method=option.method ? option.method.toUpperCase():'GET';
         option.data=option.data||{};

@@ -1,3 +1,4 @@
+'use strict'
 import {Logger,log} from "../utils/logger";
 
 enum STATE {
@@ -7,13 +8,13 @@ enum STATE {
 }
 
 export class Timer {
-    private _timeScale:number
-    private readonly _updateTime:number
-    private _interval:number
-    private _startTime:number
+    private _TimeScale:number
+    private readonly _UpdateTime:number
+    private _interval:any
+    private _StartTime:number
     private _timeOffset:number
-    private _runningTime:number
-    private _lastUpdateTime:number
+    private _RunningTime:number
+    private _LastUpdateTime:number
     private _prevInterval:number
     private _taskIdGen:number
     private _tick:number
@@ -30,17 +31,17 @@ export class Timer {
     private removeTasks = []
 
     constructor(updateTime, timescale) {
-        this._timeScale = timescale || 1.0;
-        this._updateTime = updateTime || 1000;
-        this.reset();
+        this._TimeScale = timescale || 1.0;
+        this._UpdateTime = updateTime || 1000;
+        this.Reset();
     }
 
-    reset() {
+    Reset() {
         this._interval = null;          //更新间隔
-        this._startTime = 0;            //开始时间
+        this._StartTime = 0;            //开始时间
         this._timeOffset = 0;           //时间偏移量
-        this._runningTime = 0;          //运行时间
-        this._lastUpdateTime = 0;       //最后更新时间
+        this._RunningTime = 0;          //运行时间
+        this._LastUpdateTime = 0;       //最后更新时间
         this._prevInterval = 0;           //更新时间间隔
         this._state = STATE.STOP;  //定时器状态
         this._taskIdGen = 0;            //任务ID生成
@@ -52,32 +53,32 @@ export class Timer {
         this._onPauseCb = null;           //暂停事件回调
         this._onResumeCb = null;          //恢复事件回调
         this._onDestroyCb = null;         //销毁事件回调
-        this.unscheduleAll();
+        this.UnscheduleAll();
     }
 
     setOffset(offset) {
-        this._runningTime -= this._timeOffset;
-        this._runningTime += offset;
+        this._RunningTime -= this._timeOffset;
+        this._RunningTime += offset;
         this._timeOffset = offset;
     }
 
-    now() {
+    Now() {
         return Date.now() + this._timeOffset;
     }
 
-    start(time?) {
+    Start(time?) {
         if (this._interval) return;
-        this._startTime = time ? time : Date.now();
+        this._StartTime = time ? time : Date.now();
         this._startTimer();
         this._onStart();
     }
 
-    resetStartTime() {
-        this._startTime = Date.now();
+    ResetStartTime() {
+        this._StartTime = Date.now();
     }
 
 //{name:name,time:time,task:function}
-    schedule(name, task, interval, count, delay, startTime) {
+    Schedule(name, task, interval, count, delay, startTime) {
         delay = delay || 0;
         if (this._scheduleTasks[name]) {
             log.error('task name exists:' + name);
@@ -87,23 +88,23 @@ export class Timer {
         this._scheduleTasks[name] = {
             name: name,
             interval: interval,
-            startTime: startTime || (this._runningTime + delay),
-            lastActiveTime: startTime || (this._runningTime + delay),
+            startTime: startTime || (this._RunningTime + delay),
+            lastActiveTime: startTime || (this._RunningTime + delay),
             task: task,
             count: count,
             id: this._taskIdGen,
         }
     }
 
-    scheduleOnce(name, task, interval, delay, startTime) {
-        this.schedule(name, task, interval, 1, delay, startTime);
+    ScheduleOnce(name, task, interval, delay, startTime) {
+        this.Schedule(name, task, interval, 1, delay, startTime);
     }
 
-    getSchedule(name) {
+    GetSchedule(name) {
         return this._scheduleTasks[name];
     }
 
-    unschedule(name) {
+    Unschedule(name) {
         delete this._scheduleTasks[name];
         for (let i = 0; i < this.taskQueue.length; i++) {
             let task = this.taskQueue[i];
@@ -113,13 +114,13 @@ export class Timer {
         }
     }
 
-    unscheduleAll() {
+    UnscheduleAll() {
         this.taskQueue = [];
         this.removeTasks = [];
         this._scheduleTasks = [];
     }
 
-    activeSchedule(interval, now) {
+    private activeSchedule(interval, now) {
         this.taskQueue = [];
         this.removeTasks = [];
         for (let i in this._scheduleTasks) {
@@ -164,149 +165,149 @@ export class Timer {
 
         for (let i = 0; i < this.removeTasks.length; i++) {
 
-            this.unschedule(this.removeTasks[i]);
+            this.Unschedule(this.removeTasks[i]);
         }
         this.removeTasks = [];
     }
 
-    stop() {
+    Stop() {
         this._onStop();
         this._stopTimer();
-        this._runningTime = 0;
-        this._startTime = 0;
+        this._RunningTime = 0;
+        this._StartTime = 0;
     }
 
-    pause() {
+    Pause() {
         this._onPause();
         this._stopTimer();
     }
 
-    resume() {
+    Resume() {
         if (this._interval) return;
-        this._prevInterval = this._updateTime;
+        this._prevInterval = this._UpdateTime;
         this._startTimer();
         this._onResume();
     }
 
-    destroy() {
-        this.unscheduleAll();
-        this.stop();
-        this.reset();
+    Destroy() {
+        this.UnscheduleAll();
+        this.Stop();
+        this.Reset();
     }
 
 
-    instantUpdate() {
+    private instantUpdate() {
         this._state = STATE.START;
         let now = Date.now();
-        let interval = now - this._lastUpdateTime;
-        interval = interval * this._timeScale;
-        this._runningTime += interval;
+        let interval = now - this._LastUpdateTime;
+        interval = interval * this._TimeScale;
+        this._RunningTime += interval;
         this._prevInterval = interval;
         if (this._onUpdateCb) {
-            this._onUpdateCb(this._prevInterval, this._runningTime);
+            this._onUpdateCb(this._prevInterval, this._RunningTime);
         }
-        this.activeSchedule(this._prevInterval, this._runningTime);
+        this.activeSchedule(this._prevInterval, this._RunningTime);
         if (this._onLateUpdateCb) {
-            this._onLateUpdateCb(this._prevInterval, this._runningTime);
+            this._onLateUpdateCb(this._prevInterval, this._RunningTime);
         }
-        this._lastUpdateTime = now;
+        this._LastUpdateTime = now;
     }
 
-    _syncUpdate() {
-        this._lastUpdateTime = Date.now();
+    private _syncUpdate() {
+        this._LastUpdateTime = Date.now();
         this.instantUpdate();
         if (!this._interval) {
             this._interval = setInterval(function () {
                 this._tick++;
                 this.instantUpdate();
-            }.bind(this), this._updateTime);
+            }.bind(this), this._UpdateTime);
         }
     }
 
-    tick(){
+    Tick(){
         this._tick++;
         this.instantUpdate();
     }
 
-    _startTimer() {
+    private _startTimer() {
         this._syncUpdate();
     }
 
-    _stopTimer() {
+    private _stopTimer() {
         clearInterval(this._interval);
         this._interval = null;
     }
 
-    _onStart() {
-        this._onStartCb && this._onStartCb(this._runningTime);
+    private _onStart() {
+        this._onStartCb && this._onStartCb(this._RunningTime);
     }
 
-    _onResume() {
-        this._onResumeCb && this._onResumeCb(this._runningTime);
+    private _onResume() {
+        this._onResumeCb && this._onResumeCb(this._RunningTime);
     }
 
-    _onStop() {
-        this._onStopCb && this._onStopCb(this._runningTime);
+    private _onStop() {
+        this._onStopCb && this._onStopCb(this._RunningTime);
     }
 
-    _onPause() {
-        this._onPauseCb && this._onPauseCb(this._runningTime);
+    private _onPause() {
+        this._onPauseCb && this._onPauseCb(this._RunningTime);
     }
 
-    _onDestroy() {
-        this._onDestroyCb && this._onDestroyCb(this._runningTime);
+    private _onDestroy() {
+        this._onDestroyCb && this._onDestroyCb(this._RunningTime);
     }
 
-    set timeScale(v){
-        this._timeScale = v
+    set TimeScale(v){
+        this._TimeScale = v
     }
-    get timeScale(){
-        return this._timeScale
-    }
-
-    get runningTime(){
-        return this._runningTime
+    get TimeScale(){
+        return this._TimeScale
     }
 
-    set updateTime(v){
-        this.updateTime = v;
-        this.pause();
-        this.resume();
-    }
-    get updateTime(){
-        return this._updateTime;
+    get RunningTime(){
+        return this._RunningTime
     }
 
-    get lastUpdateTime(){
-        return this._lastUpdateTime + this._timeOffset;
+    set UpdateTime(v){
+        this.UpdateTime = v;
+        this.Pause();
+        this.Resume();
+    }
+    get UpdateTime(){
+        return this._UpdateTime;
     }
 
-    get startTime(){
-        return this._startTime + this._timeOffset;
+    get LastUpdateTime(){
+        return this._LastUpdateTime + this._timeOffset;
+    }
+
+    get StartTime(){
+        return this._StartTime + this._timeOffset;
 
     }
 
-    set onStart(cb){
+    set OnStart(cb){
         this._onStartCb = cb;
     }
-    set onStop(cb){
+    set OnStop(cb){
         this._onStopCb = cb;
 
     }
-    set onPause(cb){
+    set OnPause(cb){
         this._onPauseCb = cb;
 
     }
-    set onResume(cb){
+    set OnResume(cb){
         this._onResumeCb = cb;
     }
-    set onDestroy(cb){
+    set OnDestroy(cb){
         this._onDestroyCb = cb;
     }
-    set onUpdate(cb){
+    set OnUpdate(cb){
         this._onUpdateCb = cb;
     }
-    set onLateUpdate(cb){
+    set OnLateUpdate(cb){
         this._onLateUpdateCb = cb;
     }
 }

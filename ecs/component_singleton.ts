@@ -1,76 +1,67 @@
-/**
- * Pool Manager for singleton <Component>,replace <ComponentPool> when a component is registered with maxsize==0
- * @param ComponentType
- * @param ecs
- * @constructor
- */
 import {IComponent} from "./default_component";
-import {Runtime} from "./runtime";
+import {IRuntime} from "./runtime";
 
 export class ComponentSingleton<T extends IComponent>{
-    public name:string
-    public instance:T
-    public runtime:Runtime
+    public Name:string
+    public Instance:T
+
+    private readonly runtime:IRuntime
     private readonly component:{new():T}
-    constructor(ComponentType:{new():T}, ecs) {
+    constructor(ComponentType:{new():T}, runtime:IRuntime) {
         this.component = ComponentType;            //给对象赋值
-        this.instance = null;
-        this.name = Object.getPrototypeOf(ComponentType).defineName;  //名称为对象定义的原型名
-        this.runtime = ecs;
+        this.Instance = null;
+        this.Name = Object.getPrototypeOf(ComponentType).defineName;  //名称为对象定义的原型名
+        this.runtime = runtime;
     }
 
     /**
      * create a <Component> and call it's onCreate method
-     * @returns Component
      */
-    create() {
-        let args = [].slice.call(arguments);
-        this.instance = new this.component();
-        this.component.apply(this.instance, args);
-        this.instance.markDirty();
-        this.instance.setRuntime(this.runtime)
-        if (this.instance.onCreate) {
-            this.instance.onCreate(this.runtime);
+    Create(...args):T {
+        this.Instance = Object.create(Object.getPrototypeOf(this.component));
+        this.component.apply(this.Instance, args);
+        this.Instance.MarkDirty();
+        this.Instance.SetRuntime(this.runtime)
+        if (this.Instance.OnCreate) {
+            this.Instance.OnCreate(this.runtime);
         }
-        return this.instance;
+        return this.Instance;
     }
 
     /**
      * recycle <Component>
      * @param comp
      */
-    recycle(comp) {
-        if (this.instance) {
-            this.instance.onDestroy && this.instance.onDestroy(this.runtime);
+    Recycle(comp:T) {
+        if (this.Instance) {
+            this.Instance.OnDestroy && this.Instance.OnDestroy(this.runtime);
         }
-        this.instance = null;
+        this.Instance = null;
     }
 
     /**
      * pop a <Component> or create one
-     * @returns {*}
      */
-    get() {
-        let args = [].slice.call(arguments);
-        if (this.instance) {
+    Get(...args):T {
+        if (this.Instance) {
             if (args.length > 0) {
-                this.component.apply(this.instance, args);
+                this.component.apply(this.Instance, args);
             }
-            return this.instance;
+            return this.Instance;
         } else {
-            return this.create.apply(this, args);
+            return this.Create.apply(this, args);
         }
     }
 
-    update(dt) {
+    Update(dt) {
 
     }
 
-    destroy() {
-        if (this.instance) {
-            this.instance.onDestroy(this.runtime);
+    Destroy() {
+        if (this.Instance) {
+            this.Instance.OnDestroy(this.runtime);
         }
-        this.instance = null;
+        this.Instance = null;
     }
 }
 

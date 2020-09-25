@@ -88,17 +88,6 @@ export namespace util {
         return true;
     }
 
-    export function getComponentType(comp:(string|{new():IComponent}|IComponent)):string {
-        if (isString(comp)) {
-            return <string>comp;
-        }
-
-        if (comp["defineName"]) {
-            return <string>comp["defineName"]
-        }
-        throw new Error("not a component")
-    }
-
     export function includes<T>(collection:Array<T>, value:Array<T>|T) {
         if (isArray(value)) {
             for (let i = 0; i < (<Array<T>>value).length; i++) {

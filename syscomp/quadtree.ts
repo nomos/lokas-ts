@@ -10,7 +10,7 @@ export class QuadTree extends Rect {
     public maxObject:number
     public maxLevel:number
     public colliders:Array<Collider>
-    constructor(x,y,w,h,maxObject=8,maxLevel=4){
+    constructor(x=0,y=0,w=0,h=0,maxObject=8,maxLevel=4){
         super(x-w/2,y-h/2,x+w/2,y+h/2);
         this.maxObject = maxObject;
         this.maxLevel = maxLevel;
@@ -20,7 +20,7 @@ export class QuadTree extends Rect {
     }
     remove(collider,updating=false){
         if (collider instanceof Entity) {
-            collider = collider.get(Collider);
+            collider = collider.Get(Collider);
         }
         if(!updating) {
             const world = collider.quadWorld;
@@ -102,7 +102,7 @@ export class QuadBranch extends Rect{
     static get defineName(){
         return 'QuadTree';
     }
-    constructor(minX,minY,maxX,maxY,level=0){
+    constructor(minX=0,minY=0,maxX=0,maxY=0,level=0){
         super(minX,minY,maxX,maxY);
         this.level=level;
         this.parent = null;
@@ -112,7 +112,7 @@ export class QuadBranch extends Rect{
 
     remove(collider,max_object){
         if (collider instanceof Entity) {
-            collider = collider.get(Collider);
+            collider = collider.Get(Collider);
         }
         let tree = collider.quadTree;
         let index = tree.objects.indexOf(collider);
@@ -254,12 +254,12 @@ export class QuadBranch extends Rect{
      */
     private split(){
         const nextLevel = this.level+1;
-        const x = this.x;
-        const y = this.y;
-        const min_x = this.minX;
-        const min_y = this.minY;
-        const max_x = this.maxX;
-        const max_y = this.maxY;
+        const x = this.X;
+        const y = this.Y;
+        const min_x = this.MinX;
+        const min_y = this.MinY;
+        const max_x = this.MaxX;
+        const max_y = this.MaxY;
         this.nodes[0] = this.createChild(
             min_x,min_y,x,y,nextLevel);
         this.nodes[1] = this.createChild(
@@ -275,16 +275,16 @@ export class QuadBranch extends Rect{
      */
     private getIndex(collider:Collider){
         let index = -1;
-        const c_min_x = collider.minX;
-        const c_max_x = collider.maxX;
-        const c_min_y = collider.minY;
-        const c_max_y = collider.maxY;
-        const t_min_x = this.minX;
-        const t_max_x = this.maxX;
-        const t_min_y = this.minY;
-        const t_max_y = this.maxY;
-        const x = this.x;
-        const y= this.y;
+        const c_min_x = collider.MinX;
+        const c_max_x = collider.MaxX;
+        const c_min_y = collider.MinY;
+        const c_max_y = collider.MaxY;
+        const t_min_x = this.MinX;
+        const t_max_x = this.MaxX;
+        const t_min_y = this.MinY;
+        const t_max_y = this.MaxY;
+        const x = this.X;
+        const y= this.Y;
         // console.log(collider.getEntity().id,'c_min_x',c_min_x,'c_max_x',c_max_x,'c_min_y',c_min_y,'c_max_y',c_max_y);
         // console.log(collider.getEntity().id,'t_min_x',t_min_x,'t_max_x',t_max_x,'t_min_y',t_min_y,'t_max_y',t_max_y);
         // console.log(collider.getEntity().id,'x',x,'y',y);

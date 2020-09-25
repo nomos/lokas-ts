@@ -46,11 +46,11 @@ export class Polygon extends IComponent{
         Polygon.prototype.setPoints.call(this, points);
     }
 
-    onAdd(ent,ecs) {
+    OnAdd(ent, ecs) {
         let cPos = this.getSibling(Position);
         let cAngle = this.getSibling(Angle);
-        this._x = cPos.x;
-        this._y = cPos.y;
+        this._x = cPos.X;
+        this._y = cPos.Y;
         this._angle = cAngle.degree;
     }
 
@@ -58,13 +58,13 @@ export class Polygon extends IComponent{
 
     set angle(degree){this.getSibling(Angle).degree = -degree;}
 
-    get x(){return this.getSibling(Position).x;}
+    get x(){return this.getSibling(Position).X;}
 
-    set x(x){this.getSibling(Position).x = x;}
+    set x(x){this.getSibling(Position).X = x;}
 
-    get y(){return this.getSibling(Position).y;}
+    get y(){return this.getSibling(Position).Y;}
 
-    set y(y){this.getSibling(Position).y = y;}
+    set y(y){this.getSibling(Position).Y = y;}
 
     setPoints(new_points) {
         const count = new_points.length;
@@ -153,7 +153,7 @@ export class Polygon extends IComponent{
         this._dirty_normals = true;
     }
     draw(context,scale_x,scale_y) {
-        if(this.getEntity().isDirty()) {
+        if(this.GetEntity().IsDirty()) {
             this._calculateCoords();
         }
         scale_x = scale_x||1;

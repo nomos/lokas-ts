@@ -1,4 +1,4 @@
-import {Runtime} from "./runtime";
+import {IRuntime} from "./runtime";
 import {Entity} from "./entity";
 import {IComponent} from "./default_component";
 import {util} from "../utils/util";
@@ -8,16 +8,17 @@ import {util} from "../utils/util";
  */
 
 export class Group {
-    public hash: Array<string>
-    public hashStr: string
-    private componentTypes: Array<string>
-    private entityIndexes: Array<number>
-    private dirtyEntities: Array<Entity>
-    private runtime: Runtime
+    public Hash: Array<string>
+    public HashStr: string
 
-    constructor(compGroup: Array<{ new(): IComponent }>, ecs: Runtime) {
-        this.hash = [];
-        this.runtime = ecs;
+    private readonly componentTypes: Array<string> = []
+    private entityIndexes: Array<string> = []
+    private dirtyEntities: Array<Entity> = []
+    private runtime: IRuntime
+
+    constructor(compGroup: Array<{ new(): IComponent }>, runtime: IRuntime) {
+        this.Hash = [];
+        this.runtime = runtime;
         this.componentTypes = [];
         for (let i = 0; i < compGroup.length; i++) {
             let comp = compGroup[i];
@@ -27,19 +28,17 @@ export class Group {
             this.componentTypes.push(Object.getPrototypeOf(comp).defineName);
         }
         this.componentTypes.sort();
-        this.entityIndexes = [];
-        this.dirtyEntities = [];
     }
 
-    includes(compName:string|IComponent):boolean{
+    Includes(compName:string|IComponent):boolean{
         if (typeof compName !== "string") {
-            compName = <string>(compName.defineName)
+            compName = <string>(compName.DefineName)
         }
         return this.componentTypes.includes(compName)
     }
 
-    addDirtyEntity(ent: Entity) {
-        if (ent.getGroupHashes().indexOf(this.hash) === -1) {
+    AddDirtyEntity(ent: Entity) {
+        if (ent.GetGroupHashes().indexOf(this.HashStr) === -1) {
             return;
         }
         let index = this.dirtyEntities.indexOf(ent);
@@ -48,7 +47,7 @@ export class Group {
         }
     }
 
-    removeDirtyEntity(ent) {
+    RemoveDirtyEntity(ent) {
         let index = this.dirtyEntities.indexOf(ent);
         if (index !== -1) {
             this.dirtyEntities.splice(index, 1);
@@ -56,7 +55,7 @@ export class Group {
     }
 
 
-    clean() {
+    Clean() {
         this.dirtyEntities = [];
     }
 
@@ -64,11 +63,11 @@ export class Group {
      * 尝试往集合<Group>中添加一个实体<Entity>(只有包含集合<Group>中所有组件<Component>类型的实体<Entity>会被添加到Group中)
      * @param ent
      */
-    addEntity(ent: Entity) {
+    AddEntity(ent: Entity) {
         if (ent.includes(this.componentTypes)) {
-            if (!this.hasEntity(ent)) {
-                ent.addGroup(this.hash);
-                this.entityIndexes.push(ent.id);
+            if (!this.HasEntity(ent)) {
+                ent.AddGroup(this.HashStr);
+                this.entityIndexes.push(ent.Id);
             }
         }
     }
@@ -76,15 +75,15 @@ export class Group {
     /**
      * 尝试立即移除一个实体<Entity>
      */
-    removeEntity(ent: Entity) {
+    RemoveEntity(ent: Entity) {
         //如果实体中不包含集合的组件,提前跳出
         if (!ent.includes(this.componentTypes)) {
             return;
         }
         if (this.entityIndexes) {
-            ent.removeGroup(this.hash);
+            ent.RemoveGroup(this.Hash);
             util.remove(this.entityIndexes, function (n) {
-                return n === ent.id;
+                return n === ent.Id;
             });
         }
     }
@@ -92,7 +91,7 @@ export class Group {
     /**
      * 移除一个实体<Entity>ID队列,通常在每一帧更新的最后做
      */
-    removeEntityArray(arr) {
+    RemoveEntityArray(arr) {
         let removeArr = [];
         for (let i = 0; i < arr.length; i++) {
             if (arr[i].includes(this.componentTypes)) {
@@ -110,7 +109,7 @@ export class Group {
     /**
      * 检查集合<Group>中是否有这个实体<Entity>
      */
-    hasEntity(ent): boolean {
+    HasEntity(ent): boolean {
         let id = ent.id;
         let index = this.entityIndexes.indexOf(id);
         return index !== -1;
@@ -119,16 +118,16 @@ export class Group {
     /**
      * 检查集合<Group>中是否有这个实体<Entity>ID
      */
-    hasEntityByID(id): boolean {
+    HasEntityByID(id): boolean {
         let index = this.entityIndexes.indexOf(id);
         return index !== -1;
     }
 
-    getEntities(): Array<Entity> {
+    GetEntities(): Array<Entity> {
         let ret = [];
         for (let i = 0; i < this.entityIndexes.length; i++) {
             let id = this.entityIndexes[i];
-            let ent = this.runtime.getEntity(id);
+            let ent = this.runtime.GetEntity(id);
             if (!ent) {
                 throw new Error('entity must not be null');
             }
@@ -140,36 +139,35 @@ export class Group {
     /**
      *  获取单例实体
      */
-    getSingletonEntity(): Entity {
+    GetSingletonEntity(): Entity {
 
         let id = this.entityIndexes[0];
         if (id === undefined) {
             return;
         }
-        return this.runtime.getEntity(id);
+        return this.runtime.GetEntity(id);
     }
 
     /**
      * 检查集合<Group>是否包含该类型的组件<Component>,接受多个参数
      */
-    match(...comp: Array<string | IComponent>) {
-        let args = [].slice.call(arguments);
+    Match(...comps: Array<string | IComponent>) {
         let compStrArr = [];
-        if (args.length === 0) {
+        if (comps.length === 0) {
             return false;
         } else {
-            if (!util.isString(args[0])) {
-                for (let arg of args) {
-                    compStrArr.push((<IComponent>arg).defineName)
+            if (!util.isString(comps[0])) {
+                for (let arg of comps) {
+                    compStrArr.push((<IComponent>arg).DefineName)
                 }
             } else {
-                compStrArr = args;
+                compStrArr = comps;
             }
         }
         return util.includes(this.componentTypes, compStrArr);
     }
 
-    length() {
+    get length() {
         return this.entityIndexes.length;
     }
 }

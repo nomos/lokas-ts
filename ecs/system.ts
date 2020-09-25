@@ -1,125 +1,133 @@
-import {Runtime} from "./runtime";
+import {IRuntime} from "./runtime";
 
 export interface ISystem {
-    name:string
-    desc:string
-    enabled:boolean
-    stateOnly:any
-    priority:number
-    addOrder:number
-    setRuntime(runtime:Runtime)
-    getRuntime():Runtime
-    onRegister(runtime:Runtime)
-    onEnable(runtime:Runtime)
-    onDisable(runtime:Runtime)
-    calUpdate(sysUpdateTime,now)
-    offState(time:number, runtime:Runtime)
-    onState(time:number, runtime:Runtime)
+    Name:string
+    Desc:string
+    Enabled:boolean
+    StateOnly:any
+    Priority:number
+    AddOrder:number
+    SetRuntime(runtime:IRuntime)
+
+    GetRuntime():IRuntime
+    OnRegister(runtime:IRuntime)
+    OnEnable(runtime:IRuntime)
+    OnDisable(runtime:IRuntime)
+    CalUpdate(sysUpdateTime, now):SystemUpdater[]
+    OffState(time:number, runtime:IRuntime)
+    OnState(time:number, runtime:IRuntime)
+    DoUpdates(dt, now, ecs)
+    DoLateUpdates(dt, now, ecs)
+}
+
+export class SystemUpdater {
+    public Interval:number = 0
+    public ActiveTime:number = 0
+    public System:ISystem
+    constructor(interval:number,activeTime:number,system:ISystem) {
+        this.Interval = interval
+        this.ActiveTime = activeTime
+        this.System = system
+    }
 }
 
 export class System implements ISystem{
-    public runtime:Runtime
-    public enabled:boolean
-    public stateOnly:string
-    public name:string
-    public desc:string
-    public priority:number
-    public addOrder:number
-    public updateTime:number
-    public lastUpdateTime:number
+    public Enabled:boolean
+    public StateOnly:string
+    public Name:string
+    public Desc:string
+    public Priority:number
+    public AddOrder:number
 
-    constructor(runtime:Runtime){
+    protected updateTime:number
+    protected lastUpdateTime:number
+    protected runtime:IRuntime
+
+    constructor(runtime:IRuntime){
         this.runtime = runtime;
-        this.enabled = true;
+        this.Enabled = true;
         this.lastUpdateTime = 0;
-        this.priority = 0;
+        this.Priority = 0;
     }
 
-    getRuntime():Runtime{
+    GetRuntime():IRuntime{
         return this.runtime;
     }
 
-    setRuntime(runtime:Runtime){
+    SetRuntime(runtime:IRuntime){
         this.runtime = runtime
     }
 
-    onEnable(runtime:Runtime){
+    OnEnable(runtime:IRuntime){
 
     }
 
-    onDisable(runtime:Runtime){
+    OnDisable(runtime:IRuntime){
 
     }
 
-    onRegister(runtime:Runtime){
+    OnRegister(runtime:IRuntime){
 
     }
 
-    onState(now,runtime:Runtime) {
+    OnState(now, runtime:IRuntime) {
 
     }
 
-    offState(now,runtime:Runtime) {
+    OffState(now, runtime:IRuntime) {
 
     }
 
-    update(dt,now,runtime:Runtime) {
+    protected Update(dt, now, runtime:IRuntime) {
 
     }
 
-    lateUpdate(dt,now,runtime:Runtime) {
+    protected LateUpdate(dt, now, runtime:IRuntime) {
 
     }
 
-    calUpdate(sysUpdateTime,now) {
-        if (!this.enabled) {
+    CalUpdate(sysUpdateTime, now):SystemUpdater[] {
+        if (!this.Enabled) {
             return [];
         }
         let ret = [];
         let updateTime = this.updateTime||sysUpdateTime;
         while (updateTime<now-this.lastUpdateTime) {
-            ret.push({
-                activeTime:this.lastUpdateTime+updateTime,
-                interval:updateTime
-            });
+            ret.push(new SystemUpdater(updateTime,this.lastUpdateTime+updateTime,this));
             this.lastUpdateTime+=updateTime;
         }
         return ret;
     }
 
 
-    doOffState(now,ecs) {
-        if (this.enabled) {
+    protected doOffState(now,ecs) {
+        if (this.Enabled) {
             let self = this;
             this.runtime.once('_afterUpdate',function () {
-                self.offState(now, ecs);
+                self.OffState(now, ecs);
             });
         }
     }
 
-    doUpdates(dt,now,ecs) {
-        if (this.stateOnly) {
-            if (this.stateOnly!==ecs.getState()) {
+    DoUpdates(dt, now, ecs) {
+        if (this.StateOnly) {
+            if (this.StateOnly!==ecs.getState()) {
                 return;
             }
         }
         ecs.updateCommands();
-        this.update(dt, now, this.runtime);
+        this.Update(dt, now, this.runtime);
     }
 
-    doLateUpdates(dt,now,ecs) {
-        if (this.stateOnly) {
-            if (this.stateOnly!==ecs.getState()) {
+    DoLateUpdates(dt, now, ecs) {
+        if (this.StateOnly) {
+            if (this.StateOnly!==ecs.getState()) {
                 return;
             }
         }
-        this.lateUpdate(dt, now, this.runtime);
+        this.LateUpdate(dt, now, this.runtime);
     }
 }
-
-
-
-
 
 
 
