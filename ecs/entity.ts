@@ -8,7 +8,7 @@ import {util} from "../utils/util";
 import {IComponent} from "./default_component";
 import {Serializable} from "../protocol/protocol";
 import {Buffer} from "../thirdparty/buffer";
-import {define, formats, Tag, TypeRegistry} from "../protocol/types";
+import {define, Tag, TypeRegistry} from "../protocol/types";
 import {marshal} from "../protocol/encode";
 import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
 
@@ -25,14 +25,6 @@ import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
 
 
 @define("EntityData")
-@formats([
-    ["Id",Tag.Long],
-    ["SyncAll",Tag.Bool],
-    ["Step",Tag.Long,Tag.Int],
-    ["AddComps",Tag.List,Tag.Buffer],
-    ["ModComps",Tag.List,Tag.Buffer],
-    ["RemComps",Tag.List,Tag.Short],
-])
 export class EntityData extends Serializable {
     public Id:string
     public SyncAll:boolean
@@ -42,8 +34,7 @@ export class EntityData extends Serializable {
     public RemComps:number[] = []
 }
 
-@define("EntityRef")
-@formats([
+@define("EntityRef",[
     ["Id",Tag.Long],
 ])
 export class EntityRef extends Serializable{

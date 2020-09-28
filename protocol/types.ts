@@ -60,11 +60,11 @@ export enum Tag {
 
 export class MemberDef {
     public Key: string
-    public Tag: number
-    public Tag1: number
-    public Tag2: number
-    public Tag3: number
-    constructor(key, tag: number, tag1: number, tag2: number, tag3: number) {
+    public Tag: TagType
+    public Tag1: TagType
+    public Tag2: TagType
+    public Tag3: TagType
+    constructor(key, tag: TagType, tag1: TagType, tag2: TagType, tag3: TagType) {
         this.Key = key
         this.Tag = tag
         this.Tag1 = tag1
@@ -80,6 +80,7 @@ export class ClassDef {
     public Ctor: { new(): any }
     public MembersMap: Map<string, MemberDef> = new Map<string, MemberDef>()
     public Members: Array<MemberDef> = new Array<MemberDef>()
+    public Depends: Array<string> = new Array<string>()
 
     constructor(name: string, ctor: { new(): any }) {
         this.Name = name
@@ -90,7 +91,7 @@ export class ClassDef {
         return TypeRegistry.GetInstance().GetTagByName(this.Name)
     }
 
-    RegisterMember(key: string, tag: number, tag1?: number, tag2?: number, tag3?: number) {
+    RegisterMember(key: string, tag: TagType, tag1?: TagType, tag2?: TagType, tag3?: TagType) {
         log.warn("register member def", this.Name, key, tag)
         if (this.MembersMap.get(key)) {
             throw new Error("duplicated member key:" + key)
@@ -133,7 +134,7 @@ export class TypeRegistry extends Singleton {
         this.RegisterSystemTag("QuadTree", Tag.QuadTree)
     }
 
-    RegisterMemberDef(c: any, name: string, type: Tag, type1?: Tag, type2?: Tag, type3?: Tag) {
+    RegisterMemberDef(c: any, name: string, type: TagType, type1?: TagType, type2?: TagType, type3?: TagType) {
         let classDef = this.classDefs.get(this.classDefsInverse.get(c))
         if (classDef) {
             classDef.RegisterMember(name, type, type1, type2, type3)
@@ -174,7 +175,7 @@ export class TypeRegistry extends Singleton {
         return ret
     }
 
-    RegisterClassDef(c: any, name: string) {
+    RegisterClassDef(c: any, name: string,...depends:string[]) {
         log.warn("registerClassDef", name)
         if (this.classDefs.get(name)) {
             throw new Error("class def already exist:" + name)
@@ -182,6 +183,7 @@ export class TypeRegistry extends Singleton {
         this.classDefs.set(name, new ClassDef(name, c))
         this.classDefsInverse.set(c, name)
         this.classProto.set(name, c)
+        this.classDefs.get(name).Depends = depends
         let map1 = __tempMemberMap.slice()
         __tempMemberMap = []
         map1.forEach((v) => {
@@ -252,22 +254,19 @@ export class TypeRegistry extends Singleton {
     }
 }
 
-export function formats(tags: Array<[string, Tag, Tag?, Tag?, Tag?]>) {
-    return function (target: { new(): Serializable }) {
-        tags.forEach((v) => {
-            TypeRegistry.GetInstance().RegisterMemberDef(target.prototype, v[0], v[1], v[2], v[3], v[4])
-        })
-    }
-}
+type TagType = Tag|{new():Serializable}
 
-export function format(tag: Tag, tag1?: Tag, tag2?: Tag) {
+export function format(tag: TagType, tag1?: TagType, tag2?: TagType) {
     return function (target: Serializable, propertyKey: string) {
         TypeRegistry.GetInstance().RegisterMemberDef(target, propertyKey, tag, tag1, tag2)
     }
 }
 
-export function define(typename: string) {
+export function define(typename: string,tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [],...depends:string[]) {
     return function (target: { new(): Serializable }) {
-        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename)
+        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename,...depends)
+        tags.forEach((v) => {
+            TypeRegistry.GetInstance().RegisterMemberDef(target.prototype, v[0], v[1], v[2], v[3], v[4])
+        })
     }
 }

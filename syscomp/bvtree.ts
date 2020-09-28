@@ -14,7 +14,7 @@ export interface BVNode extends Rect {
     branch: boolean      //是否BVBranch
 }
 
-@define('BVBranch')
+@define("BVBranch")
 export class BVBranch extends Rect implements BVNode {
     public parent: BVBranch
     public left: BVNode
@@ -32,7 +32,7 @@ export class BVBranch extends Rect implements BVNode {
     }
 }
 
-@define('BVTree')
+@define("BVTree")
 export class BVTree extends IComponent {
     public branches: Array<BVNode>
     public root: BVNode

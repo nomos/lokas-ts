@@ -3,11 +3,8 @@ import {IComponent} from "../ecs/default_component";
 import {Angle, Position} from "./base_components";
 import {define} from "../protocol/types";
 
-@define('Polygon')
+@define("Polygon",[],"Position","Angle")
 export class Polygon extends IComponent{
-    static get defineDepends(){
-        return ['Position','Angle'].concat(super.defineDepends);
-    }
 
     public scale_x:number
     public scale_y:number

@@ -1,5 +1,5 @@
 import {Serializable} from "../protocol/protocol";
-import {define, formats, Tag, TypeRegistry} from "../protocol/types";
+import {define, Tag, TypeRegistry} from "../protocol/types";
 import {EntityData} from "./entity";
 import {IConnectionMgr, IRuntime} from "./runtime";
 import {log} from "../utils/logger";
@@ -8,8 +8,7 @@ import {marshal} from "../protocol/encode";
 import {Buffer} from "../thirdparty/buffer";
 import {unmarshal} from "../protocol/decode";
 
-@define("SyncReq")
-@formats([
+@define("SyncReq", [
     ["Step", Tag.Long, Tag.Int],
     ["EntitySteps", Tag.Map, Tag.String, Tag.Long, Tag.Int],
 ])
@@ -19,8 +18,7 @@ export class SyncReq extends Serializable {
 }
 
 
-@define("SyncFrame")
-@formats([
+@define("SyncFrame", [
     ["OldStep", Tag.Long, Tag.Int],
     ["CurStep", Tag.Long, Tag.Int],
     ["SyncAll", Tag.Bool],
@@ -50,20 +48,20 @@ export class SyncFrame extends Serializable {
     }
 }
 
-@define("SyncStream")
-@formats([
+@define("SyncStream", [
     ["SnapShots", Tag.List, Tag.SyncFrame],
 ])
+
 export class SyncStream extends Serializable {
     public SnapShots: SyncFrame[]
 }
 
-@define("Connection")
-@formats([
+@define("Connection", [
     ["Uid", Tag.String],
     ["Step", Tag.Long, Tag.Int],
     ["EntitySteps", Tag.Map, Tag.Long, Tag.Long, Tag.Int],
 ])
+
 export class Connection extends Serializable {
     public Uid: string
     public Step: number
@@ -89,14 +87,14 @@ export class Connection extends Serializable {
     }
 }
 
-@define("SyncCmd")
-@formats([
-    ["Uid",Tag.String],
-    ["Msg",Tag.Buffer],
+@define("SyncCmd", [
+    ["Uid", Tag.String],
+    ["Msg", Tag.Buffer],
 ])
+
 export class SyncCmd extends Serializable {
-    public Uid:string
-    public Msg:Buffer
+    public Uid: string
+    public Msg: Buffer
 }
 
 export class SyncManager implements IConnectionMgr {
@@ -111,8 +109,8 @@ export class SyncManager implements IConnectionMgr {
     private lastSync: SyncFrame              //客户端保存上一次快照
     private connections: Map<string, Connection> = new Map<string, Connection>()           //客户端连接
 
-    private commandHandler:Map<number,(msg:Serializable,conn:Connection)=>Serializable> = new Map<number, (msg:Serializable,conn:Connection)=> Serializable>()                //注册的命令组件
-    private commandQueues:SyncCmd[] = []        //以命令名为键的队列
+    private commandHandler: Map<number, (msg: Serializable, conn: Connection) => Serializable> = new Map<number, (msg: Serializable, conn: Connection) => Serializable>()                //注册的命令组件
+    private commandQueues: SyncCmd[] = []        //以命令名为键的队列
 
     constructor(runtime: IRuntime) {
         this.runtime = runtime
@@ -135,7 +133,7 @@ export class SyncManager implements IConnectionMgr {
         })
         if (!temp) {
             this.snapshotSteps.push(this.runtime.Tick);
-            this.snapshots.set(this.runtime.Tick,marshal(ret));
+            this.snapshots.set(this.runtime.Tick, marshal(ret));
         }
         this.lastSnapshot = ret;
         this.lastSnapshotId = this.runtime.Tick
@@ -180,7 +178,7 @@ export class SyncManager implements IConnectionMgr {
         })
 
         this.syncSteps.push(this.runtime.Tick);
-        this.snapshots.set(this.runtime.Tick,marshal(ret));
+        this.snapshots.set(this.runtime.Tick, marshal(ret));
         this.lastSnapStep = ret
         return ret;
     }
@@ -301,7 +299,7 @@ export class SyncManager implements IConnectionMgr {
         let ret = new SyncStream()
 
         let startStep;
-        if (curStep === 0||curStep<this.lastSnapshotId) {
+        if (curStep === 0 || curStep < this.lastSnapshotId) {
             startStep = this.getNearestSnapshot(curStep);
             if (!startStep) {
                 return;
@@ -393,9 +391,9 @@ export class SyncManager implements IConnectionMgr {
     RegisterCommand(command: { new(): Serializable }, handler: (cmd: Serializable, conn: Connection) => Serializable) {
         let tag = TypeRegistry.GetInstance().GetProtoTag(command.prototype)
         if (tag == 0) {
-            log.panic("unregistered tag",command)
+            log.panic("unregistered tag", command)
         }
-        this.commandHandler.set(tag,handler)
+        this.commandHandler.set(tag, handler)
     }
 
 //更新客户端命令 //在System里调用防止在加速的更新时间穿越系统更新导致系统收不到onCommand变化
@@ -407,13 +405,13 @@ export class SyncManager implements IConnectionMgr {
             let tag = TypeRegistry.GetInstance().GetTagByName(msg.DefineName)
             let handler = this.commandHandler.get(tag)
             if (handler) {
-                handler(msg,conn)
+                handler(msg, conn)
             }
         }
     }
 
 //接收命令
-    ReceiveCommand(cmd:SyncCmd) {
+    ReceiveCommand(cmd: SyncCmd) {
         if (!cmd) {
             log.error('command is nil');
             return;

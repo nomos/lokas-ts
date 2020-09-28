@@ -1,21 +1,18 @@
 import {IComponent} from "../ecs/default_component";
-import {define, formats, Tag} from "../protocol/types";
+import {define, Tag} from "../protocol/types";
 
-@define('Rect')
-@formats([
-    ["MinX",Tag.Float],
-    ["MinY",Tag.Float],
-    ["MaxX",Tag.Float],
-    ["MaxY",Tag.Float],
+@define("Rect", [
+    ["MinX", Tag.Float],
+    ["MinY", Tag.Float],
+    ["MaxX", Tag.Float],
+    ["MaxY", Tag.Float],
 ])
 export class Rect extends IComponent {
-    static get defineDepends() {
-        return [].concat(super.defineDepends);
-    }
-    public MinX:number
-    public MinY:number
-    public MaxX:number
-    public MaxY:number
+    public MinX: number
+    public MinY: number
+    public MaxX: number
+    public MaxY: number
+
     constructor(minX = 0, minY = 0, maxX = 0, maxY = 0) {
         super();
         this.MinX = minX;
@@ -50,7 +47,7 @@ export class Rect extends IComponent {
         return this.MaxY - this.MinY;
     }
 
-    IntersectionWithRect (a) {
+    IntersectionWithRect(a) {
         return !(this.MinY > a.maxY || this.MinX > a.maxX || this.MaxY < a.minY || this.MaxX < a.minX);
     }
 

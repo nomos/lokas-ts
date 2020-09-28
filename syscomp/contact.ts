@@ -3,7 +3,7 @@ import {Entity} from "../ecs/entity";
 import {Collider} from "./collider"
 import {define} from "../protocol/types";
 
-@define('Contact')
+@define("Contact")
 export class Contact extends IComponent{
     public a:Entity
     public b:Entity

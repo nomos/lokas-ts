@@ -4,7 +4,7 @@ import {Entity} from "../ecs/entity";
 import {Collider} from "./collider";
 import {define} from "../protocol/types";
 
-@define('QuadTree')
+@define("QuadTree")
 export class QuadTree extends Rect {
     public root:QuadBranch
     public maxObject:number
@@ -93,7 +93,7 @@ export class QuadTree extends Rect {
     }
 }
 
-@define('QuadBranch')
+@define("QuadBranch")
 export class QuadBranch extends Rect{
     public level:number
     public parent:QuadBranch

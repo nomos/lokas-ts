@@ -9,9 +9,6 @@ export class IComponent extends Serializable{
     protected entity: Entity = null
     protected runtime: IRuntime = null
 
-    static get defineDepends(): Array<string> {
-        return []
-    }
 
 
     get SyncAble():boolean{

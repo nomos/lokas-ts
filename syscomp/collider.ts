@@ -9,7 +9,7 @@ import {Point} from "./point";
 import {Circle} from "./circle"
 import {define} from "../protocol/types";
 
-@define('Collider')
+@define("Collider")
 export class Collider extends Rect implements BVNode{
     public padding:number
     public MinX:number
