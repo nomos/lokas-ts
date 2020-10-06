@@ -41,7 +41,7 @@ export function unmarshal(buff: ByteBuffer,value?:Serializable):Serializable {
     }
 }
 
-export function readValue(buff: ByteBuffer, tag: number, tag1: number, tag2: number, offset: number): [any, number] {
+export function readValue(buff: ByteBuffer, tag: number, tag1: number, tag2: number,tag3:number, offset: number): [any, number] {
     let customTag: number
     if (tag > Tag.Null) {
         customTag = tag
@@ -60,7 +60,7 @@ export function readValue(buff: ByteBuffer, tag: number, tag1: number, tag2: num
     } else if (tag == Tag.Proto) {
         return readComplex(buff, customTag, offset)
     } else if (tag == Tag.Map) {
-        return readMap(buff, tag, tag1, tag2, offset)
+        return readMap(buff, tag, tag1, tag2,tag3, offset)
     } else if (tag == Tag.End) {
         log.panic("read value error")
         return [null, offset + 1];
@@ -73,7 +73,7 @@ function readLength(buff: ByteBuffer, offset: number): [number, number] {
     return [buff.readUint32(offset), offset + 4]
 }
 
-export function readMap(buff: ByteBuffer, tag: number, tag1: number, tag2: number, offset: number): [Map<number | string, any>, number] {
+export function readMap(buff: ByteBuffer, tag: number, tag1: number, tag2: number, tag3: number, offset: number): [Map<number | string, any>, number] {
     let keyTag: number
     let valueTag: number
     let length: number
@@ -100,19 +100,28 @@ export function readMap(buff: ByteBuffer, tag: number, tag1: number, tag2: numbe
             let key: string
             let obj: any
             [key, offset] = readString(buff, offset);
-            [obj, offset] = readValue(buff, valueTag, null, null, offset);
+            [obj, offset] = readValue(buff, valueTag, tag3, null,null, offset);
             ret.set(key, obj)
         } else if (keyTag == Tag.Long) {
-            let key: string
+            let keyStr: string
+            let key: number
             let obj: any
-            [key, offset] = readLongToString(buff, offset);
-            [obj, offset] = readValue(buff, valueTag, null, null, offset);
-            ret.set(key, obj)
+            if (tag3 == Tag.String) {
+                [keyStr, offset] = readLongToString(buff, offset);
+            } else {
+                [key, offset] = readLongToNumber(buff, offset);
+            }
+            [obj, offset] = readValue(buff, valueTag, tag3, null,null, offset);
+            if (tag3 == Tag.String) {
+                ret.set(keyStr, obj)
+            } else {
+                ret.set(key, obj)
+            }
         } else {
             let key: number
             let obj: any
-            [key, offset] = readValue(buff,keyTag, null, null, offset);
-            [obj, offset] = readValue(buff, valueTag, null, null, offset);
+            [key, offset] = readValue(buff,keyTag, tag3, null,null, offset);
+            [obj, offset] = readValue(buff, valueTag, tag3, null,null, offset);
             ret.set(key, obj)
         }
     }
@@ -133,9 +142,7 @@ export function readValueFromComplex(buff: ByteBuffer,value:any, tag: number, of
     offset+=1
     classDef.Members.forEach(function (v, i, arr) {
         [tag, offset] = readTag(buff, offset);
-        if (tag == Tag.Long) {
-        }
-        [value[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2, offset);
+        [value[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2,v.Tag3, offset);
     })
     let tagEnd: number
     [tagEnd, offset] = readTag(buff, offset)
@@ -155,9 +162,7 @@ export function readComplex(buff: ByteBuffer, tag: number, offset: number): [any
     offset+=1
     classDef.Members.forEach(function (v, i, arr) {
         [tag, offset] = readTag(buff, offset);
-        if (tag == Tag.Long) {
-        }
-        [ret[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2, offset);
+        [ret[v.Key], offset] = readValue(buff, v.Tag, v.Tag1, v.Tag2,v.Tag3, offset);
     })
     let tagEnd: number
     [tagEnd, offset] = readTag(buff, offset)
@@ -178,7 +183,7 @@ export function readList(buff: ByteBuffer, tag: number, offset: number): [any[],
     let ret = []
     for (let i = 0; i < length; i++) {
         let data: any
-        [data, offset] = readValue(buff, innerTag, null, null, offset)
+        [data, offset] = readValue(buff, innerTag, null, null,null, offset)
         ret.push(data)
     }
     return [ret, offset]
@@ -309,7 +314,7 @@ export function readBaseValue(buff: ByteBuffer, tag: number,tag1:number, offset:
         case Tag.Byte:
             return [buff.readInt8(offset), 1 + offset]
         case Tag.Short:
-            return [buff.writeInt16(this.value, offset), 2 + offset]
+            return [buff.readInt16(offset), 2 + offset]
         case Tag.Int:
             return [buff.readInt32(offset), 4 + offset]
         case Tag.Long:
@@ -328,20 +333,17 @@ export function readBaseValue(buff: ByteBuffer, tag: number,tag1:number, offset:
 }
 
 function readLongToString(buff:ByteBuffer,offset:number):[string,number] {
-    let sliced = buff.slice(offset, offset + 8);
-    return [Long.fromBytes(sliced, true,false).toString(), 8 + offset];
+    return [Long.fromBytes([].slice.call(new Uint8Array( buff.slice(offset, offset + 8).toArrayBuffer())), true,false).toString(), 8 + offset];
 }
 
 
 function readLongToNumber(buff:ByteBuffer,offset:number):[number,number] {
-    let sliced = buff.slice(offset, offset + 8);
-    return [Long.fromBytes(sliced, true,false).toNumber(), 8 + offset];
+    return [Long.fromBytes([].slice.call(new Uint8Array( buff.slice(offset, offset + 8).toArrayBuffer())), true,false).toNumber(), 8 + offset];
 }
 
 function readTime(buff:ByteBuffer,offset:number):[Date,number] {
     let long:Long
-    let sliced = buff.slice(offset, offset + 8);
-    long = Long.fromBytes(sliced, true,false)
+    long = Long.fromBytes([].slice.call(new Uint8Array( buff.slice(offset, offset + 8).toArrayBuffer())), true,false)
     let ret = new Date(long.toNumber())
     return [ret,8+offset]
 }

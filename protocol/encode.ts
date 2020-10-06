@@ -43,7 +43,7 @@ export function marshalMessage(transId: number, msg: Serializable): ByteBuffer {
     }
     let buff = ByteBuffer.allocate(totalLength)
     let offset = 0
-    buff.writeUint32(transId, transIdLength)
+    buff.writeUint32(transId, offset)
     offset += 4
     buff.writeUint16(totalLength, offset)
     offset += 2
@@ -102,7 +102,7 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
         case Tag.Int_Array:
             return 4 + (<number[]>value).length * 4;
         case Tag.Long_Array:
-            return 4 + (<number[]>value).length * 8;
+            return 4 + (<[]>value).length * 8;
         case Tag.Float_Array:
             return 4 + (<number[]>value).length * 4;
         case Tag.Double_Array:
@@ -115,6 +115,7 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
                 log.panic("can't nesting composite type")
             }
             (<any[]>value).forEach((v) => {
+                log.warn("tag1",tag1)
                 length += calBuffLength(v, tag1)
             })
             let tagLength = tag1 < 128 ? 1 : 2
@@ -320,8 +321,9 @@ function writeBaseArray(buff: ByteBuffer, tag: number, tag1: number, v: any, off
 }
 
 function writeComplex(buff: ByteBuffer, tag: number, msg: Serializable, offset: number): number {
+
     if (Object.getPrototypeOf(msg) != TypeRegistry.GetInstance().GetProtoByTag(tag)) {
-        log.panic("tag is not matched")
+        log.panic("tag is not matched",Object.getPrototypeOf(msg),TypeRegistry.GetInstance().GetProtoByTag(tag))
         return
     }
     let classDef = TypeRegistry.GetInstance().GetClassDefByTag(tag)

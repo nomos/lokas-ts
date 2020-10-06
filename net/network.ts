@@ -5,6 +5,7 @@ import {marshalMessage} from "../protocol/encode";
 import {IContext} from "../common/context";
 import * as ByteBuffer from "bytebuffer";
 import {Tag} from "../protocol/types";
+import {unmarshalMessageHeader} from "../protocol/decode";
 
 const DEFAULT_TIMEOUT = 15000
 
@@ -192,7 +193,7 @@ export class WsClient extends EventEmitter {
 
 
     async Send(transId:number, data:Serializable): Promise<any> {
-        let buff = marshalMessage(transId,data)
+        let buff = marshalMessage(transId,data).buffer
         this.ws.send(buff)
         // let className = data['$type'].name;
         // let id = pb.nameMap[className];

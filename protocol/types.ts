@@ -77,8 +77,9 @@ export class MemberDef {
         return this.tag
     }
     get Tag1():number {
-        if (this.tag1==0) {
-            this.tag1 = TypeRegistry.GetInstance().GetProtoTag(this.tempTag1)
+        if (this.tag1==0&&this.tempTag1) {
+            this.tag1 = TypeRegistry.GetInstance().GetProtoTag(this.tempTag1.prototype.constructor)
+            log.warn(this.Key,this.tempTag1,this.tag1)
         }
         return this.tag1
     }
@@ -141,7 +142,7 @@ export class ClassDef {
     public Members: Array<MemberDef> = new Array<MemberDef>()
     public Depends: Array<string> = new Array<string>()
 
-    constructor(name: string, ctor: { new(): any }) {
+    constructor(name: string, ctor: { new(): Serializable }) {
         this.Name = name
         this.Ctor = ctor
     }
@@ -163,7 +164,7 @@ export class ClassDef {
 export class TypeRegistry extends Singleton {
     private classDefs: Map<string, ClassDef> = new Map<string, ClassDef>()
     private classDefsInverse: Map<any, string> = new Map<any, string>()
-    private classProto: Map<string, any> = new Map<string, any>()
+    private classCtors: Map<string, {new():Serializable}> = new Map<string, {new():Serializable}>()
     private tagMap: Map<string, number> = new Map<string, number>()
     private typeMap: Map<number, string> = new Map<number, string>()
 
@@ -203,14 +204,14 @@ export class TypeRegistry extends Singleton {
     }
 
     GetProtoTag(c: any): Tag {
-        let ret = "error"
+        let value = 0
         this.classDefsInverse.forEach((v, k) => {
             if (k == c) {
-                ret = v
-                return this.GetTagByName(k)
+                value = this.GetTagByName(v)
+                return true
             }
         })
-        return 0
+        return value
     }
 
     GetAnyName(c: string | { new(): Serializable } | Serializable): string {
@@ -241,7 +242,7 @@ export class TypeRegistry extends Singleton {
         }
         this.classDefs.set(name, new ClassDef(name, c))
         this.classDefsInverse.set(c, name)
-        this.classProto.set(name, c)
+        this.classCtors.set(name, c)
         this.classDefs.get(name).Depends = depends
         let map1 = __tempMemberMap.slice()
         __tempMemberMap = []
@@ -284,15 +285,15 @@ export class TypeRegistry extends Singleton {
     }
 
     GetProtoByTag(tag: number): any {
-        return this.classProto.get(this.typeMap.get(tag))
+        return this.classCtors.get(this.typeMap.get(tag)).prototype
     }
 
     GetCtorByName(name: string): { new(): Serializable } {
-        return this.classProto.get(name).constructor
+        return this.classCtors.get(name)
     }
 
     GetCtorByTag(tag: number): { new(): Serializable } {
-        return this.classProto.get(this.typeMap.get(tag)).constructor
+        return this.classCtors.get(this.typeMap.get(tag))
     }
 
     GetTagByName(name: string): number {
@@ -300,15 +301,15 @@ export class TypeRegistry extends Singleton {
     }
 
     GetInstanceByTag(tag: number): Serializable {
-        let proto = this.classProto.get(this.typeMap.get(tag))
+        let proto = this.classCtors.get(this.typeMap.get(tag)).prototype
         if (!proto) {
             log.panic("tag is not registered")
         }
         return Object.create(proto)
     }
 
-    IsValid(data: any): boolean {
-        let proto = Object.getPrototypeOf(data)
+    IsValid(data: Serializable): boolean {
+        let proto:{new():Serializable} = Object.getPrototypeOf(data).constructor
         return this.GetProtoName(proto) !== "error"
     }
 }
@@ -323,9 +324,12 @@ export function format(tag: TagType, tag1?: TagType, tag2?: TagType) {
 
 export function define(typename: string, tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [], ...depends: string[]) {
     return function (target: { new(): Serializable }) {
-        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename, ...depends)
+        TypeRegistry.GetInstance().RegisterClassDef(target, typename, ...depends)
         tags.forEach((v) => {
-            TypeRegistry.GetInstance().RegisterMemberDef(target.prototype, v[0], v[1], v[2], v[3], v[4])
+            if (typename == "TestStruct") {
+                log.warn("TestStruct",v[0])
+            }
+            TypeRegistry.GetInstance().RegisterMemberDef(target, v[0], v[1], v[2], v[3], v[4])
         })
     }
 }

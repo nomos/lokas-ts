@@ -2,6 +2,7 @@ import * as ByteBuffer from "bytebuffer";
 import {define, format, Tag, TypeRegistry} from "./types";
 import {marshalMessage} from "./encode";
 import {unmarshalMessageBody, unmarshalMessageHeader} from "./decode";
+import {log} from "../utils/logger";
 
 export class Serializable {
     UnmarshalFrom(buff: ByteBuffer) {
@@ -13,16 +14,17 @@ export class Serializable {
     }
 
     get DefineName(): string {
-        return TypeRegistry.GetInstance().GetProtoName(Object.getPrototypeOf(this))
+        return TypeRegistry.GetInstance().GetProtoName(Object.getPrototypeOf(this).constructor)
     }
 }
 
-@define("ComposeData")
+@define("ComposeData",[
+    ["Idx",Tag.Byte],
+    ["Data",Tag.Buffer],
+])
 export class ComposeData extends Serializable {
-    @format(Tag.Byte)
-    public idx: number
-    @format(Tag.Buffer)
-    public data: ByteBuffer
+    public Idx: number
+    public Data: ByteBuffer
 
     UnmarshalFrom(buff: ByteBuffer) {
 
@@ -33,17 +35,18 @@ export class ComposeData extends Serializable {
     }
 }
 
-@define("ErrMsg")
+@define("ErrMsg",[
+    ["Code",Tag.Short],
+    ["Msg",Tag.String],
+])
 export class ErrMsg extends Serializable {
-    @format(Tag.Short)
-    public code: number
-    @format(Tag.String)
-    public msg: string
+    public Code: number
+    public Msg: string
 
     constructor(code = 0, msg = "") {
         super()
-        this.code = code
-        this.msg = msg
+        this.Code = code
+        this.Msg = msg
     }
 
     UnmarshalFrom(buff: ByteBuffer) {
@@ -57,10 +60,10 @@ export class ErrMsg extends Serializable {
 
 export class BinaryMessage implements Serializable {
     DefineName: string = "BinaryMessage"
-    public transId: number
-    public len: number
-    public msgId: number
-    public data: any
+    public TransId: number
+    public Len: number
+    public MsgId: number
+    public Data: any
 
     constructor(buff?:ByteBuffer) {
         if (buff){
@@ -70,13 +73,13 @@ export class BinaryMessage implements Serializable {
 
     UnmarshalFrom(buff: ByteBuffer) {
         let header = unmarshalMessageHeader(buff)
-        this.transId = header[0]
-        this.len = header[1]
-        this.msgId = header[2]
-        this.data = unmarshalMessageBody(buff,this.msgId)
+        this.TransId = header[0]
+        this.Len = header[1]
+        this.MsgId = header[2]
+        this.Data = unmarshalMessageBody(buff,this.MsgId)
     }
 
     MarshalTo(): ByteBuffer {
-        return marshalMessage(this.transId, this.data)
+        return marshalMessage(this.TransId, this.Data)
     }
 }

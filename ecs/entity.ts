@@ -24,7 +24,9 @@ import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
  */
 
 
-@define("EntityData")
+@define("EntityData",[
+    ["Id",Tag.Long,Tag.String]
+])
 export class EntityData extends Serializable {
     public Id:string
     public SyncAll:boolean

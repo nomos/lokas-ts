@@ -43,7 +43,7 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
      * 创建一个组件<Component>并尝试调用它的onCreate方法
      */
     Create(...args):T {
-        let ret = Object.create(Object.getPrototypeOf(this.component));
+        let ret = Object.create(this.component.prototype);
         this.component.apply(ret, args);
         ret.SetRuntime(this.runtime);
         if (ret.OnCreate) {

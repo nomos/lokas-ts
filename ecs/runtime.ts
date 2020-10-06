@@ -521,8 +521,8 @@ export class Runtime extends EventEmitter implements IRuntime {
         for (let depend of NewComponent.defineDepends) {
             this.AddDepends(name, depend);
         }
-        if (Object.getPrototypeOf(NewComponent).onRegister) {
-            Object.getPrototypeOf(NewComponent).onRegister(this);
+        if (NewComponent.onRegister) {
+            NewComponent.onRegister(this);
         }
         this.componentPools[name] = new ComponentPool(NewComponent, maxSize, minSize, this);
         log.info(this.getRoleString() + " 注册组件池:" + name + " 成功,最小保留对象数:" + minSize + " 最大对象数:" + maxSize);

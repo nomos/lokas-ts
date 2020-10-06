@@ -10,7 +10,7 @@ export class ComponentSingleton<T extends IComponent>{
     constructor(ComponentType:{new():T}, runtime:IRuntime) {
         this.component = ComponentType;            //给对象赋值
         this.Instance = null;
-        this.Name = Object.getPrototypeOf(ComponentType).defineName;  //名称为对象定义的原型名
+        this.Name = ComponentType.prototype.defineName;  //名称为对象定义的原型名
         this.runtime = runtime;
     }
 
@@ -18,7 +18,7 @@ export class ComponentSingleton<T extends IComponent>{
      * create a <Component> and call it's onCreate method
      */
     Create(...args):T {
-        this.Instance = Object.create(Object.getPrototypeOf(this.component));
+        this.Instance = Object.create(this.component.prototype);
         this.component.apply(this.Instance, args);
         this.Instance.MarkDirty();
         this.Instance.SetRuntime(this.runtime)
