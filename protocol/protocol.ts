@@ -14,7 +14,7 @@ export class Serializable {
     }
 
     get DefineName(): string {
-        return TypeRegistry.GetInstance().GetProtoName(Object.getPrototypeOf(this).constructor)
+        return TypeRegistry.GetInstance().GetCtorName(Object.getPrototypeOf(this).constructor)
     }
 }
 

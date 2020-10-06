@@ -2,14 +2,12 @@ import {Entity} from "./entity";
 import {IRuntime} from "./runtime";
 import {TypeRegistry} from "../protocol/types";
 import {Serializable} from "../protocol/protocol";
-import {Buffer} from "../thirdparty/buffer";
+import ByteBuffer from "bytebuffer";
 
 export class IComponent extends Serializable{
     protected dirty: boolean = true
     protected entity: Entity = null
     protected runtime: IRuntime = null
-
-
 
     get SyncAble():boolean{
         return TypeRegistry.GetInstance().IsValid(this)
@@ -98,11 +96,11 @@ export class IComponent extends Serializable{
 
     }
 
-    UnmarshalFrom(buff:Buffer) {
+    UnmarshalFrom(buff:ByteBuffer) {
 
     }
 
-    MarshalTo():Buffer {
+    MarshalTo():ByteBuffer {
         return null
     }
 }

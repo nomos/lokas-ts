@@ -115,7 +115,6 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
                 log.panic("can't nesting composite type")
             }
             (<any[]>value).forEach((v) => {
-                log.warn("tag1",tag1)
                 length += calBuffLength(v, tag1)
             })
             let tagLength = tag1 < 128 ? 1 : 2
@@ -322,8 +321,8 @@ function writeBaseArray(buff: ByteBuffer, tag: number, tag1: number, v: any, off
 
 function writeComplex(buff: ByteBuffer, tag: number, msg: Serializable, offset: number): number {
 
-    if (Object.getPrototypeOf(msg) != TypeRegistry.GetInstance().GetProtoByTag(tag)) {
-        log.panic("tag is not matched",Object.getPrototypeOf(msg),TypeRegistry.GetInstance().GetProtoByTag(tag))
+    if (Object.getPrototypeOf(msg).constructor != TypeRegistry.GetInstance().GetCtorByTag(tag)) {
+        log.panic("tag is not matched",Object.getPrototypeOf(msg),TypeRegistry.GetInstance().GetCtorByTag(tag))
         return
     }
     let classDef = TypeRegistry.GetInstance().GetClassDefByTag(tag)

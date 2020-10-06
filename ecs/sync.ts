@@ -389,7 +389,7 @@ export class SyncManager implements IConnectionMgr {
     }
 
     RegisterCommand(command: { new(): Serializable }, handler: (cmd: Serializable, conn: Connection) => Serializable) {
-        let tag = TypeRegistry.GetInstance().GetProtoTag(command.prototype)
+        let tag = TypeRegistry.GetInstance().GetCtorTag(command.prototype)
         if (tag == 0) {
             log.panic("unregistered tag", command)
         }
