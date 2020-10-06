@@ -37,6 +37,7 @@ export enum Tag {
     SyncFrame,
     SyncStream,
     //-------System Struct-------
+    BinaryMessage = 40,
     ErrMsg = 41,
     ComposeData,
     //-------Physic Component-------

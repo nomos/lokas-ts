@@ -102,6 +102,18 @@ export function readMap(buff: Buffer, tag: number, tag1: number, tag2: number, o
             [key, offset] = readString(buff, offset);
             [obj, offset] = readValue(buff, valueTag, null, null, offset);
             ret.set(key, obj)
+        } else if (keyTag == Tag.Long) {
+            let key: string
+            let obj: any
+            [key, offset] = readLongToString(buff, offset);
+            [obj, offset] = readValue(buff, valueTag, null, null, offset);
+            ret.set(key, obj)
+        } else {
+            let key: number
+            let obj: any
+            [key, offset] = readValue(buff,keyTag, null, null, offset);
+            [obj, offset] = readValue(buff, valueTag, null, null, offset);
+            ret.set(key, obj)
         }
     }
 
