@@ -3,7 +3,8 @@ import {EventEmitter} from "../utils/event_emitter";
 import {Serializable} from "../protocol/protocol";
 import {marshalMessage} from "../protocol/encode";
 import {IContext} from "../common/context";
-
+import * as ByteBuffer from "bytebuffer";
+import {Tag} from "../protocol/types";
 
 const DEFAULT_TIMEOUT = 15000
 
@@ -91,7 +92,7 @@ export class WsClient extends EventEmitter {
         // }
     }
 
-    protected onRecvMessage?(cmdId: number, data: any, transId: number): boolean {
+    protected onRecvMessage?(cmdId: Tag, data: any, transId: number): boolean {
         // console.log(' Received msg', cmdId, data, transId);
         // let className = pb.idMap[cmdId];
         // if (!className || !pb[className])
@@ -122,9 +123,9 @@ export class WsClient extends EventEmitter {
     }
 
     protected appendComposeData(data: any) {
-        // this._composeData || (this._composeData = new dcodeIO.ByteBuffer());
-        // this._composeData.append(data.data);
-        // data.idx == 0 && this.touchComposeData();
+        this._composeData || (this._composeData = new ByteBuffer());
+        this._composeData.append(data.data);
+        data.idx == 0 && this.touchComposeData();
     }
 
     private touchComposeData() {

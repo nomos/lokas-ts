@@ -1,14 +1,14 @@
-import {Buffer} from "../thirdparty/buffer";
+import * as ByteBuffer from "bytebuffer";
 import {define, format, Tag, TypeRegistry} from "./types";
 import {marshalMessage} from "./encode";
 import {unmarshalMessageBody, unmarshalMessageHeader} from "./decode";
 
 export class Serializable {
-    UnmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: ByteBuffer) {
 
     }
 
-    MarshalTo(): Buffer {
+    MarshalTo(): ByteBuffer {
         return null
     }
 
@@ -20,15 +20,15 @@ export class Serializable {
 @define("ComposeData")
 export class ComposeData extends Serializable {
     @format(Tag.Byte)
-    public id: number
+    public idx: number
     @format(Tag.Buffer)
-    public data: Buffer
+    public data: ByteBuffer
 
-    UnmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: ByteBuffer) {
 
     }
 
-    MarshalTo(): Buffer {
+    MarshalTo(): ByteBuffer {
         return null
     }
 }
@@ -46,11 +46,11 @@ export class ErrMsg extends Serializable {
         this.msg = msg
     }
 
-    UnmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: ByteBuffer) {
 
     }
 
-    MarshalTo(): Buffer {
+    MarshalTo(): ByteBuffer {
         return null
     }
 }
@@ -62,13 +62,13 @@ export class BinaryMessage implements Serializable {
     public msgId: number
     public data: any
 
-    constructor(buff?:Buffer) {
+    constructor(buff?:ByteBuffer) {
         if (buff){
             this.UnmarshalFrom(buff)
         }
     }
 
-    UnmarshalFrom(buff: Buffer) {
+    UnmarshalFrom(buff: ByteBuffer) {
         let header = unmarshalMessageHeader(buff)
         this.transId = header[0]
         this.len = header[1]
@@ -76,7 +76,7 @@ export class BinaryMessage implements Serializable {
         this.data = unmarshalMessageBody(buff,this.msgId)
     }
 
-    MarshalTo(): Buffer {
+    MarshalTo(): ByteBuffer {
         return marshalMessage(this.transId, this.data)
     }
 }

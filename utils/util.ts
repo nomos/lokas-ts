@@ -1,5 +1,5 @@
-import {Long} from "./long";
-import {Buffer} from "../thirdparty/buffer";
+import * as Long from "long";
+import * as ByteBuffer from "bytebuffer";
 import {IComponent} from "../ecs/default_component";
 
 export class CountTimer {
@@ -117,7 +117,7 @@ export namespace util {
     }
 
     export function isBuffer(arg) {
-        return arg instanceof Buffer || arg instanceof ArrayBuffer || arg instanceof Uint8Array;
+        return arg instanceof ByteBuffer || arg instanceof ArrayBuffer || arg instanceof Uint8Array;
     }
 
     export function isNumber(arg) {

@@ -1,8 +1,9 @@
 import {Serializable} from "./protocol";
 import {Tag, TypeRegistry} from "./types";
-import {Buffer} from "../thirdparty/buffer";
+import * as ByteBuffer from "bytebuffer";
 import {log} from "../utils/logger";
-import {Long} from "../utils/long";
+import * as Long from "long";
+
 import {util} from "../utils/util";
 import {convertToLongArray} from "../utils/convert";
 
@@ -22,7 +23,7 @@ export const NUMBER_MAX = Number.MAX_SAFE_INTEGER
 export const NUMBER_MIN = Number.MIN_SAFE_INTEGER
 export const HEADER_SIZE = 4 + 2
 
-export function marshalMessage(transId: number, msg: Serializable): Buffer {
+export function marshalMessage(transId: number, msg: Serializable): ByteBuffer {
     let classDef = TypeRegistry.GetInstance().GetClassDef(msg.DefineName)
     if (classDef == undefined) {
         log.panic("msg is not registered", msg)
@@ -40,18 +41,19 @@ export function marshalMessage(transId: number, msg: Serializable): Buffer {
     if (totalLength > UINT16_MAX) {
         log.panic("package too big")
     }
-    let buff = Buffer.from(new Uint8Array(totalLength), 'utf8');
+    let buff = ByteBuffer.allocate(totalLength)
     let offset = 0
-    buff.writeUInt32BE(transId, transIdLength)
+    buff.writeUint32(transId, transIdLength)
     offset += 4
-    buff.writeUInt16BE(totalLength, offset)
+    buff.writeUint16(totalLength, offset)
     offset += 2
     offset = writeTag(buff, classDef.Tag, offset)
     writeComplex(buff, classDef.Tag, msg, offset)
     return buff
 }
 
-export function marshal(msg: Serializable): Buffer {
+
+export function marshal(msg: Serializable): ByteBuffer {
     let classDef = TypeRegistry.GetInstance().GetClassDef(msg.DefineName)
     if (classDef == undefined) {
         throw new Error("unregistered tag " + msg.DefineName)
@@ -59,7 +61,7 @@ export function marshal(msg: Serializable): Buffer {
     let length = calBuffLength(msg, classDef.Tag, null, null)
     let tagLength = classDef.Tag < 128 ? 1 : 2
     let totalLength = length + tagLength
-    let buff = Buffer.from(new Uint8Array(totalLength), 'utf8');
+    let buff = ByteBuffer.allocate(totalLength);
     let offset = writeTag(buff, classDef.Tag, 0)
     writeComplex(buff, classDef.Tag, msg, offset)
     return buff
@@ -88,7 +90,7 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
         case Tag.Double:
             return 8
         case Tag.String:
-            return 2 + Buffer.byteLength(<string>value, "utf8");
+            return 2 + ByteBuffer.fromUTF8(<string>value).limit;
         case Tag.Time:
             return 8
         case Tag.Bool_Array:
@@ -177,15 +179,15 @@ function calBuffLength(value: any, tag: number, tag1?: number, tag2?: number): n
     }
 }
 
-function writeTag(buff: Buffer, tag: number, offset: number): number {
+function writeTag(buff: ByteBuffer, tag: number, offset: number): number {
     if (tag < UINT8_MIN || tag > UINT16_MAX) {
         log.panic("tag is invalid", tag)
     }
     if (tag < 128) {
-        buff.writeUInt8(tag, offset)
+        buff.writeUint8(tag, offset)
         return offset + 1
     } else {
-        buff.writeUInt16BE(tag, offset)
+        buff.writeUint16(tag, offset)
         return offset + 2
     }
 }
@@ -220,7 +222,7 @@ export function isBaseArray(tag: number): boolean {
     }
 }
 
-function writeValue(buff: Buffer, tag: number, tag1: number, tag2: number, tag3: number, v: any, offset: number): number {
+function writeValue(buff: ByteBuffer, tag: number, tag1: number, tag2: number, tag3: number, v: any, offset: number): number {
     let tagCustom = 0
     if (tag > Tag.Null) {
         tagCustom = tag
@@ -246,10 +248,10 @@ function writeValue(buff: Buffer, tag: number, tag1: number, tag2: number, tag3:
     return offset
 }
 
-function writeBaseArray(buff: Buffer, tag: number, tag1: number, v: any, offset: number): number {
+function writeBaseArray(buff: ByteBuffer, tag: number, tag1: number, v: any, offset: number): number {
     switch (tag) {
         case Tag.Bool_Array:
-            buff.writeUInt32BE((<boolean[]>v).length, offset);
+            buff.writeUint32((<boolean[]>v).length, offset);
             let trueLen = Math.ceil((<boolean[]>v).length / 8.0);
             let u256s = [];
             for (let i = 0; i < (<boolean[]>v).length; i++) {
@@ -264,52 +266,52 @@ function writeBaseArray(buff: Buffer, tag: number, tag1: number, v: any, offset:
                 }
             }
             for (let i = 0; i < trueLen; i++) {
-                buff.writeUInt8(u256s[i], offset + 4 + i);
+                buff.writeUint8(u256s[i], offset + 4 + i);
             }
             return 4 + trueLen + offset;
         case Tag.Byte_Array:
-            buff.writeUInt32BE((<number[]>v).length, offset);
+            buff.writeUint32((<number[]>v).length, offset);
             for (let i = 0; i < (<number[]>v).length; i++) {
                 if (this.unsigned) {
-                    buff.writeUInt8((<number[]>v)[i], offset + 4 + i);
+                    buff.writeUint8((<number[]>v)[i], offset + 4 + i);
                 } else {
                     buff.writeInt8((<number[]>v)[i], offset + 4 + i);
                 }
             }
             return 4 + (<number[]>v).length + offset;
         case Tag.Short_Array:
-            buff.writeUInt32BE((<number[]>v).length, offset);
+            buff.writeUint32((<number[]>v).length, offset);
             for (let i = 0; i < (<number[]>v).length; i++) {
-                buff.writeInt16BE((<number[]>v)[i], offset + 4 + i * 2);
+                buff.writeInt16((<number[]>v)[i], offset + 4 + i * 2);
             }
             return 4 + (<number[]>v).length * 2 + offset;
         case Tag.Int_Array:
-            buff.writeUInt32BE((<number[]>v).length, offset);
+            buff.writeUint32((<number[]>v).length, offset);
 
             for (let i = 0; i < (<number[]>v).length; i++) {
-                buff.writeInt32BE((<number[]>v)[i], offset + 4 + i * 4);
+                buff.writeInt32((<number[]>v)[i], offset + 4 + i * 4);
             }
             return 4 + (<number[]>v).length * 4 + offset;
         case Tag.Long_Array:
             let longArr = convertToLongArray(v)
-            buff.writeUInt32BE(longArr.length, offset);
+            buff.writeUint32(longArr.length, offset);
             for (let i = 0; i < longArr.length; i++) {
                 let high = longArr[i].high;
                 let low = longArr[i].low;
-                buff.writeInt32BE(high, offset + 4 + i * 8);
-                buff.writeInt32BE(low, offset + 4 + i * 8 + 4);
+                buff.writeInt32(high, offset + 4 + i * 8);
+                buff.writeInt32(low, offset + 4 + i * 8 + 4);
             }
             return 4 + longArr.length * 8 + offset;
         case Tag.Float_Array:
-            buff.writeUInt32BE((<number[]>v).length, offset);
+            buff.writeUint32((<number[]>v).length, offset);
             for (let i = 0; i < (<number[]>v).length; i++) {
-                buff.writeFloatBE((<number[]>v)[i], offset + 4 + i * 4);
+                buff.writeFloat((<number[]>v)[i], offset + 4 + i * 4);
             }
             return 4 + (<number[]>v).length * 4 + offset;
         case Tag.Double_Array:
-            buff.writeUInt32BE((<number[]>v).length, offset);
+            buff.writeUint32((<number[]>v).length, offset);
             for (let i = 0; i < (<number[]>v).length; i++) {
-                buff.writeDoubleBE((<number[]>v)[i], offset + 4 + i * 8);
+                buff.writeDouble((<number[]>v)[i], offset + 4 + i * 8);
             }
             return 4 + (<number[]>v).length * 8 + offset;
         default:
@@ -317,7 +319,7 @@ function writeBaseArray(buff: Buffer, tag: number, tag1: number, v: any, offset:
     }
 }
 
-function writeComplex(buff: Buffer, tag: number, msg: Serializable, offset: number): number {
+function writeComplex(buff: ByteBuffer, tag: number, msg: Serializable, offset: number): number {
     if (Object.getPrototypeOf(msg) != TypeRegistry.GetInstance().GetProtoByTag(tag)) {
         log.panic("tag is not matched")
         return
@@ -327,7 +329,7 @@ function writeComplex(buff: Buffer, tag: number, msg: Serializable, offset: numb
         log.panic("unregistered tag")
         return
     }
-    buff.writeUInt8(classDef.Members.length, offset)
+    buff.writeUint8(classDef.Members.length, offset)
     offset += 1
     classDef.Members.forEach(function (v) {
         offset = writeTag(buff, v.Tag, offset)
@@ -337,14 +339,14 @@ function writeComplex(buff: Buffer, tag: number, msg: Serializable, offset: numb
     return offset
 }
 
-function writeList(buff: Buffer, tag: number, tag1: number, tag2: number, v: any[], offset: number): number {
+function writeList(buff: ByteBuffer, tag: number, tag1: number, tag2: number, v: any[], offset: number): number {
     offset = writeTag(buff, tag1, offset)
     if (!v.length) {
-        buff.writeUInt32BE(0, offset);
+        buff.writeUint32(0, offset);
         return offset + 4;
     }
 
-    buff.writeUInt32BE(v.length, offset);
+    buff.writeUint32(v.length, offset);
     offset += 4
     for (let i = 0; i < v.length; i++) {
         offset = writeValue(buff, tag1, tag2, null, null, v[i], offset)
@@ -352,7 +354,7 @@ function writeList(buff: Buffer, tag: number, tag1: number, tag2: number, v: any
     return offset;
 }
 
-function writeMap(buff: Buffer, keyTag: number, valueTag: number, valueTag1, v: Map<any, any>, offset: number): number {
+function writeMap(buff: ByteBuffer, keyTag: number, valueTag: number, valueTag1, v: Map<any, any>, offset: number): number {
     switch (keyTag) {
         case Tag.String:
         case Tag.Int:
@@ -375,23 +377,23 @@ function writeMap(buff: Buffer, keyTag: number, valueTag: number, valueTag1, v: 
         }
         offset = writeValue(buff, valueTag, valueTag1, null, null, v, offset)
     })
-    buff.writeUInt32BE(length, lengthOffset);
+    buff.writeUint32(length, lengthOffset);
     return offset
 }
 
-function writeTime(buff: Buffer, v: Date, offset: number): number {
+function writeTime(buff: ByteBuffer, v: Date, offset: number): number {
     let long = Long.fromNumber(v.getTime())
     return writeLong(buff, long, offset)
 }
 
-function writeString(buff: Buffer, v: string, offset: number): number {
-    let strBuff = Buffer.from(v, "utf8");
-    strBuff.copy(buff, offset + 2);
-    buff.writeUInt16BE(strBuff.length, offset);
-    return 2 + strBuff.length + offset;
+function writeString(buff: ByteBuffer, v: string, offset: number): number {
+    let strBuff = ByteBuffer.fromUTF8(v);
+    buff.writeUint16(strBuff.limit, offset);
+    strBuff.copyTo(buff, offset + 2);
+    return 2 + strBuff.limit + offset;
 }
 
-function writeBaseValue(buff: Buffer, tag: number, tag1: number, v: any, offset: number): number {
+function writeBaseValue(buff: ByteBuffer, tag: number, tag1: number, v: any, offset: number): number {
     switch (tag) {
         case Tag.Bool:
             if (!util.isBoolean(v)) {
@@ -410,13 +412,13 @@ function writeBaseValue(buff: Buffer, tag: number, tag1: number, v: any, offset:
             if (!util.isValidNumber(v)) {
                 log.panic("value is not a number", v)
             }
-            buff.writeInt16BE(v, offset)
+            buff.writeInt16(v, offset)
             return offset + 2
         case Tag.Int:
             if (!util.isValidNumber(v)) {
                 log.panic("value is not a number", v)
             }
-            buff.writeInt32BE(v, offset)
+            buff.writeInt32(v, offset)
             return offset + 4
         case Tag.Long:
             if (tag1 != Tag.Int && util.isLongString(v)) {
@@ -433,13 +435,13 @@ function writeBaseValue(buff: Buffer, tag: number, tag1: number, v: any, offset:
             if (!util.isValidNumber(v)) {
                 log.panic("value is not a number", v)
             }
-            buff.writeFloatBE(v, offset)
+            buff.writeFloat(v, offset)
             return offset + 4
         case Tag.Double:
             if (!util.isValidNumber(v)) {
                 log.panic("value is not a number", v)
             }
-            buff.writeDoubleBE(v, offset)
+            buff.writeDouble(v, offset)
             return offset + 8
         default:
             log.panic("unsupported base value", tag, v)
@@ -447,10 +449,10 @@ function writeBaseValue(buff: Buffer, tag: number, tag1: number, v: any, offset:
 }
 
 
-function writeLong(buff: Buffer, v: Long, offset): number {
+function writeLong(buff: ByteBuffer, v: Long, offset): number {
     let bytes = v.toBytesBE()
     for (let i = 0, j = offset; i < 8; i++, j++) {
-        buff.writeUInt8(bytes[i], j)
+        buff.writeUint8(bytes[i], j)
     }
     return 8 + offset
 }

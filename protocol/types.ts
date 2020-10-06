@@ -61,16 +61,74 @@ export enum Tag {
 
 export class MemberDef {
     public Key: string
-    public Tag: TagType
-    public Tag1: TagType
-    public Tag2: TagType
-    public Tag3: TagType
+    private tag: number = 0
+    private tag1: number = 0
+    private tag2: number = 0
+    private tag3: number = 0
+    private tempTag: { new(): Serializable }
+    private tempTag1: { new(): Serializable }
+    private tempTag2: { new(): Serializable }
+    private tempTag3: { new(): Serializable }
+
+    get Tag():number {
+        if (this.tag==0) {
+            this.tag = TypeRegistry.GetInstance().GetProtoTag(this.tempTag)
+        }
+        return this.tag
+    }
+    get Tag1():number {
+        if (this.tag1==0) {
+            this.tag1 = TypeRegistry.GetInstance().GetProtoTag(this.tempTag1)
+        }
+        return this.tag1
+    }
+    get Tag2():number {
+        if (this.tag2==0) {
+            this.tag2 = TypeRegistry.GetInstance().GetProtoTag(this.tempTag2)
+        }
+        return this.tag2
+    }
+    get Tag3():number {
+        if (this.tag3==0) {
+            this.tag3 = TypeRegistry.GetInstance().GetProtoTag(this.tempTag3)
+        }
+        return this.tag3
+    }
+    setTag (tag: TagType){
+        if (typeof tag == "number") {
+            this.tag = tag
+        } else {
+            this.tempTag = tag
+        }
+    }
+    setTag1 (tag: TagType){
+        if (typeof tag == "number") {
+            this.tag1 = tag
+        } else {
+            this.tempTag1 = tag
+        }
+    }
+    setTag2 (tag: TagType){
+        if (typeof tag == "number") {
+            this.tag2 = tag
+        } else {
+            this.tempTag2 = tag
+        }
+    }
+    setTag3 (tag: TagType){
+        if (typeof tag == "number") {
+            this.tag3 = tag
+        } else {
+            this.tempTag3 = tag
+        }
+    }
+
     constructor(key, tag: TagType, tag1: TagType, tag2: TagType, tag3: TagType) {
         this.Key = key
-        this.Tag = tag
-        this.Tag1 = tag1
-        this.Tag2 = tag2
-        this.Tag3 = tag3
+        this.setTag(tag)
+        this.setTag1(tag1)
+        this.setTag2(tag2)
+        this.setTag3(tag3)
     }
 }
 
@@ -146,7 +204,7 @@ export class TypeRegistry extends Singleton {
 
     GetProtoTag(c: any): Tag {
         let ret = "error"
-        this.classDefsInverse.forEach( (v, k) =>{
+        this.classDefsInverse.forEach((v, k) => {
             if (k == c) {
                 ret = v
                 return this.GetTagByName(k)
@@ -155,7 +213,7 @@ export class TypeRegistry extends Singleton {
         return 0
     }
 
-    GetAnyName(c:string|{new():Serializable}|Serializable):string {
+    GetAnyName(c: string | { new(): Serializable } | Serializable): string {
         if (util.isString(c)) {
             return <string>c
         }
@@ -176,7 +234,7 @@ export class TypeRegistry extends Singleton {
         return ret
     }
 
-    RegisterClassDef(c: any, name: string,...depends:string[]) {
+    RegisterClassDef(c: any, name: string, ...depends: string[]) {
         log.warn("registerClassDef", name)
         if (this.classDefs.get(name)) {
             throw new Error("class def already exist:" + name)
@@ -255,7 +313,7 @@ export class TypeRegistry extends Singleton {
     }
 }
 
-type TagType = Tag|{new():Serializable}
+export type TagType = Tag | { new(): Serializable }
 
 export function format(tag: TagType, tag1?: TagType, tag2?: TagType) {
     return function (target: Serializable, propertyKey: string) {
@@ -263,9 +321,9 @@ export function format(tag: TagType, tag1?: TagType, tag2?: TagType) {
     }
 }
 
-export function define(typename: string,tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [],...depends:string[]) {
+export function define(typename: string, tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [], ...depends: string[]) {
     return function (target: { new(): Serializable }) {
-        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename,...depends)
+        TypeRegistry.GetInstance().RegisterClassDef(target.prototype, typename, ...depends)
         tags.forEach((v) => {
             TypeRegistry.GetInstance().RegisterMemberDef(target.prototype, v[0], v[1], v[2], v[3], v[4])
         })

@@ -7,7 +7,7 @@ import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
 import {IComponent} from "./default_component";
 import {Serializable} from "../protocol/protocol";
-import {Buffer} from "../thirdparty/buffer";
+import * as ByteBuffer from "bytebuffer";
 import {define, Tag, TypeRegistry} from "../protocol/types";
 import {marshal} from "../protocol/encode";
 import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
@@ -29,8 +29,8 @@ export class EntityData extends Serializable {
     public Id:string
     public SyncAll:boolean
     public Step:number
-    public AddComps:Buffer[] = []
-    public ModComps:Buffer[] = []
+    public AddComps:ByteBuffer[] = []
+    public ModComps:ByteBuffer[] = []
     public RemComps:number[] = []
 }
 
@@ -212,7 +212,7 @@ export class Entity extends EventEmitter {
         return ret;
     }
 
-    UnmarshalCompFromBuffer(step:number, comp:IComponent, buff:Buffer) {
+    UnmarshalCompFromBuffer(step:number, comp:IComponent, buff:ByteBuffer) {
         unmarshal(buff,comp)
         comp.MarkDirty()
     }
@@ -253,7 +253,7 @@ export class Entity extends EventEmitter {
 
     }
 
-    FromBuffer(buff:Buffer) {
+    FromBuffer(buff:ByteBuffer) {
         let entData = new EntityData()
         unmarshal(buff,entData)
         this.FromEntityData(entData)
@@ -452,11 +452,11 @@ export class Entity extends EventEmitter {
         return util.includes(this.getComponentTypes(), componentTypes);
     }
 
-    marshalTo(): Buffer {
+    marshalTo(): ByteBuffer {
         return null
     }
 
-    unmarshalFrom(buff: Buffer) {
+    unmarshalFrom(buff: ByteBuffer) {
 
     }
 }

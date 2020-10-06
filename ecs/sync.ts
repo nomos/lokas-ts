@@ -3,9 +3,9 @@ import {define, Tag, TypeRegistry} from "../protocol/types";
 import {EntityData} from "./entity";
 import {IConnectionMgr, IRuntime} from "./runtime";
 import {log} from "../utils/logger";
-import {Long} from "../utils/long";
+import * as Long from "long";
 import {marshal} from "../protocol/encode";
-import {Buffer} from "../thirdparty/buffer";
+import * as ByteBuffer from "bytebuffer";
 import {unmarshal} from "../protocol/decode";
 
 @define("SyncReq", [
@@ -94,7 +94,7 @@ export class Connection extends Serializable {
 
 export class SyncCmd extends Serializable {
     public Uid: string
-    public Msg: Buffer
+    public Msg: ByteBuffer
 }
 
 export class SyncManager implements IConnectionMgr {
@@ -102,7 +102,7 @@ export class SyncManager implements IConnectionMgr {
     private syncStep = 0                        //syncStep,从服务器的tick同步,客户端的tick只是自己使用
     private syncSteps = []                      //步数队列
     private snapshotSteps: number[] = []       //快照步数队列
-    private snapshots: Map<number, Buffer> = new Map<number, Buffer>()           //全实体快照
+    private snapshots: Map<number, ByteBuffer> = new Map<number, ByteBuffer>()           //全实体快照
     private lastSnapshot: SyncFrame          //服务器保存上一次快照
     private lastSnapshotId: number = 0          //服务器保存上一次快照
     private lastSnapStep: SyncFrame          //服务器保存上一次快照
@@ -230,7 +230,7 @@ export class SyncManager implements IConnectionMgr {
         let ret = new SyncReq()
         ret.Step = this.syncStep
         this.runtime.ForEachEntity((ent) => {
-            if (Long.fromString(ent).greaterThan(Long.ZERO)) {
+            if (Long.fromString(ent.Id).greaterThan(Long.ZERO)) {
                 ret.EntitySteps.set(ent.Id, ent.Step)
             }
         })

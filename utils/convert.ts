@@ -1,4 +1,4 @@
-import {Long} from "./long";
+import * as Long from "long";
 import {util} from "./util";
 import {log} from "./logger";
 
