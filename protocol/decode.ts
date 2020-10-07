@@ -56,11 +56,13 @@ export function readValue(buff: ByteBuffer, tag: number, tag1: number, tag2: num
     } else if (tag == Tag.Time) {
         return readTime(buff, offset)
     } else if (tag == Tag.List) {
-        return readList(buff, tag1, offset)
+        return readList(buff, tag1,tag2, offset)
     } else if (tag == Tag.Proto) {
         return readComplex(buff, customTag, offset)
     } else if (tag == Tag.Map) {
         return readMap(buff, tag, tag1, tag2,tag3, offset)
+    } else if (tag == Tag.Buffer) {
+        return readBuff(buff, tag,offset)
     } else if (tag == Tag.End) {
         log.panic("read value error")
         return [null, offset + 1];
@@ -71,6 +73,14 @@ export function readValue(buff: ByteBuffer, tag: number, tag1: number, tag2: num
 
 function readLength(buff: ByteBuffer, offset: number): [number, number] {
     return [buff.readUint32(offset), offset + 4]
+}
+
+export function readBuff(buff:ByteBuffer,tag:number,offset:number):[ByteBuffer,number]{
+    let length: number
+    [length, offset] = readLength(buff, offset);
+    let ret = ByteBuffer.allocate(length)
+    buff.copyTo(ret,offset,length)
+    return [ret,offset+length]
 }
 
 export function readMap(buff: ByteBuffer, tag: number, tag1: number, tag2: number, tag3: number, offset: number): [Map<number | string, any>, number] {
@@ -172,7 +182,7 @@ export function readComplex(buff: ByteBuffer, tag: number, offset: number): [any
     return [ret, offset]
 }
 
-export function readList(buff: ByteBuffer, tag: number, offset: number): [any[], number] {
+export function readList(buff: ByteBuffer, tag: number,tag1:number, offset: number): [any[], number] {
     let innerTag: number
     [innerTag, offset] = readTag(buff, offset)
     if (innerTag != tag) {
@@ -263,19 +273,19 @@ export function readBaseArray(buff: ByteBuffer, tag: number,tag1:number, offset:
                 let nextOffset = offset + 4;
                 let endOffset = nextOffset + len * 8;
                 let ret
-                if (tag1==Tag.Int) {
-                    ret = new Array<number>();
-                    for (let i = 0; i < endOffset - nextOffset; i += 8) {
-                        let high = buff.readInt32(nextOffset + i);
-                        let low = buff.readInt32(nextOffset + i + 4);
-                        ret.push((new Long(low, high)).toNumber());
-                    }
-                } else {
+                if (tag1==Tag.String) {
                     ret = new Array<string>();
                     for (let i = 0; i < endOffset - nextOffset; i += 8) {
                         let high = buff.readInt32(nextOffset + i);
                         let low = buff.readInt32(nextOffset + i + 4);
                         ret.push((new Long(low, high)).toString());
+                    }
+                } else {
+                    ret = new Array<number>();
+                    for (let i = 0; i < endOffset - nextOffset; i += 8) {
+                        let high = buff.readInt32(nextOffset + i);
+                        let low = buff.readInt32(nextOffset + i + 4);
+                        ret.push((new Long(low, high)).toNumber());
                     }
                 }
                 return [ret, 4 + len * 8 + offset];
