@@ -1,6 +1,6 @@
 import {Logger,log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
-import {Serializable} from "../protocol/protocol";
+import {ISerializable} from "../protocol/protocol";
 import {marshalMessage} from "../protocol/encode";
 import {IContext} from "../common/context";
 import * as ByteBuffer from "bytebuffer";
@@ -192,7 +192,7 @@ export class WsClient extends EventEmitter {
     // }
 
 
-    async Send(transId:number, data:Serializable): Promise<any> {
+    async Send(transId:number, data:ISerializable): Promise<any> {
         let buff = marshalMessage(transId,data).buffer
         this.ws.send(buff)
         // let className = data['$type'].name;

@@ -1,12 +1,12 @@
 'use strict'
-import {SyncManager, SyncFrame, SyncReq, Connection} from "./sync";
+import {Connection, SyncFrame, SyncManager, SyncReq} from "./sync";
 import {ComponentPool, IComponentPool} from "./component_pool";
 import {ISystem, SystemUpdater} from "./system";
 import {Entity, EntityData} from "./entity";
 import {ComponentSingleton} from "./component_singleton";
 import {DependManager} from "./depend";
 import {EventEmitter} from "../utils/event_emitter";
-import {IComponent} from "./default_component";
+import {IComponent, IComponentCtor} from "./default_component";
 import {IContext} from "../common/context";
 import {Group} from "./group";
 import {Timer} from "./ecs_timer";
@@ -16,13 +16,13 @@ import {TypeRegistry} from "../protocol/types";
 import {IdGenerator} from "./id_generator";
 
 export interface IDependMgr {
-    AddDepends(a: { new(): IComponent }, b: { new(): IComponent })
+    AddDepends(a: IComponentCtor, b: IComponentCtor)
 
-    IsDepend(a: { new(): IComponent }, b: { new(): IComponent }): boolean
+    IsDepend(a: IComponentCtor, b: IComponentCtor): boolean
 
-    GetDependsBy(a: { new(): IComponent }): { new(): IComponent }[]
+    GetDependsBy(a: IComponentCtor): IComponentCtor[]
 
-    GetDepends(a: { new(): IComponent }): { new(): IComponent }[]
+    GetDepends(a: IComponentCtor): IComponentCtor[]
 
     SortDepends(a: IComponent, b: IComponent): number
 
@@ -57,13 +57,14 @@ export interface IConnectionMgr {
     RSyncToClient(syncData: SyncReq, uid: string): SyncFrame
 }
 
-export interface IRuntime extends IDependMgr,IContext,EventEmitter{
+export interface IRuntime extends IDependMgr, IContext, EventEmitter {
     Tick: number
     Turned: boolean
     Enabled: boolean
-    Strict:boolean
+    Strict: boolean
     State: string
     TimeScale: number
+    ConnMgr: IConnectionMgr
 
     SetTimeScale(timeScale: number)
 
@@ -75,7 +76,7 @@ export interface IRuntime extends IDependMgr,IContext,EventEmitter{
 
     SetState(state: string)
 
-    CreateComponent<T extends IComponent>(comp: { new(): T }, ...args: any):T
+    CreateComponent<T extends IComponent>(comp: { new(): T }, ...args: any): T
 
     HasEntity(id: string): boolean
 
@@ -87,13 +88,13 @@ export interface IRuntime extends IDependMgr,IContext,EventEmitter{
 
     MarkDirtyEntity(ent: Entity)
 
-    RecycleComponent(comp:IComponent)
+    RecycleComponent(comp: IComponent)
 
-    AssignEntity(compName:string, ent:Entity)
+    AssignEntity(compName: string, ent: Entity)
 
-    ReassignEntity(comp: { new(): IComponent }, ent)
+    ReassignEntity(comp: IComponentCtor, ent)
 
-    GetEntities(comps: Array<{ new(): IComponent }>, optComps?: Array<{ new(): IComponent }>, excludes?: Array<{ new(): IComponent }>): Array<Entity>
+    GetEntities(comps: IComponentCtor[], optComps?: IComponentCtor[], excludes?: IComponentCtor[]): Entity[]
 
     ForEachEntity(func: (ent: Entity) => void)
 
@@ -120,19 +121,15 @@ export class RuntimeOption {
  * 维护实体<Entity>的对象池,负责集合<Group>,组件池<ComponentPool>,
  * 组件单例<ComponentSingleton>的创建
  * 负责处理帧更新和事件传递
- * @param {Number} updateTime
- * @param {Number} timeScale
- * @param {Object} opt
- * @constructor
  */
 
 export class Runtime extends EventEmitter implements IRuntime {
     private entityPool: Map<string, Entity> = new Map<string, Entity>()
     private componentPools: Map<string, IComponentPool> = new Map<string, IComponentPool>()
     private groups: Map<string, Group> = new Map<string, Group>() //单个组件<Component>为键值的集合<Group>缓存
-    private cachedGroups: Map<string, Array<Group>> = new Map<string, Array<Group>>()
+    private cachedGroups: Map<string, Group[]> = new Map<string, Group[]>()
     private systemIndexes: Map<string, number> = new Map<string, number>()           //系统的名字索引
-    private systems: Array<ISystem> = new Array<ISystem>()
+    private systems: ISystem[] = []
     /**ID分配和生命周期变量*/
 
     private readonly turned: boolean = false
@@ -147,9 +144,9 @@ export class Runtime extends EventEmitter implements IRuntime {
     private timeScale: number
     private timer: Timer
     private dirty = true                //整个系统的脏标记d
-    private dirtyEntities: Array<Entity> = []           //这轮的脏标记entity
-    private newEntities: Array<Entity> = []
-    private toDestroyEntities: Array<Entity> = []        //在这轮遍历中要删除的entity队列
+    private dirtyEntities: Entity[] = []           //这轮的脏标记entity
+    private newEntities: Entity[] = []
+    private toDestroyEntities: Entity[] = []        //在这轮遍历中要删除的entity队列
     private snapInterval: number = 0    //全实体快照时间
     private scheduleId = 0
 
@@ -157,7 +154,7 @@ export class Runtime extends EventEmitter implements IRuntime {
 
     private dependManager: DependManager = new DependManager(this)
     private context: Map<string, any> = new Map<string, any>()
-    private idGenerator:IdGenerator
+    private idGenerator: IdGenerator
 
     /**模块和组件映射表*/
     private modules = []                 //已加载的模块
@@ -253,19 +250,19 @@ export class Runtime extends EventEmitter implements IRuntime {
         }
     }
 
-    AddDepends(a: { new(): IComponent }, b: { new(): IComponent }) {
+    AddDepends(a: IComponentCtor, b: IComponentCtor) {
         return this.dependManager.AddDepends(a, b)
     }
 
-    IsDepend(a: { new(): IComponent }, b: { new(): IComponent }): boolean {
+    IsDepend(a: IComponentCtor, b: IComponentCtor): boolean {
         return this.dependManager.IsDepend(a, b)
     }
 
-    GetDependsBy(a: { new(): IComponent }): { new(): IComponent }[] {
+    GetDependsBy(a: IComponentCtor): IComponentCtor[] {
         return this.dependManager.GetDependsBy(a)
     }
 
-    GetDepends(a: { new(): IComponent }): { new(): IComponent }[] {
+    GetDepends(a: IComponentCtor): IComponentCtor[] {
         return this.dependManager.GetDepends(a)
     }
 
@@ -431,6 +428,7 @@ export class Runtime extends EventEmitter implements IRuntime {
             func(v)
         })
     }
+
     /**
      * 加载模块
      */
@@ -478,36 +476,9 @@ export class Runtime extends EventEmitter implements IRuntime {
 
     /**
      * 注册一个组件<Component>
-     * @param name       组件别名,创建相同类型的组件可以指定不同别名
-     * @param Component  组件
-     * @param minSize    池里可用对象最小值
-     * @param maxSize    使用中对象+池里可用对象的最大值
      */
-    registerComponent(name, Component, maxSize, minSize) {
-        let NewComponent;
-        if (!name) {
-            log.error('名称或组件不存在');
-        }
-        if (typeof name !== 'string') {
-            minSize = maxSize;
-            maxSize = Component;
-            NewComponent = name;
-            if (!name.defineName) {
-                throw Error('组件:未定义');
-            }
-            name = name.defineName
-        } else {
-            if (!Component) {
-                throw Error('组件:' + name + '未定义');
-            }
-            NewComponent = Component;
-        }
-
-        if (!util.isString(name)) {
-            log.error(this.getRoleString() + ' 注册组件失败,组件名称为空');
-            return;
-        }
-
+    registerComponent(Component: IComponentCtor, maxSize?: number, minSize?: number) {
+        let name = Component.DefineName
         let pool = this.componentPools[name];
 
         maxSize = (maxSize && maxSize > 0) ? maxSize : 100;
@@ -518,44 +489,28 @@ export class Runtime extends EventEmitter implements IRuntime {
             pool._minSize = Math.max(pool._minSize, maxSize || 0);
             return;
         }
-        for (let depend of NewComponent.defineDepends) {
-            this.AddDepends(name, depend);
+        for (let depend of Component.DefineDepends) {
+            this.AddDepends(Component, depend);
         }
-        if (NewComponent.onRegister) {
-            NewComponent.onRegister(this);
-        }
-        this.componentPools[name] = new ComponentPool(NewComponent, maxSize, minSize, this);
+        Component.OnRegister(this);
+        this.componentPools[name] = new ComponentPool(Component, maxSize, minSize, this);
         log.info(this.getRoleString() + " 注册组件池:" + name + " 成功,最小保留对象数:" + minSize + " 最大对象数:" + maxSize);
     }
 
     /**
      * 注册单例组件
      */
-    registerSingleton(name, Component: { new(): IComponent }) {
-        let NewComponent;
-        if (typeof name !== 'string') {
-            NewComponent = name;
-            if (!name.defineName) {
-                throw Error('组件:未定义');
-            }
-            name = name.defineName
-        } else {
-            if (!Component) {
-                throw Error('组件:' + name + '未定义');
-            }
-            NewComponent = Component;
-        }
-
-
+    registerSingleton(Component: IComponentCtor) {
+        let name = Component.DefineName
         let pool = this.componentPools[name];
         if (pool) {
             log.warn(this.getRoleString() + ' 已存在组件单例:' + name + ',不重新注册组件');
             return;
         }
-        for (let depend of NewComponent.defineDepends) {
-            this.AddDepends(name, depend);
+        for (let depend of Component.DefineDepends) {
+            this.AddDepends(Component, depend);
         }
-        this.componentPools[name] = new ComponentSingleton(NewComponent, this);
+        this.componentPools[name] = new ComponentSingleton(Component, this);
 
         log.info(this.getRoleString() + " 注册组件单例:" + name + " 成功");
     }
@@ -566,14 +521,14 @@ export class Runtime extends EventEmitter implements IRuntime {
         }
     }
 
-    createSingleton(Component:{new():IComponent},...args:any) {
+    createSingleton(Component: IComponentCtor, ...args: any) {
         let name = TypeRegistry.GetInstance().GetAnyName(Component)
         if (!this.componentPools[name]) {
             log.error(this.getRoleString() + ' 单例组件:' + name + '不存在');
             return;
         }
 
-        let comp:IComponent = this.componentPools.get(name).Get.apply(this.componentPools.get(name), args);
+        let comp: IComponent = this.componentPools.get(name).Get.apply(this.componentPools.get(name), args);
         if (!comp.GetEntity()) {
             let ent = this.createEntity();
             ent.forceAdd(comp);
@@ -647,13 +602,13 @@ export class Runtime extends EventEmitter implements IRuntime {
     /**
      * 立即移除一个实体<Entity>,并从所有集合<Group>中移除
      */
-    RemoveEntityInstant(id:string):Entity {
+    RemoveEntityInstant(id: string): Entity {
         let entity = this.entityPool.get(id);
         if (!entity) {
             //log.error('Entity不存在');
             return;
         }
-        this.groups.forEach((group)=>{
+        this.groups.forEach((group) => {
             group.RemoveEntity(entity)
         })
         this.dirty = true;
@@ -676,7 +631,7 @@ export class Runtime extends EventEmitter implements IRuntime {
     }
 
     getComponentPrototype(name) {
-        return this.getComponentPool(name).GetProto();
+        return this.getComponentPool(name).GetCtor().prototype;
     }
 
     /**
@@ -684,7 +639,7 @@ export class Runtime extends EventEmitter implements IRuntime {
      * @param comp
      * @returns {*}
      */
-    getComponentPool(comp: { new(): IComponent }):IComponentPool {
+    getComponentPool<T extends IComponent>(comp: { DefineDepends: IComponentCtor[]; OnRegister(runtime: Runtime); DefineName: string; new(): T }): IComponentPool {
         let name = TypeRegistry.GetInstance().GetAnyName(comp)
         if (!name) {
             log.error(this.getRoleString() + ' 组件错误或未注册', comp);
@@ -701,11 +656,11 @@ export class Runtime extends EventEmitter implements IRuntime {
     /**
      * 创建组件
      */
-    CreateComponent<T extends IComponent>(comp: { new(): T }, ...args: any):T {
+    CreateComponent<T extends IComponent>(comp: { DefineDepends: IComponentCtor[]; OnRegister(runtime: Runtime); DefineName: string; new(): T }, ...args: any): T {
         let pool = this.getComponentPool(comp);
         if (pool) {
             if (args.length > 0) {
-                return pool.Get.apply(pool, args);
+                return <T>pool.Get.apply(pool, args);
             }
             return <T>(pool.Get());
         }
@@ -717,7 +672,7 @@ export class Runtime extends EventEmitter implements IRuntime {
      * 找出包含该组件<Component>的集合<Group>并缓存到this._cachedGroups中
      * @param comp <string>
      */
-    cacheGroups(comp: string | IComponent): Array<Group> {
+    cacheGroups(comp: string | IComponent): Group[] {
         let ret = [];
         if (typeof comp !== "string") {
             comp = <string>(comp.DefineName)
@@ -734,7 +689,7 @@ export class Runtime extends EventEmitter implements IRuntime {
     /**
      * 当一个实体<Entity>增加一个组件<Component>时,实体管理器<ECS>遍历所有的集合<Group>然后添加实体<Entity>到合适的集合<Group>
      */
-    AssignEntity(compName:string, ent:Entity) {
+    AssignEntity(compName: string, ent: Entity) {
         let cachedGroups = this.cachedGroups[compName] ? this.cachedGroups[compName] : this.cacheGroups(compName);
         for (let i = 0; i < cachedGroups.length; i++) {
             cachedGroups[i].addEntity(ent);
@@ -747,7 +702,7 @@ export class Runtime extends EventEmitter implements IRuntime {
      * @param comp
      * @param ent
      */
-    ReassignEntity(comp: { new(): IComponent }, ent) {
+    ReassignEntity(comp: IComponentCtor, ent) {
         let compName = TypeRegistry.GetInstance().GetAnyName(comp)
         let cachedGroups = this.cachedGroups[compName] ? this.cachedGroups[compName] : this.cacheGroups(compName);
         for (let i = 0; i < cachedGroups.length; i++) {
@@ -773,7 +728,7 @@ export class Runtime extends EventEmitter implements IRuntime {
     /**
      * 回收一个Component
      */
-    RecycleComponent(comp:IComponent) {
+    RecycleComponent(comp: IComponent) {
         let pool = this.getComponentPool(Object.getPrototypeOf(comp).constructor);
         if (pool) {
             pool.Recycle(comp);
@@ -783,8 +738,8 @@ export class Runtime extends EventEmitter implements IRuntime {
     /**
      * 获得几个集合<Group>的hash值
      */
-    private static hashGroup(compGroup: Array<{ new(): IComponent }>): Array<string> {
-        let retArr: Array<string> = [];
+    private static hashGroup(compGroup: IComponentCtor[]): string[] {
+        let retArr: string[] = [];
         for (let i = 0; i < compGroup.length; i++) {
             retArr.push(TypeRegistry.GetInstance().GetAnyName(compGroup[i]));
         }
@@ -797,7 +752,7 @@ export class Runtime extends EventEmitter implements IRuntime {
      * @param compGroups
      * @returns {*}
      */
-    private registerGroup(compGroups: Array<{ new(): IComponent }>): Group {
+    private registerGroup(compGroups: IComponentCtor[]): Group {
         if (!compGroups || compGroups.length === 0) {
             return null;
         }
@@ -807,7 +762,7 @@ export class Runtime extends EventEmitter implements IRuntime {
         if (!group) {
             group = new Group(compGroups, this);
             group.Hash = hash;
-            this.groups.set(hash_str,group)
+            this.groups.set(hash_str, group)
             this.cachedGroups.forEach((v, k) => {
                 if (util.includes(hash, k)) {
                     if (v.indexOf(group) === -1) {
@@ -828,14 +783,14 @@ export class Runtime extends EventEmitter implements IRuntime {
         return group
     }
 
-    getGroup(comps: { new(): IComponent }[]): Group {
+    getGroup(comps: IComponentCtor[]): Group {
         return this.registerGroup(comps);
     }
 
-    GetEntities(comps: { new(): IComponent }[], optComps?: { new(): IComponent }[], excludes?: { new(): IComponent }[]): Entity[] {
-        let entities = new Array<Entity>()
+    GetEntities(comps: IComponentCtor[], optComps?: IComponentCtor[], excludes?: IComponentCtor[]): Entity[] {
+        let entities: Entity[] = []
         if (optComps) {
-            let compGroupsArr: Array<Array<{ new(): IComponent }>> = new Array<Array<{ new(): IComponent }>>()
+            let compGroupsArr: Array<IComponentCtor[]> = new Array<IComponentCtor[]>()
             optComps.forEach((v) => {
                 let newArr = comps.slice()
                 newArr.push(v)
@@ -951,7 +906,7 @@ export class Runtime extends EventEmitter implements IRuntime {
 
     getComponentCount() {
         let ret = 0;
-        this.componentPools.forEach((pool)=>{
+        this.componentPools.forEach((pool) => {
             if (pool.Size) {
                 ret += pool.Size;
             }
@@ -965,8 +920,8 @@ export class Runtime extends EventEmitter implements IRuntime {
             addComp.onAdd(addComp._entity, this);
         }
         this.lateAddQueue = [];
-        let systemReadyToUpdate:SystemUpdater[] = [];
-        this.systems.forEach((system)=>{
+        let systemReadyToUpdate: SystemUpdater[] = [];
+        this.systems.forEach((system) => {
             let updates = system.CalUpdate(this.updateInterval, this.timer.RunningTime);
             for (let j = 0; j < updates.length; j++) {
                 systemReadyToUpdate.push(updates[j])
@@ -984,13 +939,13 @@ export class Runtime extends EventEmitter implements IRuntime {
     }
 
     async destroy() {
-        return new Promise<void>((resolve)=>{
+        return new Promise<void>((resolve) => {
             log.debug('ECS destroy');
             this.cleanBuffer && this.cleanBuffer();
             this.enabled = false;
             this.onDisable();
             this.readyDestroy = true;
-            this.once("__destroy",()=>{
+            this.once("__destroy", () => {
                 resolve()
             })
         })
@@ -1008,7 +963,7 @@ export class Runtime extends EventEmitter implements IRuntime {
         this.enabled = false;
         this.unscheduleAll();
         this.timer.Destroy();
-        this.entityPool.forEach((ent)=>{
+        this.entityPool.forEach((ent) => {
             this.RemoveEntityInstant(ent.Id);
         })
 
@@ -1020,13 +975,13 @@ export class Runtime extends EventEmitter implements IRuntime {
         }
         this.toDestroyEntities = [];
 
-        this.componentPools.forEach((pool)=>{
+        this.componentPools.forEach((pool) => {
             pool.Destroy()
         })
         this.entityPool = new Map<string, Entity>()            //实体<Entity>池
         this.componentPools = new Map<string, IComponentPool>()        //各种组件池<ComponentPool>容器
         this.groups = new Map<string, Group>()                //各种集合<Group>容器,组件<Component>数组为键值
-        this.cachedGroups = new Map<string, Array<Group>>()          //单个组件<Component>为键值的集合<Group>缓存
+        this.cachedGroups = new Map<string, Group[]>()          //单个组件<Component>为键值的集合<Group>缓存
         this.systems = [];               //各个系统和监听集合
         this.toDestroyEntities = [];    //在这轮遍历中要删除的entity队列
         this.addSystemCount = 0;

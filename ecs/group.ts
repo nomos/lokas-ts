@@ -1,6 +1,6 @@
 import {IRuntime} from "./runtime";
 import {Entity} from "./entity";
-import {IComponent} from "./default_component";
+import {IComponent,IComponentCtor} from "./default_component";
 import {util} from "../utils/util";
 
 /**
@@ -8,15 +8,15 @@ import {util} from "../utils/util";
  */
 
 export class Group {
-    public Hash: Array<string>
+    public Hash: string[]
     public HashStr: string
 
-    private readonly componentTypes: Array<string> = []
-    private entityIndexes: Array<string> = []
-    private dirtyEntities: Array<Entity> = []
+    private readonly componentTypes: string[] = []
+    private entityIndexes: string[] = []
+    private dirtyEntities: Entity[] = []
     private runtime: IRuntime
 
-    constructor(compGroup: Array<{ new(): IComponent }>, runtime: IRuntime) {
+    constructor(compGroup: IComponentCtor[], runtime: IRuntime) {
         this.Hash = [];
         this.runtime = runtime;
         this.componentTypes = [];
@@ -123,7 +123,7 @@ export class Group {
         return index !== -1;
     }
 
-    GetEntities(): Array<Entity> {
+    GetEntities(): Entity[] {
         let ret = [];
         for (let i = 0; i < this.entityIndexes.length; i++) {
             let id = this.entityIndexes[i];

@@ -4,7 +4,7 @@ import {marshalMessage} from "./encode";
 import {unmarshalMessageBody, unmarshalMessageHeader} from "./decode";
 import {log} from "../utils/logger";
 
-export class Serializable {
+export class ISerializable {
     UnmarshalFrom(buff: ByteBuffer) {
 
     }
@@ -16,13 +16,19 @@ export class Serializable {
     get DefineName(): string {
         return TypeRegistry.GetInstance().GetCtorName(Object.getPrototypeOf(this).constructor)
     }
+
+    static get DefineName(): string {
+        return TypeRegistry.GetInstance().GetCtorName(this)
+    }
 }
+
+export type ISerializableCtor = {DefineName:string;new():ISerializable}
 
 @define("ComposeData",[
     ["Idx",Tag.Byte],
     ["Data",Tag.Buffer],
 ])
-export class ComposeData extends Serializable {
+export class ComposeData extends ISerializable {
     public Idx: number
     public Data: ByteBuffer
 
@@ -39,7 +45,7 @@ export class ComposeData extends Serializable {
     ["Code",Tag.Short],
     ["Msg",Tag.String],
 ])
-export class ErrMsg extends Serializable {
+export class ErrMsg extends ISerializable {
     public Code: number
     public Msg: string
 
@@ -58,8 +64,9 @@ export class ErrMsg extends Serializable {
     }
 }
 
-export class BinaryMessage implements Serializable {
+export class BinaryMessage implements ISerializable {
     DefineName: string = "BinaryMessage"
+    static DefineName: string = "BinaryMessage"
     public TransId: number
     public Len: number
     public MsgId: number

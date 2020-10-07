@@ -1,11 +1,11 @@
 import {IDependMgr, IRuntime} from "./runtime";
 import {util} from "../utils/util";
-import {IComponent} from "./default_component";
+import {IComponentCtor} from "./default_component";
 
 
 export class DependManager implements IDependMgr {
-    private dependsPair: Map<{ new(): IComponent }, { new(): IComponent }[]> = new Map<{ new(): IComponent }, { new(): IComponent }[]>()
-    private dependsPairInverse: Map<{ new(): IComponent }, { new(): IComponent }[]> = new Map<{ new(): IComponent }, { new(): IComponent }[]>()
+    private dependsPair: Map<IComponentCtor, IComponentCtor[]> = new Map<IComponentCtor, IComponentCtor[]>()
+    private dependsPairInverse: Map<IComponentCtor, IComponentCtor[]> = new Map<IComponentCtor, IComponentCtor[]>()
     private runtime: IRuntime
 
     constructor(runtime: IRuntime) {
@@ -13,7 +13,7 @@ export class DependManager implements IDependMgr {
 
     }
 
-    AddDepends(a: { new(): IComponent }, b: { new(): IComponent }) {
+    AddDepends(a: IComponentCtor, b: IComponentCtor) {
         if (!this.dependsPair.get(a)) {
             this.dependsPair.set(a, [])
         }
@@ -24,15 +24,15 @@ export class DependManager implements IDependMgr {
         this.dependsPairInverse.get(b).push(a);
     }
 
-    IsDepend(a: { new(): IComponent }, b: { new(): IComponent }): boolean {
+    IsDepend(a: IComponentCtor, b: IComponentCtor): boolean {
         return (this.dependsPair.get(a) || []).indexOf(b) !== -1;
     }
 
-    GetDependsBy(a: { new(): IComponent }): { new(): IComponent }[] {
+    GetDependsBy(a: IComponentCtor): IComponentCtor[] {
         return this.dependsPairInverse.get(a) || [];
     }
 
-    GetDepends(a: { new(): IComponent }): { new(): IComponent }[] {
+    GetDepends(a: IComponentCtor): IComponentCtor[] {
         return this.dependsPair.get(a) || [];
     }
 

@@ -40,7 +40,7 @@ function lerp(t, a, b) {
 }
 
 export class PerlinNoise {
-    public perm:Array<number>
+    public perm:number[]
     constructor(seed) {
         this.perm=math.range(0,256);
         dice.shuffle(this.perm, seed);

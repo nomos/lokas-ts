@@ -5,7 +5,7 @@ import {Position} from "./base_components";
 @define("Circle", [
     ["Radius", Tag.Double],
     ["Scale", Tag.Double],
-], "Position")
+], Position)
 export class Circle extends IComponent {
     public Radius: number
     public Scale: number

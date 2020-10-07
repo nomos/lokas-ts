@@ -1,12 +1,12 @@
 "use strict";
 
-import {IRuntime} from "./runtime";
+import {IRuntime, Runtime} from "./runtime";
 
 import {log} from "../utils/logger";
 import {EventEmitter} from "../utils/event_emitter";
 import {util} from "../utils/util";
-import {IComponent} from "./default_component";
-import {Serializable} from "../protocol/protocol";
+import {IComponent,IComponentCtor} from "./default_component";
+import {ISerializable} from "../protocol/protocol";
 import * as ByteBuffer from "bytebuffer";
 import {define, Tag, TypeRegistry} from "../protocol/types";
 import {marshal} from "../protocol/encode";
@@ -25,9 +25,14 @@ import {unmarshal, unmarshalMessageHeader} from "../protocol/decode";
 
 
 @define("EntityData",[
-    ["Id",Tag.Long,Tag.String]
+    ["Id",Tag.Long,Tag.String],
+    ["SyncAll",Tag.Bool],
+    ["Step",Tag.Long],
+    ["AddComps",Tag.List,Tag.Buffer],
+    ["ModComps",Tag.List,Tag.Buffer],
+    ["RemComps",Tag.Int_Array],
 ])
-export class EntityData extends Serializable {
+export class EntityData extends ISerializable {
     public Id:string
     public SyncAll:boolean
     public Step:number
@@ -39,9 +44,8 @@ export class EntityData extends Serializable {
 @define("EntityRef",[
     ["Id",Tag.Long],
 ])
-export class EntityRef extends Serializable{
+export class EntityRef extends ISerializable{
     Id:string
-
     private runtime:IRuntime
 }
 
@@ -57,10 +61,10 @@ export class Entity extends EventEmitter {
     private _dirty: boolean = true
     private _onDestroy: boolean = false
     private _components: Map<string, IComponent> = new Map<string, IComponent>()
-    private _groupHashes: Array<string> = Array<string>()
-    private _removeMarks: Array<string> = new Array<string>()
-    private _addMarks: Array<string> = new Array<string>()
-    private _modifyMarks: Array<string> = new Array<string>()
+    private _groupHashes: string[] = []
+    private _removeMarks: string[] = []
+    private _addMarks: string[] = []
+    private _modifyMarks: string[] = []
     private _lastSnapshot: EntityData
     private _snapshot: EntityData
 
@@ -79,7 +83,7 @@ export class Entity extends EventEmitter {
         return this.id
     }
 
-    GetGroupHashes(): Array<string> {
+    GetGroupHashes(): string[] {
         return this._groupHashes
     }
 
@@ -284,11 +288,11 @@ export class Entity extends EventEmitter {
      * @param comp 可以是一个string或者Component实例
      * @returns {Component}
      */
-    Get<T extends IComponent>(comp: { new(): T }): T {
+    Get<T extends IComponent>(comp: { DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T }): T {
         return <T>this._components.get(TypeRegistry.GetInstance().GetAnyName(comp))
     }
 
-    getOneOf(comps: Array<{ new(): any }>): any {
+    getOneOf(comps: IComponentCtor[]): any {
         comps.forEach((comp) => {
             let t = this._components.get(TypeRegistry.GetInstance().GetAnyName(comp))
             if (t) {
@@ -318,7 +322,7 @@ export class Entity extends EventEmitter {
     /**
      * 为Entity添加一个组件<Component>并初始化属性
      */
-    add<T extends IComponent>(iComp: { new(): T }, ...args):T {
+    add<T extends IComponent>(iComp: { DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T }, ...args):T {
         let type = TypeRegistry.GetInstance().GetAnyName(iComp)
         if (this.runtime.Strict) {
             let depends = this.runtime.GetDepends(iComp);
@@ -376,7 +380,7 @@ export class Entity extends EventEmitter {
     /**
      * 移除实体的一个组件
      */
-    remove(_comp: ({ new(): IComponent })) {
+    remove(_comp: (IComponentCtor)) {
         let comp = this.Get(_comp);
         if (comp) {
             if (this.runtime.Strict) {

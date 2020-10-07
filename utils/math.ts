@@ -171,7 +171,7 @@ class MathX implements Math{
     step(edge:number,x:number):number {
         return x<edge?0:1;
     }
-    range(start:number, end:number):Array<number> {
+    range(start:number, end:number):number[] {
         let n0 = typeof start === 'number',
             n1 = typeof end === 'number';
 

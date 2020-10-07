@@ -4,9 +4,9 @@ import {log} from "./logger";
 
 export function convertToLongArray(arr:number[]|string[]|Long[]):Long[] {
     if (arr.length==0) {
-        return new Array<Long>()
+        return []
     }
-    let ret = new Array<Long>()
+    let ret = []
     let item1 = arr[0]
     if (util.isNumber(item1)) {
         arr = <number[]>arr

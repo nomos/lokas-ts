@@ -43,7 +43,7 @@ export namespace dice {
         }
         return i;
     }
-    export function shuffle<T>(arr:Array<T>,seed?:number):Array<T> {
+    export function shuffle<T>(arr:T[],seed?:number):T[] {
 
         if (!Array.isArray(arr)) {
             throw new Error('shuffle expect an array as parameter.');
@@ -64,7 +64,7 @@ export namespace dice {
         return collection;
     }
 
-    export function getOne<T>(arr:Array<T>, seed?:number) {
+    export function getOne<T>(arr:T[], seed?:number) {
         if (!Array.isArray(arr)) {
             throw new Error('shuffle.pick() expect an array as parameter.');
         }
@@ -73,7 +73,7 @@ export namespace dice {
         return arr[index]
     }
 
-    export function pickOne<T>(arr:Array<T>, seed?:number):T {
+    export function pickOne<T>(arr:T[], seed?:number):T {
         if (!Array.isArray(arr)) {
             throw new Error('shuffle.pickOne() expect an array as parameter.');
         }
@@ -82,11 +82,11 @@ export namespace dice {
         arr.splice(index,1);
         return ret;
     }
-    export function pickSome<T>(arr:Array<T>, num:number,seed?:number):Array<T> {
+    export function pickSome<T>(arr:T[], num:number,seed?:number):T[] {
         if (!Array.isArray(arr)) {
             throw new Error('shuffle.pickSome() expect an array as parameter.');
         }
-        let ret=new Array<T>()
+        let ret:T[]= []
         for (let i=0;i<num;i++) {
             let index=Math.floor(arr.length*random(seed+i));
             ret.push(arr[index]);

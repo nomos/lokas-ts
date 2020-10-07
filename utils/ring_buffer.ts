@@ -1,5 +1,5 @@
 export class RingBuffer<T> {
-    protected _elements: Array<T>
+    protected _elements: T[]
     protected _first: number = 0
     protected _last: number = 0
     protected _size: number = 0
@@ -35,7 +35,7 @@ export class RingBuffer<T> {
     /**
      * Peeks at multiple elements in the queue.
      */
-    peekN(count): Array<T> {
+    peekN(count): T[] {
         if (count > this._size) throw new Error('Not enough elements in RingBuffer');
 
         let end = Math.min(this._first + count, this.capacity());
@@ -62,7 +62,7 @@ export class RingBuffer<T> {
     /**
      * Dequeues multiple elements of the queue.
      */
-    deqN(count: number): Array<T> {
+    deqN(count: number): T[] {
         let elements = this.peekN(count);
 
         this._size -= count;

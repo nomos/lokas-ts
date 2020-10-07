@@ -1,4 +1,4 @@
-import {Serializable} from "../protocol/protocol";
+import {ISerializable,ISerializableCtor} from "../protocol/protocol";
 import {define, Tag, TypeRegistry} from "../protocol/types";
 import {EntityData} from "./entity";
 import {IConnectionMgr, IRuntime} from "./runtime";
@@ -12,7 +12,7 @@ import {unmarshal} from "../protocol/decode";
     ["Step", Tag.Long, Tag.Int],
     ["EntitySteps", Tag.Map, Tag.String, Tag.Long, Tag.Int],
 ])
-export class SyncReq extends Serializable {
+export class SyncReq extends ISerializable {
     public Step: number
     public EntitySteps: Map<string, number> = new Map<string, number>()
 }
@@ -30,7 +30,7 @@ export class SyncReq extends Serializable {
     ["AddEntities", Tag.List, Tag.EntityData],
     ["RemEntities", Tag.List, Tag.EntityData],
 ])
-export class SyncFrame extends Serializable {
+export class SyncFrame extends ISerializable {
     public SyncAll: boolean
     public OldStep: number
     public CurStep: number
@@ -52,7 +52,7 @@ export class SyncFrame extends Serializable {
     ["SnapShots", Tag.List, Tag.SyncFrame],
 ])
 
-export class SyncStream extends Serializable {
+export class SyncStream extends ISerializable {
     public SnapShots: SyncFrame[]
 }
 
@@ -62,7 +62,7 @@ export class SyncStream extends Serializable {
     ["EntitySteps", Tag.Map, Tag.Long, Tag.Long, Tag.Int],
 ])
 
-export class Connection extends Serializable {
+export class Connection extends ISerializable {
     public Uid: string
     public Step: number
     public EntitySteps: Map<string, number> = new Map<string, number>()
@@ -92,7 +92,7 @@ export class Connection extends Serializable {
     ["Msg", Tag.Buffer],
 ])
 
-export class SyncCmd extends Serializable {
+export class SyncCmd extends ISerializable {
     public Uid: string
     public Msg: ByteBuffer
 }
@@ -109,7 +109,7 @@ export class SyncManager implements IConnectionMgr {
     private lastSync: SyncFrame              //客户端保存上一次快照
     private connections: Map<string, Connection> = new Map<string, Connection>()           //客户端连接
 
-    private commandHandler: Map<number, (msg: Serializable, conn: Connection) => Serializable> = new Map<number, (msg: Serializable, conn: Connection) => Serializable>()                //注册的命令组件
+    private commandHandler: Map<number, (msg: ISerializable, conn: Connection) => ISerializable> = new Map<number, (msg: ISerializable, conn: Connection) => ISerializable>()                //注册的命令组件
     private commandQueues: SyncCmd[] = []        //以命令名为键的队列
 
     constructor(runtime: IRuntime) {
@@ -388,7 +388,7 @@ export class SyncManager implements IConnectionMgr {
         return ret
     }
 
-    RegisterCommand(command: { new(): Serializable }, handler: (cmd: Serializable, conn: Connection) => Serializable) {
+    RegisterCommand(command: ISerializableCtor, handler: (cmd: ISerializable, conn: Connection) => ISerializable) {
         let tag = TypeRegistry.GetInstance().GetCtorTag(command.prototype)
         if (tag == 0) {
             log.panic("unregistered tag", command)

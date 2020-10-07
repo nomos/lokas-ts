@@ -5,14 +5,14 @@
  * @param minSize
  * @constructor
  */
-import {IComponent} from "./default_component";
-import {IRuntime} from "./runtime";
+import {IComponent,IComponentCtor} from "./default_component";
+import {IRuntime, Runtime} from "./runtime";
 import {TypeRegistry} from "../protocol/types";
 
 export interface IComponentPool {
     Size:number
     Create():IComponent
-    GetProto():{new():IComponent}
+    GetCtor():IComponentCtor
     PopAndDestroy()
     Recycle(comp:IComponent)
     Get():IComponent
@@ -27,10 +27,10 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
     public MinSize:number
 
     private readonly runtime:IRuntime
-    private readonly component:{new():T}
-    private pool:Array<T> = []
+    private readonly component:{ DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T }
+    private pool:T[] = []
 
-    constructor(ComponentType:{new():T}, maxSize, minSize, ecs:IRuntime) {
+    constructor(ComponentType:{ DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T }, maxSize, minSize, ecs:IRuntime) {
         this.component = ComponentType;            //给对象赋值
         this.Name = TypeRegistry.GetInstance().GetAnyName(ComponentType);  //名称为对象定义的原型名
         this.Size = 0;
@@ -43,7 +43,7 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
      * 创建一个组件<Component>并尝试调用它的onCreate方法
      */
     Create(...args):T {
-        let ret = Object.create(this.component.prototype);
+        let ret = <T>Object.create(this.component.prototype);
         this.component.apply(ret, args);
         ret.SetRuntime(this.runtime);
         if (ret.OnCreate) {
@@ -53,7 +53,7 @@ export class ComponentPool<T extends IComponent> implements IComponentPool{
         this.Size++;
         return ret;
     }
-    GetProto():{new():T} {
+    GetCtor():{ DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T } {
         return this.component
     }
     /**

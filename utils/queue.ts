@@ -4,7 +4,7 @@
  */
 
 export class Queue<T>{
-    protected queue:Array<T> = []
+    protected queue:T[] = []
     protected offset:number = 0
 
     constructor() {

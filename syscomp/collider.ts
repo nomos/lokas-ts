@@ -1,5 +1,5 @@
 import {Contact} from "./contact";
-import {Rect} from "./rect";
+import {RectBox} from "./rectbox";
 import {collision} from "./collision";
 import {QuadBranch, QuadTree} from "./quadtree";
 import {BVBranch, BVNode, BVTree} from "./bvtree";
@@ -7,10 +7,15 @@ import {Entity} from "../ecs/entity";
 import {Polygon} from "./polygon";
 import {Point} from "./point";
 import {Circle} from "./circle"
-import {define} from "../protocol/types";
+import {define, Tag} from "../protocol/types";
 
-@define("Collider")
-export class Collider extends Rect implements BVNode{
+@define("Collider",[
+    ["MinX", Tag.Float],
+    ["MinY", Tag.Float],
+    ["MaxX", Tag.Float],
+    ["MaxY", Tag.Float],
+])
+export class Collider extends RectBox implements BVNode{
     public padding:number
     public MinX:number
     public MaxX:number
@@ -22,7 +27,7 @@ export class Collider extends Rect implements BVNode{
     public world:BVTree
     public quadBranch:QuadBranch
     public quadTree:QuadTree
-    public contacts:Array<Entity>
+    public contacts:Entity[]
     public collideCount:number
     public isCollide:boolean
     constructor(minX=0,minY=0,maxX=0,maxY=0,padding=0){

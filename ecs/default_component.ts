@@ -1,20 +1,17 @@
 import {Entity} from "./entity";
-import {IRuntime} from "./runtime";
+import {IRuntime, Runtime} from "./runtime";
 import {TypeRegistry} from "../protocol/types";
-import {Serializable} from "../protocol/protocol";
+import {ISerializable} from "../protocol/protocol";
 import ByteBuffer from "bytebuffer";
 
-export class IComponent extends Serializable{
+
+export class IComponent extends ISerializable{
     protected dirty: boolean = true
     protected entity: Entity = null
     protected runtime: IRuntime = null
 
     get SyncAble():boolean{
         return TypeRegistry.GetInstance().IsValid(this)
-    }
-
-    get defineDepends(): Array<string> {
-        return Object.getPrototypeOf(this).constructor.defineDepends;
     }
 
     constructor() {
@@ -103,4 +100,18 @@ export class IComponent extends Serializable{
     MarshalTo():ByteBuffer {
         return null
     }
+
+    static OnRegister(runtime:Runtime){
+
+    }
+
+    static get DefineDepends(): IComponentCtor[] {
+        return Object.getPrototypeOf(this).constructor.defineDepends;
+    }
+
+    get DefineDepends(): IComponentCtor[] {
+        return TypeRegistry.GetInstance().GetClassDef(this.DefineName).Depends;
+    }
 }
+
+export type IComponentCtor = {DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():IComponent}

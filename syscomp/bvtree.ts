@@ -1,21 +1,26 @@
-import {Rect} from "./rect"
+import {RectBox} from "./rectbox"
 import {Collider} from "./collider"
 import {IComponent} from "../ecs/default_component";
 import {Polygon} from "./polygon"
-import {define} from "../protocol/types";
+import {define, Tag} from "../protocol/types";
 import {Point} from "./point";
 import {Circle} from "./circle";
 
 const branch_pool = [];
 
-export interface BVNode extends Rect {
+export interface BVNode extends RectBox {
     parent: BVBranch     //父节点永远只能是BVBranch
     world: BVTree
     branch: boolean      //是否BVBranch
 }
 
-@define("BVBranch")
-export class BVBranch extends Rect implements BVNode {
+@define("BVBranch", [
+    ["MinX", Tag.Float],
+    ["MinY", Tag.Float],
+    ["MaxX", Tag.Float],
+    ["MaxY", Tag.Float],
+])
+export class BVBranch extends RectBox implements BVNode {
     public parent: BVBranch
     public left: BVNode
     public right: BVNode
@@ -34,7 +39,7 @@ export class BVBranch extends Rect implements BVNode {
 
 @define("BVTree")
 export class BVTree extends IComponent {
-    public branches: Array<BVNode>
+    public branches: BVNode[]
     public root: BVNode
 
     static recycle(branch: BVBranch) {

@@ -1,15 +1,20 @@
 
-import {Rect} from "./rect"
+import {RectBox} from "./rectbox"
 import {Entity} from "../ecs/entity";
 import {Collider} from "./collider";
-import {define} from "../protocol/types";
+import {define, Tag} from "../protocol/types";
 
-@define("QuadTree")
-export class QuadTree extends Rect {
+@define("QuadTree",[
+    ["MinX", Tag.Float],
+    ["MinY", Tag.Float],
+    ["MaxX", Tag.Float],
+    ["MaxY", Tag.Float],
+])
+export class QuadTree extends RectBox {
     public root:QuadBranch
     public maxObject:number
     public maxLevel:number
-    public colliders:Array<Collider>
+    public colliders:Collider[]
     constructor(x=0,y=0,w=0,h=0,maxObject=8,maxLevel=4){
         super(x-w/2,y-h/2,x+w/2,y+h/2);
         this.maxObject = maxObject;
@@ -94,11 +99,11 @@ export class QuadTree extends Rect {
 }
 
 @define("QuadBranch")
-export class QuadBranch extends Rect{
+export class QuadBranch extends RectBox{
     public level:number
     public parent:QuadBranch
-    public nodes:Array<QuadBranch>
-    public objects:Array<Collider>
+    public nodes:QuadBranch[]
+    public objects:Collider[]
     static get defineName(){
         return 'QuadTree';
     }

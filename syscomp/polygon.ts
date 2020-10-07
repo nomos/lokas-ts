@@ -3,9 +3,10 @@ import {IComponent} from "../ecs/default_component";
 import {Angle, Position} from "./base_components";
 import {define} from "../protocol/types";
 
-@define("Polygon",[],"Position","Angle")
-export class Polygon extends IComponent{
+@define("Polygon",[
 
+],Position,Angle)
+export class Polygon extends IComponent{
     public scale_x:number
     public scale_y:number
     private _scale_x:number

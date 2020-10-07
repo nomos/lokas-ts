@@ -1,8 +1,9 @@
 'use strict'
 import {Singleton} from "../utils/singleton";
 import {log} from "../utils/logger";
-import {Serializable} from "./protocol";
+import {ISerializable,ISerializableCtor} from "./protocol";
 import {util} from "../utils/util";
+import {IComponentCtor} from "../ecs/default_component";
 
 export enum Tag {
     //-------Base Tag-------
@@ -28,6 +29,7 @@ export enum Tag {
     Time,
     Proto,
     Null,
+    LongString,
     //-------ECS Struct-------
     EntityRef = 31,
     EntityData,
@@ -50,6 +52,7 @@ export enum Tag {
     Polygon,
     Point,
     Rect,
+    RectBox,
     Circle,
     Collider,
     Contact,
@@ -65,10 +68,10 @@ export class MemberDef {
     private tag1: number = 0
     private tag2: number = 0
     private tag3: number = 0
-    private tempTag: { new(): Serializable }
-    private tempTag1: { new(): Serializable }
-    private tempTag2: { new(): Serializable }
-    private tempTag3: { new(): Serializable }
+    private tempTag: ISerializableCtor
+    private tempTag1: ISerializableCtor
+    private tempTag2: ISerializableCtor
+    private tempTag3: ISerializableCtor
 
     get Tag():number {
         if (this.tag==0) {
@@ -132,16 +135,16 @@ export class MemberDef {
     }
 }
 
-let __tempMemberMap = new Array<{ ctor: { new():Serializable }, member: MemberDef }>()
+let __tempMemberMap = new Array<{ ctor: ISerializableCtor, member: MemberDef }>()
 
 export class ClassDef {
     public Name: string
-    public Ctor: { new(): Serializable }
+    public Ctor: ISerializableCtor
     public MembersMap: Map<string, MemberDef> = new Map<string, MemberDef>()
-    public Members: Array<MemberDef> = new Array<MemberDef>()
-    public Depends: Array<string> = new Array<string>()
+    public Members: MemberDef[] = []
+    public Depends: IComponentCtor[] = []
 
-    constructor(name: string, ctor: { new(): Serializable }) {
+    constructor(name: string, ctor: ISerializableCtor) {
         this.Name = name
         this.Ctor = ctor
     }
@@ -162,8 +165,9 @@ export class ClassDef {
 
 export class TypeRegistry extends Singleton {
     private classDefs: Map<string, ClassDef> = new Map<string, ClassDef>()
-    private classDefsInverse: Map<{new():Serializable}, string> = new Map<{new():Serializable}, string>()
-    private classCtors: Map<string, {new():Serializable}> = new Map<string, {new():Serializable}>()
+    private classDefsInverse: Map<ISerializableCtor, string> = new Map<ISerializableCtor, string>()
+    private classCtors: Map<string, ISerializableCtor> = new Map<string, ISerializableCtor>()
+    private tagCtors: Map<number, ISerializableCtor> = new Map<number, ISerializableCtor>()
     private tagMap: Map<string, number> = new Map<string, number>()
     private typeMap: Map<number, string> = new Map<number, string>()
 
@@ -175,6 +179,7 @@ export class TypeRegistry extends Singleton {
         super();
         this.RegisterSystemTag("ErrMsg", Tag.ErrMsg)
         this.RegisterSystemTag("ComposeData", Tag.ComposeData)
+
         this.RegisterSystemTag("Vector", Tag.Vector)
         this.RegisterSystemTag("Position", Tag.Position)
         this.RegisterSystemTag("Velocity", Tag.Velocity)
@@ -184,6 +189,7 @@ export class TypeRegistry extends Singleton {
         this.RegisterSystemTag("Polygon", Tag.Polygon)
         this.RegisterSystemTag("Point", Tag.Point)
         this.RegisterSystemTag("Rect", Tag.Rect)
+        this.RegisterSystemTag("RectBox", Tag.RectBox)
         this.RegisterSystemTag("Circle", Tag.Circle)
         this.RegisterSystemTag("Collider", Tag.Collider)
         this.RegisterSystemTag("Contact", Tag.Contact)
@@ -193,7 +199,7 @@ export class TypeRegistry extends Singleton {
         this.RegisterSystemTag("QuadTree", Tag.QuadTree)
     }
 
-    RegisterMemberDef(c: {new():Serializable}, name: string, type: TagType, type1?: TagType, type2?: TagType, type3?: TagType) {
+    RegisterMemberDef(c: ISerializableCtor, name: string, type: TagType, type1?: TagType, type2?: TagType, type3?: TagType) {
         let classDef = this.classDefs.get(this.classDefsInverse.get(c))
         if (classDef) {
             classDef.RegisterMember(name, type, type1, type2, type3)
@@ -202,39 +208,30 @@ export class TypeRegistry extends Singleton {
         }
     }
 
-    GetCtorTag(c: {new():Serializable}): Tag {
+    GetCtorTag(c: ISerializableCtor): Tag {
         let value = 0
-        this.classDefsInverse.forEach((v, k) => {
-            if (k == c) {
-                value = this.GetTagByName(v)
-                return true
-            }
-        })
+        let name = this.classDefsInverse.get(c)
+        if (name) {
+            value = this.GetTagByName(name)
+        }
         return value
     }
 
-    GetAnyName(c: string | { new(): Serializable } | Serializable): string {
+    GetAnyName(c: string | ISerializableCtor | ISerializable): string {
         if (util.isString(c)) {
             return <string>c
         }
-        if (c instanceof Serializable) {
-            return (<Serializable>c).DefineName
+        if (c instanceof ISerializable) {
+            return (<ISerializable>c).DefineName
         }
-        return this.GetCtorName(<{new():Serializable}>c)
+        return this.GetCtorName(<ISerializableCtor>c)
     }
 
-    GetCtorName(c: {new():Serializable}): string {
-        let ret = "error"
-        this.classDefsInverse.forEach(function (v, k) {
-            if (k == c) {
-                ret = v
-                return ret
-            }
-        })
-        return ret
+    GetCtorName(c: ISerializableCtor): string {
+        return this.classDefsInverse.get(c)
     }
 
-    RegisterClassDef(c: {new():Serializable}, name: string, ...depends: string[]) {
+    RegisterClassDef(c: ISerializableCtor, name: string, ...depends: IComponentCtor[]) {
         log.warn("registerClassDef", name)
         if (this.classDefs.get(name)) {
             throw new Error("class def already exist:" + name)
@@ -284,45 +281,50 @@ export class TypeRegistry extends Singleton {
     }
 
     GetProtoByTag(tag: number): any {
-        return this.classCtors.get(this.typeMap.get(tag)).prototype
+        return this.GetCtorByTag(tag).prototype
     }
 
-    GetCtorByName(name: string): { new(): Serializable } {
+    GetCtorByName(name: string): ISerializableCtor {
         return this.classCtors.get(name)
     }
 
-    GetCtorByTag(tag: number): { new(): Serializable } {
-        return this.classCtors.get(this.typeMap.get(tag))
+    GetCtorByTag(tag: number): ISerializableCtor {
+        let ret=this.tagCtors.get(tag)
+        if (!ret) {
+            ret = this.classCtors.get(this.typeMap.get(tag))
+            this.tagCtors.set(tag,ret)
+        }
+        return  ret
     }
 
     GetTagByName(name: string): number {
         return this.tagMap.get(name)
     }
 
-    GetInstanceByTag(tag: number): Serializable {
-        let proto = this.classCtors.get(this.typeMap.get(tag)).prototype
+    GetInstanceByTag(tag: number): ISerializable {
+        let proto = this.GetProtoByTag(tag)
         if (!proto) {
             log.panic("tag is not registered")
         }
         return Object.create(proto)
     }
 
-    IsValid(data: Serializable): boolean {
-        let proto:{new():Serializable} = Object.getPrototypeOf(data).constructor
+    IsValid(data: ISerializable): boolean {
+        let proto:ISerializableCtor = Object.getPrototypeOf(data).constructor
         return this.GetCtorName(proto) !== "error"
     }
 }
 
-export type TagType = Tag | { new(): Serializable }
+export type TagType = Tag | ISerializableCtor
 
 export function format(tag: TagType, tag1?: TagType, tag2?: TagType) {
-    return function (target: {new():Serializable}, propertyKey: string) {
+    return function (target: ISerializableCtor, propertyKey: string) {
         TypeRegistry.GetInstance().RegisterMemberDef(target, propertyKey, tag, tag1, tag2)
     }
 }
 
-export function define(typename: string, tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [], ...depends: string[]) {
-    return function (target: { new(): Serializable }) {
+export function define(typename: string, tags: Array<[string, TagType, TagType?, TagType?, TagType?]> = [], ...depends: IComponentCtor[]) {
+    return function (target: ISerializableCtor) {
         TypeRegistry.GetInstance().RegisterClassDef(target, typename, ...depends)
         tags.forEach((v) => {
             TypeRegistry.GetInstance().RegisterMemberDef(target, v[0], v[1], v[2], v[3], v[4])

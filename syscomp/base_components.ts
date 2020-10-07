@@ -6,7 +6,6 @@ import {define, Tag} from "../protocol/types";
     ["Y", Tag.Double],
     ["Z", Tag.Double],
 ])
-
 export class Vector extends IComponent {
     public X: number
     public Y: number
@@ -189,7 +188,6 @@ export class Vector extends IComponent {
     ["Y", Tag.Double],
     ["Z", Tag.Double],
 ])
-
 export class Position extends Vector {
 
     public X: number
@@ -206,7 +204,6 @@ export class Position extends Vector {
     ["Y", Tag.Double],
     ["Z", Tag.Double],
 ])
-
 export class Velocity extends Vector {
 
     public X: number
@@ -245,7 +242,6 @@ export class Acceleration extends Vector {
 @define("Angle", [
     ["Angle", Tag.Double],
 ])
-
 export class Angle extends IComponent {
 
     public _Angle: number
@@ -402,8 +398,7 @@ export class Angle extends IComponent {
 @define("AngularMovement", [
     ["Velocity", Tag.Double],
     ["Acceleration", Tag.Double],
-], 'Angle')
-
+], Angle)
 export class AngularMovement extends IComponent {
 
     public Velocity: number = 0
@@ -425,7 +420,6 @@ export class AngularMovement extends IComponent {
     ["Width", Tag.Double],
     ["Height", Tag.Double],
 ])
-
 export class Size extends IComponent {
 
     public Width: number = 0

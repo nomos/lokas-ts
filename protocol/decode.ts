@@ -3,7 +3,7 @@ import {Tag, TypeRegistry} from "./types";
 import {log} from "../utils/logger";
 import {HEADER_SIZE, isBaseArray, isBaseValue} from "./encode";
 import * as Long from "long";
-import {Serializable} from "./protocol";
+import {ISerializable} from "./protocol";
 
 export function unmarshalMessageHeader(buff: ByteBuffer): [number, number, number] {
     let offset = 0
@@ -26,11 +26,11 @@ function readTag(buff: ByteBuffer, offset: number): [number, number] {
     }
 }
 
-export function unmarshalMessageBody(buff: ByteBuffer, tag: number): [Serializable, number] {
+export function unmarshalMessageBody(buff: ByteBuffer, tag: number): [ISerializable, number] {
     return readComplex(buff, tag, HEADER_SIZE)
 }
 
-export function unmarshal(buff: ByteBuffer,value?:Serializable):Serializable {
+export function unmarshal(buff: ByteBuffer,value?:ISerializable):ISerializable {
     let [tag,offset] = readTag(buff,0)
     if (value) {
         let [value1,offset1] = readValueFromComplex(buff,value,tag,offset)
@@ -116,13 +116,13 @@ export function readMap(buff: ByteBuffer, tag: number, tag1: number, tag2: numbe
             let keyStr: string
             let key: number
             let obj: any
-            if (tag3 == Tag.String) {
+            if (tag3 == Tag.LongString) {
                 [keyStr, offset] = readLongToString(buff, offset);
             } else {
                 [key, offset] = readLongToNumber(buff, offset);
             }
             [obj, offset] = readValue(buff, valueTag, tag3, null,null, offset);
-            if (tag3 == Tag.String) {
+            if (tag3 == Tag.LongString) {
                 ret.set(keyStr, obj)
             } else {
                 ret.set(key, obj)
@@ -273,15 +273,15 @@ export function readBaseArray(buff: ByteBuffer, tag: number,tag1:number, offset:
                 let nextOffset = offset + 4;
                 let endOffset = nextOffset + len * 8;
                 let ret
-                if (tag1==Tag.String) {
-                    ret = new Array<string>();
+                if (tag1==Tag.LongString) {
+                    ret = [];
                     for (let i = 0; i < endOffset - nextOffset; i += 8) {
                         let high = buff.readInt32(nextOffset + i);
                         let low = buff.readInt32(nextOffset + i + 4);
                         ret.push((new Long(low, high)).toString());
                     }
                 } else {
-                    ret = new Array<number>();
+                    ret = [];
                     for (let i = 0; i < endOffset - nextOffset; i += 8) {
                         let high = buff.readInt32(nextOffset + i);
                         let low = buff.readInt32(nextOffset + i + 4);

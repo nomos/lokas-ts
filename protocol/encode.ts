@@ -1,4 +1,4 @@
-import {Serializable} from "./protocol";
+import {ISerializable} from "./protocol";
 import {Tag, TypeRegistry} from "./types";
 import * as ByteBuffer from "bytebuffer";
 import {log} from "../utils/logger";
@@ -23,7 +23,7 @@ export const NUMBER_MAX = Number.MAX_SAFE_INTEGER
 export const NUMBER_MIN = Number.MIN_SAFE_INTEGER
 export const HEADER_SIZE = 4 + 2
 
-export function marshalMessage(transId: number, msg: Serializable): ByteBuffer {
+export function marshalMessage(transId: number, msg: ISerializable): ByteBuffer {
     let classDef = TypeRegistry.GetInstance().GetClassDef(msg.DefineName)
     if (classDef == undefined) {
         log.panic("msg is not registered", msg)
@@ -53,7 +53,7 @@ export function marshalMessage(transId: number, msg: Serializable): ByteBuffer {
 }
 
 
-export function marshal(msg: Serializable): ByteBuffer {
+export function marshal(msg: ISerializable): ByteBuffer {
     let classDef = TypeRegistry.GetInstance().GetClassDef(msg.DefineName)
     if (classDef == undefined) {
         throw new Error("unregistered tag " + msg.DefineName)
@@ -319,7 +319,7 @@ function writeBaseArray(buff: ByteBuffer, tag: number, tag1: number, v: any, off
     }
 }
 
-function writeComplex(buff: ByteBuffer, tag: number, msg: Serializable, offset: number): number {
+function writeComplex(buff: ByteBuffer, tag: number, msg: ISerializable, offset: number): number {
 
     if (Object.getPrototypeOf(msg).constructor != TypeRegistry.GetInstance().GetCtorByTag(tag)) {
         log.panic("tag is not matched",Object.getPrototypeOf(msg),TypeRegistry.GetInstance().GetCtorByTag(tag))
