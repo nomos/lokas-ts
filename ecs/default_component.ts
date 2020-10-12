@@ -34,7 +34,7 @@ export class IComponent extends ISerializable{
         return Object.getPrototypeOf(this).constructor.defineName;
     }
 
-    getSibling<T extends IComponent>(comp:{new():T}):T {
+    getSibling<T extends IComponent>(comp:{ DefineDepends:IComponentCtor[];OnRegister(runtime:Runtime);DefineName:string;new():T }):T {
         if (this.entity) {
             return this.entity.Get(comp);
         }
